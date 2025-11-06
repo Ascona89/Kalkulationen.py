@@ -9,7 +9,6 @@ page = st.sidebar.radio("Wähle eine Kalkulation:", ["Competitor", "Cardpayment"
 # ------------------------ 1. COMPETITOR ------------------------
 if page == "Competitor":
     st.header("🏁 Competitor Kalkulation")
-
     col1, col2 = st.columns([2, 1.5])
 
     with col1:
@@ -38,11 +37,9 @@ if page == "Competitor":
     st.subheader("📊 Kennzahlen")
     st.info(f"- Cost OYY monthly: {cost_oyy_monthly:,.2f} €\n- Saving monthly: {saving_monthly:,.2f} €\n- Saving over contract length: {saving_over_contract:,.2f} €")
 
-
 # ------------------------ 2. CARDPAYMENT ------------------------
 elif page == "Cardpayment":
     st.header("💳 Cardpayment Vergleich")
-
     col1, col2 = st.columns(2)
 
     with col1:
@@ -65,7 +62,6 @@ elif page == "Cardpayment":
         auth_o = st.number_input("Authentification Fee (€)", key="auth_o", min_value=0.0, value=0.06)
         avg_order_value_o = st.number_input("Average order value (€)", key="avg_o", min_value=0.0, value=0.0)
 
-    # Berechnungen
     total_c = rev_c * commission_c + (0.7 * rev_c / avg_order_value if avg_order_value else 0) * auth_c
     total_o = rev_o * commission_o + (0.7 * rev_o / avg_order_value_o if avg_order_value_o else 0) * auth_o
     saving = total_o - total_c
@@ -77,13 +73,11 @@ elif page == "Cardpayment":
     col4.metric("💳 Total Offer", f"{total_o:,.2f} €", delta_color="normal")
     col5.metric("💰 Saving (Offer - Competitor)", f"{saving:,.2f} €", delta_color="off")
 
-
 # ------------------------ 3. PRICING ------------------------
 elif page == "Pricing":
     st.header("💰 Pricing Kalkulation")
     st.write("Bitte Mengen eingeben. GAW wird nur für OTF berücksichtigt.")
 
-    # Software-Daten
     software_data = {
         "Produkt": ["Shop", "App", "POS", "Pay", "GAW"],
         "Min_OTF": [365, 15, 365, 35, 50],
@@ -92,7 +86,6 @@ elif page == "Pricing":
         "List_MRR": [119, 49, 89, 25, 100],
     }
 
-    # Hardware-Daten
     hardware_data = {
         "Produkt": ["Ordermanager", "POS inkl. Printer", "Cash Drawer", "Extra Printer", "Additional Display", "PAX"],
         "Min_OTF": [135, 350, 50, 99, 100, 225],
@@ -122,21 +115,29 @@ elif page == "Pricing":
             df_hw.at[i, "Menge"] = st.number_input(df_hw["Produkt"][i], min_value=0, value=0, step=1, key=f"hw_{i}")
 
     # Berechnung MRR ohne GAW
-    df_sw["MRR_sum"] = df_sw.apply(lambda row: row["Menge"] * row["Min_MRR"] if row["Produkt"] != "GAW" else 0, axis=1)
-    df_hw["MRR_sum"] = df_hw["Menge"] * df_hw["Min_MRR"]
+    df_sw["MRR_min_sum"] = df_sw.apply(lambda row: row["Menge"] * row["Min_MRR"] if row["Produkt"] != "GAW" else 0, axis=1)
+    df_sw["MRR_list_sum"] = df_sw.apply(lambda row: row["Menge"] * row["List_MRR"] if row["Produkt"] != "GAW" else 0, axis=1)
+    df_hw["MRR_min_sum"] = df_hw["Menge"] * df_hw["Min_MRR"]
+    df_hw["MRR_list_sum"] = df_hw["Menge"] * df_hw["List_MRR"]
 
     # Berechnung OTF inkl. GAW
-    df_sw["OTF_sum"] = df_sw.apply(lambda row: row["Menge"] * row["Min_OTF"] if row["Produkt"] != "GAW" else 0, axis=1)
-    df_hw["OTF_sum"] = df_hw["Menge"] * df_hw["Min_OTF"]
-    total_min_otf = df_sw["OTF_sum"].sum() + df_hw["OTF_sum"].sum() + (gaw_qty * gaw_value)
-    total_min_mrr = df_sw["MRR_sum"].sum() + df_hw["MRR_sum"].sum()
+    df_sw["OTF_min_sum"] = df_sw.apply(lambda row: row["Menge"] * row["Min_OTF"] if row["Produkt"] != "GAW" else 0, axis=1)
+    df_sw["OTF_list_sum"] = df_sw.apply(lambda row: row["Menge"] * row["List_OTF"] if row["Produkt"] != "GAW" else 0, axis=1)
+    df_hw["OTF_min_sum"] = df_hw["Menge"] * df_hw["Min_OTF"]
+    df_hw["OTF_list_sum"] = df_hw["Menge"] * df_hw["List_OTF"]
 
-    # Ergebnisanzeige farbig
+    total_min_otf = df_sw["OTF_min_sum"].sum() + df_hw["OTF_min_sum"].sum() + (gaw_qty * gaw_value)
+    total_list_otf = df_sw["OTF_list_sum"].sum() + df_hw["OTF_list_sum"].sum() + (gaw_qty * gaw_value)
+    total_min_mrr = df_sw["MRR_min_sum"].sum() + df_hw["MRR_min_sum"].sum()
+    total_list_mrr = df_sw["MRR_list_sum"].sum() + df_hw["MRR_list_sum"].sum()
+
     st.markdown("---")
     st.subheader("📊 Gesamtergebnisse")
-    col1, col2 = st.columns(2)
-    col1.metric("OTF Total", f"{total_min_otf:,.2f} €")
-    col2.metric("MRR Total", f"{total_min_mrr:,.2f} €")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("OTF Min", f"{total_min_otf:,.2f} €")
+    col2.metric("OTF List", f"{total_list_otf:,.2f} €")
+    col3.metric("MRR Min", f"{total_min_mrr:,.2f} €")
+    col4.metric("MRR List", f"{total_list_mrr:,.2f} €")
 
     with st.expander("Preisdetails anzeigen"):
-        st.dataframe(pd.concat([df_sw, df_hw])[["Produkt", "Menge", "Min_OTF", "Min_MRR"]])
+        st.dataframe(pd.concat([df_sw, df_hw])[["Produkt", "Menge", "Min_OTF", "List_OTF", "Min_MRR", "List_MRR"]])
