@@ -178,4 +178,13 @@ elif page == "Pricing":
                 help="Zusätzliche Drucker, 1 ist bei POS inklusive" if "Printer" in df_hw["Produkt"][i] else f"Anzahl der Einheiten für {df_hw['Produkt'][i]}"
             )
 
-# Der restliche Pricing-Code für Berechnungen und Anzeige bleibt wie zuvor
+# ------------------------ Footer-Signatur ------------------------
+st.markdown(
+    """
+    <hr style="margin:20px 0;">
+    <p style='text-align: center; font-size: 0.8rem; color: gray;'>
+        😉 Traue niemals Zahlen, die du nicht selbst gefälscht hast. Grüsse SAS
+    </p>
+    """,
+    unsafe_allow_html=True
+)
