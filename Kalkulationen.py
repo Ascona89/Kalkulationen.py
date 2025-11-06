@@ -22,42 +22,40 @@ if page == "Competitor":
 
         st.markdown("<br><br>", unsafe_allow_html=True)
 
-        OTF = st.number_input("One Time Fee (OTF) (€)", min_value=0.0, value=0.0, step=100.0)
+        col_otf, col_kennzahlen = st.columns([1, 1])
+        OTF = col_otf.number_input("One Time Fee (OTF) (€)", min_value=0.0, value=0.0, step=100.0)
         MRR = st.number_input("Monthly Recurring Revenue (MRR) (€)", min_value=0.0, value=0.0, step=10.0)
         contract_length = st.selectbox("Contract length (Monate)", [12, 24])
 
-    # Berechnungen
-    total_orders = revenue / avg_order_value if avg_order_value else 0
-    online_payment = total_orders * 0.7
-    commission_month = (commission / 100) * revenue
-    transaction_fee = online_payment * service_fee
-    total_cost = commission_month + transaction_fee
+        # Berechnungen
+        total_orders = revenue / avg_order_value if avg_order_value else 0
+        online_payment = total_orders * 0.7
+        commission_month = (commission / 100) * revenue
+        transaction_fee = online_payment * service_fee
+        total_cost = commission_month + transaction_fee
+        transaction = 0.7 * revenue / 5 * 0.35
+        cost_oyy_monthly = MRR + transaction
+        saving_monthly = total_cost - cost_oyy_monthly
+        saving_over_contract = saving_monthly * contract_length
 
-    transaction = 0.7 * revenue / 5 * 0.35
-    cost_oyy_monthly = MRR + transaction
-    saving_monthly = total_cost - cost_oyy_monthly
-    saving_over_contract = saving_monthly * contract_length
+        # Kennzahlen rechts neben OTF
+        col_kennzahlen.markdown("### 📊 Kennzahlen")
+        col_kennzahlen.write(f"**Cost OYY monthly:** {cost_oyy_monthly:,.2f} €")
+        col_kennzahlen.write(f"**Saving monthly:** {saving_monthly:,.2f} €")
+        col_kennzahlen.write(f"**Saving over contract length:** {saving_over_contract:,.2f} €")
 
     with col2:
-        st.markdown("### 💶 **Total Cost**")
+        st.markdown("### 💶 Total Cost")
         st.metric(label="", value=f"{total_cost:,.2f} €")
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("### 📊 Weitere Kennzahlen (ab OTF-Bereich)")
-        st.write(f"**Cost OYY monthly:** {cost_oyy_monthly:,.2f} €")
-        st.write(f"**Saving monthly:** {saving_monthly:,.2f} €")
-        st.write(f"**Saving over contract length:** {saving_over_contract:,.2f} €")
 
 # ---------- 2. CARDPAYMENT ----------
 elif page == "Cardpayment":
     st.title("💳 Cardpayment Vergleich")
 
-    st.subheader("Eingaben")
-
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("#### Competitor")
+        st.subheader("Competitor")
         rev_c = st.number_input("Revenue (€)", key="rev_c", min_value=0.0, value=0.0)
         sum_pay_c = st.number_input("Sum of payments", key="sum_c", min_value=0.0, value=0.0)
         otf_c = st.number_input("One Time Fee (€)", key="otf_c", min_value=0.0, value=0.0)
@@ -66,7 +64,7 @@ elif page == "Cardpayment":
         auth_c = st.number_input("Authentification Fee (€)", key="auth_c", min_value=0.0, value=0.0)
 
     with col2:
-        st.markdown("#### Offer")
+        st.subheader("Offer")
         rev_o = st.number_input("Revenue (€)", key="rev_o", value=rev_c, disabled=True)
         sum_pay_o = st.number_input("Sum of payments", key="sum_o", value=sum_pay_c, disabled=True)
         otf_o = st.number_input("One Time Fee (€)", key="otf_o", min_value=0.0, value=0.0)
@@ -75,70 +73,72 @@ elif page == "Cardpayment":
         auth_o = st.number_input("Authentification Fee (€)", key="auth_o", min_value=0.0, value=0.06, step=0.01)
 
     # Berechnungen
-    total_c = mrr_c + (comm_c / 100 * rev_c) + (auth_c * sum_pay_c)
-    total_o = mrr_o + (comm_o / 100 * rev_o) + (auth_o * sum_pay_o)
+    total_c = mrr_c + (rev_c * comm_c / 100) + (sum_pay_c * auth_c)
+    total_o = mrr_o + (rev_o * comm_o / 100) + (sum_pay_o * auth_o)
     saving = total_o - total_c
 
     st.markdown("---")
     st.subheader("Ergebnisse")
-
     col3, col4, col5 = st.columns(3)
-    with col3:
-        st.metric("💳 Total Competitor", f"{total_c:,.2f} €")
-    with col4:
-        st.metric("💳 Total Offer", f"{total_o:,.2f} €")
-    with col5:
-        st.metric("💰 Saving (Offer - Competitor)", f"{saving:,.2f} €")
+    col3.metric("💳 Total Competitor", f"{total_c:,.2f} €")
+    col4.metric("💳 Total Offer", f"{total_o:,.2f} €")
+    col5.metric("💰 Saving (Offer - Competitor)", f"{saving:,.2f} €")
 
 # ---------- 3. PRICING ----------
 elif page == "Pricing":
     st.title("💰 Pricing Kalkulation")
-
     st.write("Bitte Mengen eingeben. Standardwert ist 0.")
 
-    # Software-Teil
+    # Software-Daten
     software_data = {
-        "Produkt": ["Shop", "App", "POS", "Pay", "Kiosk", "GAW"],
-        "Min_OTF": [365, 15, 365, 35, 0, 50],
-        "List_OTF": [999, 49, 999, 49, 0, 100],
-        "Min_MRR": [50, 15, 49, 5, 0, 100],
-        "List_MRR": [119, 49, 89, 25, 0, 100],
+        "Produkt": ["Shop", "App", "POS", "Pay", "GAW"],
+        "Min_OTF": [365, 15, 365, 35, 50],
+        "List_OTF": [999, 49, 999, 49, 100],
+        "Min_MRR": [50, 15, 49, 5, 100],
+        "List_MRR": [119, 49, 89, 25, 100],
     }
 
+    # Hardware-Daten
     hardware_data = {
-        "Produkt": ["Ordermanager", "POS inkl. Printer", "Cash Drawer", "Extra Printer", "Additional Display", "PAX", "Kiosk2"],
-        "Min_OTF": [135, 350, 50, 99, 100, 225, 0],
-        "List_OTF": [299, 1699, 149, 199, 100, 299, 0],
-        "Min_MRR": [0, 0, 0, 0, 0, 0, 0],
-        "List_MRR": [0, 0, 0, 0, 0, 0, 0],
+        "Produkt": ["Ordermanager", "POS inkl. Printer", "Cash Drawer", "Extra Printer", "Additional Display", "PAX"],
+        "Min_OTF": [135, 350, 50, 99, 100, 225],
+        "List_OTF": [299, 1699, 149, 199, 100, 299],
+        "Min_MRR": [0, 0, 0, 0, 0, 0],
+        "List_MRR": [0, 0, 0, 0, 0, 0],
     }
 
-    df_software = pd.DataFrame(software_data)
-    df_hardware = pd.DataFrame(hardware_data)
+    df_sw = pd.DataFrame(software_data)
+    df_hw = pd.DataFrame(hardware_data)
 
     col_sw, col_hw = st.columns(2)
 
     with col_sw:
         st.subheader("🧩 Software")
-        for i in range(len(df_software)):
-            df_software.at[i, "Menge"] = st.number_input(df_software["Produkt"][i], min_value=0, value=0, step=1, key=f"sw_{i}")
+        for i in range(len(df_sw)):
+            if df_sw["Produkt"][i] == "GAW":
+                gaw_qty = st.number_input("GAW Menge", min_value=0, value=0, key="gaw_qty")
+                gaw_value = st.number_input("GAW Betrag (€)", min_value=0.0, value=0.0, step=10.0, key="gaw_value")
+                df_sw.at[i, "Menge"] = gaw_qty
+            else:
+                df_sw.at[i, "Menge"] = st.number_input(df_sw["Produkt"][i], min_value=0, value=0, step=1, key=f"sw_{i}")
 
     with col_hw:
         st.subheader("🖥️ Hardware")
-        for i in range(len(df_hardware)):
-            df_hardware.at[i, "Menge"] = st.number_input(df_hardware["Produkt"][i], min_value=0, value=0, step=1, key=f"hw_{i}")
+        for i in range(len(df_hw)):
+            df_hw.at[i, "Menge"] = st.number_input(df_hw["Produkt"][i], min_value=0, value=0, step=1, key=f"hw_{i}")
 
     # Berechnungen
-    for df in [df_software, df_hardware]:
+    for df in [df_sw, df_hw]:
         df["OTF_min_sum"] = df["Menge"] * df["Min_OTF"]
         df["OTF_list_sum"] = df["Menge"] * df["List_OTF"]
         df["MRR_min_sum"] = df["Menge"] * df["Min_MRR"]
         df["MRR_list_sum"] = df["Menge"] * df["List_MRR"]
 
-    total_min_otf = df_software["OTF_min_sum"].sum() + df_hardware["OTF_min_sum"].sum()
-    total_list_otf = df_software["OTF_list_sum"].sum() + df_hardware["OTF_list_sum"].sum()
-    total_min_mrr = df_software["MRR_min_sum"].sum() + df_hardware["MRR_min_sum"].sum()
-    total_list_mrr = df_software["MRR_list_sum"].sum() + df_hardware["MRR_list_sum"].sum()
+    # GAW Berechnung zu OTF addieren
+    total_min_otf = df_sw["OTF_min_sum"].sum() + df_hw["OTF_min_sum"].sum() + (gaw_qty * gaw_value)
+    total_list_otf = df_sw["OTF_list_sum"].sum() + df_hw["OTF_list_sum"].sum() + (gaw_qty * gaw_value)
+    total_min_mrr = df_sw["MRR_min_sum"].sum() + df_hw["MRR_min_sum"].sum()
+    total_list_mrr = df_sw["MRR_list_sum"].sum() + df_hw["MRR_list_sum"].sum()
 
     st.markdown("---")
     st.subheader("📊 Gesamtergebnisse")
@@ -150,4 +150,4 @@ elif page == "Pricing":
 
     # Tabelle weiter unten
     with st.expander("Preisdetails anzeigen"):
-        st.dataframe(pd.concat([df_software, df_hardware])[["Produkt", "Menge", "Min_OTF", "List_OTF", "Min_MRR", "List_MRR"]])
+        st.dataframe(pd.concat([df_sw, df_hw])[["Produkt", "Menge", "Min_OTF", "List_OTF", "Min_MRR", "List_MRR"]])
