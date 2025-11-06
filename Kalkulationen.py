@@ -195,25 +195,17 @@ elif page == "Pricing":
     total_min_mrr = df_sw["MRR_min_sum"].sum() + df_hw["MRR_min_sum"].sum()
     total_list_mrr = df_sw["MRR_list_sum"].sum() + df_hw["MRR_list_sum"].sum()
 
-    # Ergebnisse anzeigen
+    # Ergebnisse anzeigen (eine Zeile, Min schwarz, List grün)
     st.markdown("---")
     st.subheader("📊 Gesamtergebnisse")
-    col1, col2, col3, col4 = st.columns(4)
-    col1.markdown(f"<div style='color:blue; font-size:28px;'>OTF Min: {total_min_otf:,.2f} €</div>", unsafe_allow_html=True)
-    col2.markdown(f"<div style='color:blue; font-size:28px;'>OTF List: {total_list_otf:,.2f} €</div>", unsafe_allow_html=True)
-    col3.markdown(f"<div style='color:blue; font-size:28px;'>MRR Min: {total_min_mrr:,.2f} €</div>", unsafe_allow_html=True)
-    col4.markdown(f"<div style='color:blue; font-size:28px;'>MRR List: {total_list_mrr:,.2f} €</div>", unsafe_allow_html=True)
+    st.markdown(f"""
+    <div style='display:flex; gap:40px; font-size:20px;'>
+        <div style='color:#000000;'>OTF Min: {total_min_otf:,.2f} €</div>
+        <div style='color:#28a745;'>OTF List: {total_list_otf:,.2f} €</div>
+        <div style='color:#000000;'>MRR Min: {total_min_mrr:,.2f} €</div>
+        <div style='color:#28a745;'>MRR List: {total_list_mrr:,.2f} €</div>
+    </div>
+    """, unsafe_allow_html=True)
 
     with st.expander("Preisdetails anzeigen"):
         st.dataframe(pd.concat([df_sw, df_hw])[["Produkt", "Min_OTF", "Min_MRR", "List_MRR"]])
-
-# ------------------------ Footer-Signatur ------------------------
-st.markdown(
-    """
-    <hr style="margin:20px 0;">
-    <p style='text-align: center; font-size: 0.8rem; color: gray;'>
-        😉 Traue niemals Zahlen, die du nicht selbst gefälscht hast. Grüsse SAS
-    </p>
-    """,
-    unsafe_allow_html=True
-)
