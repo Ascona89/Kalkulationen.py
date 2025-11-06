@@ -158,11 +158,11 @@ elif page == "Pricing":
         # GAW
         gaw_qty = st.number_input(
             "GAW Menge", value=1, step=1, key="gaw_qty",
-            help="Standard 1 Einheit, Betrag für OTF"
+            help="Standard 1 Einheit"
         )
         gaw_value = st.number_input(
-            "GAW Betrag (€)", min_value=50.0, value=50.0, step=25.0, key="gaw_value",
-            help="Betrag pro GAW-Einheit für OTF (Standard 50€, Schritte 25€)"
+            "GAW Betrag (€)", min_value=0.0, value=50.0, step=25.0, key="gaw_value",
+            help="Betrag pro GAW-Einheit für OTF (Standard 50€, kann auf 0 gesetzt werden)"
         )
         df_sw.loc[df_sw["Produkt"]=="GAW", "Menge"] = gaw_qty
 
@@ -209,3 +209,14 @@ elif page == "Pricing":
 
     with st.expander("Preisdetails anzeigen"):
         st.dataframe(pd.concat([df_sw, df_hw])[["Produkt", "Min_OTF", "Min_MRR", "List_MRR"]])
+
+# ------------------------ Footer-Signatur ------------------------
+st.markdown(
+    """
+    <hr style="margin:20px 0;">
+    <p style='text-align: center; font-size: 0.8rem; color: gray;'>
+        😉 Traue niemals Zahlen, die du nicht selbst gefälscht hast. Grüsse SAS
+    </p>
+    """,
+    unsafe_allow_html=True
+)
