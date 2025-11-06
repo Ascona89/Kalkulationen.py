@@ -13,32 +13,25 @@ if page == "Competitor":
     col1, col2 = st.columns([2, 1.5])
 
     # --- session_state Initialisierung ---
-    if "revenue" not in st.session_state:
-        st.session_state.revenue = 0.0
-    if "commission_pct" not in st.session_state:
-        st.session_state.commission_pct = 14.0
-    if "avg_order_value" not in st.session_state:
-        st.session_state.avg_order_value = 25.0
-    if "service_fee" not in st.session_state:
-        st.session_state.service_fee = 0.69
-    if "OTF" not in st.session_state:
-        st.session_state.OTF = 0.0
-    if "MRR" not in st.session_state:
-        st.session_state.MRR = 0.0
-    if "contract_length" not in st.session_state:
-        st.session_state.contract_length = 12
+    for key, default in [("revenue",0.0), ("commission_pct",14.0), ("avg_order_value",25.0),
+                         ("service_fee",0.69), ("OTF",0.0), ("MRR",0.0), ("contract_length",12)]:
+        if key not in st.session_state:
+            st.session_state[key] = default
 
     with col1:
         st.subheader("Eingaben")
-        revenue = st.number_input("Revenue on platform (€)", value=st.session_state.revenue, step=250.0, key="revenue")
-        commission_pct = st.number_input("Commission (%)", value=st.session_state.commission_pct, step=1.0, key="commission_pct")/100
-        avg_order_value = st.number_input("Average order value (€)", value=st.session_state.avg_order_value, step=5.0, key="avg_order_value")
-        service_fee = st.number_input("Service Fee (€)", value=st.session_state.service_fee, step=0.1, key="service_fee")
+        revenue = st.number_input("Revenue on platform (€)", step=250.0, key="revenue", 
+                                  help="Gesamter Umsatz, den der Wettbewerber auf der Plattform erzielt")
+        commission_pct = st.number_input("Commission (%)", step=1.0, key="commission_pct", 
+                                         help="Provision des Wettbewerbers in Prozent")/100
+        avg_order_value = st.number_input("Average order value (€)", step=5.0, key="avg_order_value",
+                                          help="Durchschnittlicher Bestellwert für Transaktionsgebühren")
+        service_fee = st.number_input("Service Fee (€)", step=0.1, key="service_fee", help="Feste Transaktionsgebühr pro Bestellung")
 
         st.markdown("---")
         st.subheader("Vertragsdetails")
-        OTF = st.number_input("One Time Fee (OTF) (€)", value=st.session_state.OTF, step=100.0, key="OTF")
-        MRR = st.number_input("Monthly Recurring Revenue (MRR) (€)", value=st.session_state.MRR, step=10.0, key="MRR")
+        OTF = st.number_input("One Time Fee (OTF) (€)", step=100.0, key="OTF")
+        MRR = st.number_input("Monthly Recurring Revenue (MRR) (€)", step=10.0, key="MRR")
         contract_length = st.selectbox("Contract length (Monate)", [12, 24], index=[12,24].index(st.session_state.contract_length), key="contract_length")
 
     # --- Berechnungen ---
@@ -51,13 +44,12 @@ if page == "Competitor":
     with col2:
         st.markdown("### 💶 Total Cost")
         st.markdown(f"<div style='color:red; font-size:28px;'>{total_cost:,.2f} €</div>", unsafe_allow_html=True)
-        st.caption("Gesamtkosten des Wettbewerbers inkl. Provision und Transaktionsgebühren")
+        st.caption("Gesamtkosten inkl. Provision und Transaktionsgebühren")
 
     st.subheader("📊 Kennzahlen")
     st.info(f"- Cost OYY monthly: {cost_oyy_monthly:,.2f} €\n"
             f"- Saving monthly: {saving_monthly:,.2f} €\n"
             f"- Saving over contract length: {saving_over_contract:,.2f} €")
-    st.caption("Monatliche Kosten vs. Einsparungen über Vertragslaufzeit")
 
 # ------------------------ 2. CARDPAYMENT ------------------------
 elif page == "Cardpayment":
@@ -65,29 +57,30 @@ elif page == "Cardpayment":
     col1, col2 = st.columns(2)
 
     # --- session_state Initialisierung ---
-    for key, default in [("rev_c",0.0), ("sum_c",0.0), ("otf_c",0.0), ("mrr_c",0.0), ("comm_c",1.39), ("auth_c",0.0),
-                         ("rev_o",0.0), ("sum_o",0.0), ("otf_o",0.0), ("mrr_o",0.0), ("comm_o",1.19), ("auth_o",0.06)]:
+    for key, default in [("rev_c",0.0), ("sum_c",0.0), ("otf_c",0.0), ("mrr_c",0.0),
+                         ("comm_c",1.39), ("auth_c",0.0), ("rev_o",0.0), ("sum_o",0.0),
+                         ("otf_o",0.0), ("mrr_o",0.0), ("comm_o",1.19), ("auth_o",0.06)]:
         if key not in st.session_state:
             st.session_state[key] = default
 
     with col1:
         st.subheader("Competitor")
-        rev_c = st.number_input("Revenue (€)", value=st.session_state.rev_c, step=250.0, key="rev_c")
-        sum_pay_c = st.number_input("Sum of payments", value=st.session_state.sum_c, key="sum_c")
-        otf_c = st.number_input("One Time Fee (€)", value=st.session_state.otf_c, key="otf_c")
-        mrr_c = st.number_input("Monthly Fee (€)", value=st.session_state.mrr_c, key="mrr_c")
-        commission_c = st.number_input("Commission (%)", value=st.session_state.comm_c, step=1.0, key="comm_c")/100
-        auth_c = st.number_input("Authentification Fee (€)", value=st.session_state.auth_c, key="auth_c")
+        rev_c = st.number_input("Revenue (€)", step=250.0, key="rev_c")
+        sum_pay_c = st.number_input("Sum of payments", key="sum_c")
+        otf_c = st.number_input("One Time Fee (€)", key="otf_c")
+        mrr_c = st.number_input("Monthly Fee (€)", key="mrr_c")
+        commission_c = st.number_input("Commission (%)", step=1.0, key="comm_c")/100
+        auth_c = st.number_input("Authentification Fee (€)", key="auth_c")
         avg_order_value_c = st.number_input("Average order value (€)", value=0.0, key="avg_c")
 
     with col2:
         st.subheader("Offer")
-        rev_o = st.number_input("Revenue (€)", value=rev_c, step=250.0, key="rev_o")
-        sum_pay_o = st.number_input("Sum of payments", value=sum_pay_c, key="sum_o")
-        otf_o = st.number_input("One Time Fee (€)", value=st.session_state.otf_o, key="otf_o")
-        mrr_o = st.number_input("Monthly Fee (€)", value=st.session_state.mrr_o, key="mrr_o")
-        commission_o = st.number_input("Commission (%)", value=st.session_state.comm_o, step=1.0, key="comm_o")/100
-        auth_o = st.number_input("Authentification Fee (€)", value=st.session_state.auth_o, key="auth_o")
+        rev_o = st.number_input("Revenue (€)", step=250.0, key="rev_o")
+        sum_pay_o = st.number_input("Sum of payments", key="sum_o")
+        otf_o = st.number_input("One Time Fee (€)", key="otf_o")
+        mrr_o = st.number_input("Monthly Fee (€)", key="mrr_o")
+        commission_o = st.number_input("Commission (%)", step=1.0, key="comm_o")/100
+        auth_o = st.number_input("Authentification Fee (€)", key="auth_o")
         avg_order_value_o = st.number_input("Average order value (€)", value=0.0, key="avg_o")
 
     # --- Berechnungen ---
@@ -149,17 +142,17 @@ elif page == "Pricing":
         for i in range(len(df_sw)):
             if df_sw["Produkt"][i] != "GAW":
                 df_sw.at[i, "Menge"] = st.number_input(
-                    df_sw["Produkt"][i], min_value=0, value=st.session_state[f"sw_{i}"], step=1, key=f"sw_{i}"
+                    df_sw["Produkt"][i], min_value=0, step=1, key=f"sw_{i}"
                 )
-        gaw_qty = st.number_input("GAW Menge", value=st.session_state.gaw_qty, step=1, key="gaw_qty")
-        gaw_value = st.number_input("GAW Betrag (€)", min_value=0.0, value=st.session_state.gaw_value, step=25.0, key="gaw_value")
+        gaw_qty = st.number_input("GAW Menge", step=1, key="gaw_qty")
+        gaw_value = st.number_input("GAW Betrag (€)", min_value=0.0, step=25.0, key="gaw_value")
         df_sw.loc[df_sw["Produkt"]=="GAW", "Menge"] = gaw_qty
 
     with col_hw:
         st.subheader("🖥️ Hardware")
         for i in range(len(df_hw)):
             df_hw.at[i, "Menge"] = st.number_input(
-                df_hw["Produkt"][i], min_value=0, value=st.session_state[f"hw_{i}"], step=1, key=f"hw_{i}"
+                df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}"
             )
 
     # --- Berechnungen ---
