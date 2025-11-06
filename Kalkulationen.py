@@ -12,60 +12,36 @@ if page == "Competitor":
     st.header("🏁 Competitor Kalkulation")
     col1, col2 = st.columns([2, 1.5])
 
+    # --- session_state Initialisierung ---
+    if "revenue" not in st.session_state:
+        st.session_state.revenue = 0.0
+    if "commission_pct" not in st.session_state:
+        st.session_state.commission_pct = 14.0
+    if "avg_order_value" not in st.session_state:
+        st.session_state.avg_order_value = 25.0
+    if "service_fee" not in st.session_state:
+        st.session_state.service_fee = 0.69
+    if "OTF" not in st.session_state:
+        st.session_state.OTF = 0.0
+    if "MRR" not in st.session_state:
+        st.session_state.MRR = 0.0
+    if "contract_length" not in st.session_state:
+        st.session_state.contract_length = 12
+
     with col1:
         st.subheader("Eingaben")
-        revenue = st.number_input(
-            "Revenue on platform (€)",
-            min_value=0.0,
-            value=0.0,
-            step=250.0,
-            help="Gesamter Umsatz, den der Wettbewerber auf der Plattform erzielt"
-        )
-        commission_pct = st.number_input(
-            "Commission (%)",
-            min_value=0.0,
-            value=14.0,
-            step=1.0,
-            help="Provision des Wettbewerbers in Prozent vom Umsatz"
-        ) / 100
-        avg_order_value = st.number_input(
-            "Average order value (€)",
-            min_value=0.0,
-            value=25.0,
-            step=5.0,
-            help="Durchschnittlicher Bestellwert, wird für die Berechnung von Transaktionsgebühren verwendet"
-        )
-        service_fee = st.number_input(
-            "Service Fee (€)",
-            min_value=0.0,
-            value=0.69,
-            step=0.1,
-            help="Feste Transaktionsgebühr pro Bestellung"
-        )
+        revenue = st.number_input("Revenue on platform (€)", value=st.session_state.revenue, step=250.0, key="revenue")
+        commission_pct = st.number_input("Commission (%)", value=st.session_state.commission_pct, step=1.0, key="commission_pct")/100
+        avg_order_value = st.number_input("Average order value (€)", value=st.session_state.avg_order_value, step=5.0, key="avg_order_value")
+        service_fee = st.number_input("Service Fee (€)", value=st.session_state.service_fee, step=0.1, key="service_fee")
 
         st.markdown("---")
         st.subheader("Vertragsdetails")
-        OTF = st.number_input(
-            "One Time Fee (OTF) (€)",
-            min_value=0.0,
-            value=0.0,
-            step=100.0,
-            help="Einmalige Kosten für den Vertrag"
-        )
-        MRR = st.number_input(
-            "Monthly Recurring Revenue (MRR) (€)",
-            min_value=0.0,
-            value=0.0,
-            step=10.0,
-            help="Monatlich wiederkehrende Einnahmen des Wettbewerbers"
-        )
-        contract_length = st.selectbox(
-            "Contract length (Monate)",
-            [12, 24],
-            help="Laufzeit des Vertrags in Monaten"
-        )
+        OTF = st.number_input("One Time Fee (OTF) (€)", value=st.session_state.OTF, step=100.0, key="OTF")
+        MRR = st.number_input("Monthly Recurring Revenue (MRR) (€)", value=st.session_state.MRR, step=10.0, key="MRR")
+        contract_length = st.selectbox("Contract length (Monate)", [12, 24], index=[12,24].index(st.session_state.contract_length), key="contract_length")
 
-    # Berechnungen
+    # --- Berechnungen ---
     total_cost = revenue * commission_pct + (0.7 * revenue / avg_order_value if avg_order_value else 0) * service_fee
     transaction = 0.7 * revenue / 5 * 0.35
     cost_oyy_monthly = MRR + transaction
@@ -75,7 +51,7 @@ if page == "Competitor":
     with col2:
         st.markdown("### 💶 Total Cost")
         st.markdown(f"<div style='color:red; font-size:28px;'>{total_cost:,.2f} €</div>", unsafe_allow_html=True)
-        st.caption("Gesamtkosten des Wettbewerbers pro Monat inkl. Provision und Transaktionsgebühren")
+        st.caption("Gesamtkosten des Wettbewerbers inkl. Provision und Transaktionsgebühren")
 
     st.subheader("📊 Kennzahlen")
     st.info(f"- Cost OYY monthly: {cost_oyy_monthly:,.2f} €\n"
@@ -88,39 +64,46 @@ elif page == "Cardpayment":
     st.header("💳 Cardpayment Vergleich")
     col1, col2 = st.columns(2)
 
+    # --- session_state Initialisierung ---
+    for key, default in [("rev_c",0.0), ("sum_c",0.0), ("otf_c",0.0), ("mrr_c",0.0), ("comm_c",1.39), ("auth_c",0.0),
+                         ("rev_o",0.0), ("sum_o",0.0), ("otf_o",0.0), ("mrr_o",0.0), ("comm_o",1.19), ("auth_o",0.06)]:
+        if key not in st.session_state:
+            st.session_state[key] = default
+
     with col1:
         st.subheader("Competitor")
-        rev_c = st.number_input("Revenue (€)", key="rev_c", min_value=0.0, value=0.0, step=250.0, help="Umsatz des Wettbewerbers")
-        sum_pay_c = st.number_input("Sum of payments", key="sum_c", min_value=0.0, value=0.0, help="Summe der Zahlungen beim Wettbewerber")
-        otf_c = st.number_input("One Time Fee (€)", key="otf_c", min_value=0.0, value=0.0, help="Einmalige Gebühr")
-        mrr_c = st.number_input("Monthly Fee (€)", key="mrr_c", min_value=0.0, value=0.0, help="Monatliche Gebühr")
-        commission_c = st.number_input("Commission (%)", key="comm_c", min_value=0.0, value=1.39, step=1.0, help="Prozentuale Kommission")/100
-        auth_c = st.number_input("Authentification Fee (€)", key="auth_c", min_value=0.0, value=0.0, help="Gebühr pro Zahlung")
-        avg_order_value = st.number_input("Average order value (€)", key="avg_c", min_value=0.0, value=0.0, step=5.0, help="Durchschnittlicher Bestellwert")
+        rev_c = st.number_input("Revenue (€)", value=st.session_state.rev_c, step=250.0, key="rev_c")
+        sum_pay_c = st.number_input("Sum of payments", value=st.session_state.sum_c, key="sum_c")
+        otf_c = st.number_input("One Time Fee (€)", value=st.session_state.otf_c, key="otf_c")
+        mrr_c = st.number_input("Monthly Fee (€)", value=st.session_state.mrr_c, key="mrr_c")
+        commission_c = st.number_input("Commission (%)", value=st.session_state.comm_c, step=1.0, key="comm_c")/100
+        auth_c = st.number_input("Authentification Fee (€)", value=st.session_state.auth_c, key="auth_c")
+        avg_order_value_c = st.number_input("Average order value (€)", value=0.0, key="avg_c")
 
     with col2:
         st.subheader("Offer")
-        rev_o = st.number_input("Revenue (€)", key="rev_o", min_value=0.0, value=rev_c, step=250.0, help="Umsatz des Angebots")
-        sum_pay_o = st.number_input("Sum of payments", key="sum_o", min_value=0.0, value=sum_pay_c, help="Summe der Zahlungen im Angebot")
-        otf_o = st.number_input("One Time Fee (€)", key="otf_o", min_value=0.0, value=0.0)
-        mrr_o = st.number_input("Monthly Fee (€)", key="mrr_o", min_value=0.0, value=0.0)
-        commission_o = st.number_input("Commission (%)", key="comm_o", min_value=0.0, value=1.19, step=1.0, help="Prozentuale Kommission für Angebot")/100
-        auth_o = st.number_input("Authentification Fee (€)", key="auth_o", min_value=0.0, value=0.06, help="Gebühr pro Zahlung im Angebot")
-        avg_order_value_o = st.number_input("Average order value (€)", key="avg_o", min_value=0.0, value=0.0, step=5.0)
+        rev_o = st.number_input("Revenue (€)", value=rev_c, step=250.0, key="rev_o")
+        sum_pay_o = st.number_input("Sum of payments", value=sum_pay_c, key="sum_o")
+        otf_o = st.number_input("One Time Fee (€)", value=st.session_state.otf_o, key="otf_o")
+        mrr_o = st.number_input("Monthly Fee (€)", value=st.session_state.mrr_o, key="mrr_o")
+        commission_o = st.number_input("Commission (%)", value=st.session_state.comm_o, step=1.0, key="comm_o")/100
+        auth_o = st.number_input("Authentification Fee (€)", value=st.session_state.auth_o, key="auth_o")
+        avg_order_value_o = st.number_input("Average order value (€)", value=0.0, key="avg_o")
 
-    total_c = rev_c * commission_c + (0.7 * rev_c / avg_order_value if avg_order_value else 0) * auth_c
-    total_o = rev_o * commission_o + (0.7 * rev_o / avg_order_value_o if avg_order_value_o else 0) * auth_o
+    # --- Berechnungen ---
+    total_c = rev_c * commission_c + (0.7 * rev_c / avg_order_value_c if avg_order_value_c else 0) * auth_c + mrr_c
+    total_o = rev_o * commission_o + (0.7 * rev_o / avg_order_value_o if avg_order_value_o else 0) * auth_o + mrr_o
     saving = total_o - total_c
 
     st.markdown("---")
     st.subheader("Ergebnisse")
     col3, col4, col5 = st.columns(3)
     col3.markdown(f"<div style='color:red; font-size:28px;'>💳 {total_c:,.2f} €</div>", unsafe_allow_html=True)
-    col3.caption("Total Competitor inkl. Kommission und Authentifizierungsgebühren")
+    col3.caption("Total Competitor")
     col4.markdown(f"<div style='color:blue; font-size:28px;'>💳 {total_o:,.2f} €</div>", unsafe_allow_html=True)
-    col4.caption("Total Offer inkl. Kommission und Authentifizierungsgebühren")
+    col4.caption("Total Offer")
     col5.markdown(f"<div style='color:green; font-size:28px;'>💰 {saving:,.2f} €</div>", unsafe_allow_html=True)
-    col5.caption("Differenz zwischen Angebot und Competitor – zeigt die Ersparnis")
+    col5.caption("Ersparnis (Offer - Competitor)")
 
 # ------------------------ 3. PRICING ------------------------
 elif page == "Pricing":
@@ -146,39 +129,40 @@ elif page == "Pricing":
     df_sw = pd.DataFrame(software_data)
     df_hw = pd.DataFrame(hardware_data)
 
+    # --- session_state Initialisierung für alle Mengen ---
+    for i in range(len(df_sw)):
+        key = f"sw_{i}"
+        if key not in st.session_state:
+            st.session_state[key] = 0
+    for i in range(len(df_hw)):
+        key = f"hw_{i}"
+        if key not in st.session_state:
+            st.session_state[key] = 0
+    if "gaw_value" not in st.session_state:
+        st.session_state.gaw_value = 50.0
+    if "gaw_qty" not in st.session_state:
+        st.session_state.gaw_qty = 1
+
     col_sw, col_hw = st.columns(2)
     with col_sw:
         st.subheader("🧩 Software")
         for i in range(len(df_sw)):
             if df_sw["Produkt"][i] != "GAW":
                 df_sw.at[i, "Menge"] = st.number_input(
-                    df_sw["Produkt"][i], min_value=0, value=0, step=1, key=f"sw_{i}",
-                    help=f"Anzahl der Lizenzen/Einheiten für {df_sw['Produkt'][i]}"
+                    df_sw["Produkt"][i], min_value=0, value=st.session_state[f"sw_{i}"], step=1, key=f"sw_{i}"
                 )
-        # GAW
-        gaw_qty = st.number_input(
-            "GAW Menge", value=1, step=1, key="gaw_qty",
-            help="Standard 1 Einheit"
-        )
-        gaw_value = st.number_input(
-            "GAW Betrag (€)", min_value=0.0, value=50.0, step=25.0, key="gaw_value",
-            help="Betrag pro GAW-Einheit für OTF (Standard 50€, kann auf 0 gesetzt werden)"
-        )
+        gaw_qty = st.number_input("GAW Menge", value=st.session_state.gaw_qty, step=1, key="gaw_qty")
+        gaw_value = st.number_input("GAW Betrag (€)", min_value=0.0, value=st.session_state.gaw_value, step=25.0, key="gaw_value")
         df_sw.loc[df_sw["Produkt"]=="GAW", "Menge"] = gaw_qty
 
     with col_hw:
         st.subheader("🖥️ Hardware")
         for i in range(len(df_hw)):
             df_hw.at[i, "Menge"] = st.number_input(
-                df_hw["Produkt"][i],
-                min_value=0,
-                value=0,
-                step=1,
-                key=f"hw_{i}",
-                help="Zusätzliche Drucker, 1 ist bei POS inklusive" if "Printer" in df_hw["Produkt"][i] else f"Anzahl der Einheiten für {df_hw['Produkt'][i]}"
+                df_hw["Produkt"][i], min_value=0, value=st.session_state[f"hw_{i}"], step=1, key=f"hw_{i}"
             )
 
-    # Berechnungen
+    # --- Berechnungen ---
     df_sw["OTF_min_sum"] = df_sw.apply(lambda row: row["Menge"]*row["Min_OTF"] if row["Produkt"]!="GAW" else 0, axis=1)
     df_sw["OTF_list_sum"] = df_sw.apply(lambda row: row["Menge"]*row["List_OTF"] if row["Produkt"]!="GAW" else 0, axis=1)
     df_hw["OTF_min_sum"] = df_hw["Menge"]*df_hw["Min_OTF"]
@@ -195,7 +179,7 @@ elif page == "Pricing":
     total_min_mrr = df_sw["MRR_min_sum"].sum() + df_hw["MRR_min_sum"].sum()
     total_list_mrr = df_sw["MRR_list_sum"].sum() + df_hw["MRR_list_sum"].sum()
 
-    # Ergebnisse anzeigen (eine Zeile, Min schwarz, List grün)
+    # --- Ergebnisse anzeigen ---
     st.markdown("---")
     st.subheader("📊 Gesamtergebnisse")
     st.markdown(f"""
