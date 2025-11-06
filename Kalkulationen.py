@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 
+# ------------------------ Seite Setup ------------------------
 st.set_page_config(page_title="Kalkulations-App", layout="wide")
 st.title("📊 Kalkulations-App")
 
@@ -24,6 +25,7 @@ if page == "Competitor":
         MRR = st.number_input("Monthly Recurring Revenue (MRR) (€)", min_value=0.0, value=0.0, step=10.0)
         contract_length = st.selectbox("Contract length (Monate)", [12, 24])
 
+    # Berechnungen
     total_cost = revenue * commission_pct + (0.7 * revenue / avg_order_value if avg_order_value else 0) * service_fee
     transaction = 0.7 * revenue / 5 * 0.35
     cost_oyy_monthly = MRR + transaction
@@ -32,7 +34,7 @@ if page == "Competitor":
 
     with col2:
         st.markdown("### 💶 Total Cost")
-        st.metric(label="", value=f"{total_cost:,.2f} €", delta_color="normal")
+        st.metric(label="", value=f"{total_cost:,.2f} €", delta_color="inverse")
 
     st.subheader("📊 Kennzahlen")
     st.info(f"- Cost OYY monthly: {cost_oyy_monthly:,.2f} €\n- Saving monthly: {saving_monthly:,.2f} €\n- Saving over contract length: {saving_over_contract:,.2f} €")
@@ -121,22 +123,4 @@ elif page == "Pricing":
 
     # OTF inkl. GAW
     df_sw["OTF_min_sum"] = df_sw.apply(lambda row: row["Menge"] * row["Min_OTF"] if row["Produkt"] != "GAW" else 0, axis=1)
-    df_sw["OTF_list_sum"] = df_sw.apply(lambda row: row["Menge"] * row["List_OTF"] if row["Produkt"] != "GAW" else 0, axis=1)
-    df_hw["OTF_min_sum"] = df_hw["Menge"] * df_hw["Min_OTF"]
-    df_hw["OTF_list_sum"] = df_hw["Menge"] * df_hw["List_OTF"]
-
-    total_min_otf = df_sw["OTF_min_sum"].sum() + df_hw["OTF_min_sum"].sum() + (gaw_qty * gaw_value)
-    total_list_otf = df_sw["OTF_list_sum"].sum() + df_hw["OTF_list_sum"].sum() + (gaw_qty * gaw_value)
-    total_min_mrr = df_sw["MRR_min_sum"].sum() + df_hw["MRR_min_sum"].sum()
-    total_list_mrr = df_sw["MRR_list_sum"].sum() + df_hw["MRR_list_sum"].sum()
-
-    st.markdown("---")
-    st.subheader("📊 Gesamtergebnisse")
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("OTF Min", f"{total_min_otf:,.2f} €")
-    col2.metric("OTF List", f"{total_list_otf:,.2f} €")
-    col3.metric("MRR Min", f"{total_min_mrr:,.2f} €")
-    col4.metric("MRR List", f"{total_list_mrr:,.2f} €")
-
-    with st.expander("Preisdetails anzeigen"):
-        st.dataframe(pd.concat([df_sw, df_hw])[["Produkt", "Min_OTF", "Min_MRR", "List_MRR"]])
+    df_sw["OTF_list_sum"] = df_sw.apply(lambda row: row["Menge"] * row["List_OTF"] if row
