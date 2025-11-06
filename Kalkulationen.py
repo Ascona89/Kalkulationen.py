@@ -125,14 +125,14 @@ elif page == "Cardpayment":
 # ------------------------ 3. PRICING ------------------------
 elif page == "Pricing":
     st.header("💰 Pricing Kalkulation")
-    st.write("Bitte Mengen eingeben. GAW wird nur für OTF berücksichtigt.")
+    st.write("Bitte Mengen eingeben. GAW und ADS werden nur für OTF berücksichtigt.")
 
     software_data = {
-        "Produkt": ["Shop", "App", "POS", "Pay", "GAW"],
-        "Min_OTF": [365, 15, 365, 35, 50],
-        "List_OTF": [999, 49, 999, 49, 100],
-        "Min_MRR": [50, 15, 49, 5, 100],
-        "List_MRR": [119, 49, 89, 25, 100],
+        "Produkt": ["Shop", "App", "POS", "Pay", "GAW", "ADS"],
+        "Min_OTF": [365, 15, 365, 35, 50, 0],
+        "List_OTF": [999, 49, 999, 49, 100, 0],
+        "Min_MRR": [50, 15, 49, 5, 100, 0],
+        "List_MRR": [119, 49, 89, 25, 100, 0],
     }
 
     hardware_data = {
@@ -150,21 +150,32 @@ elif page == "Pricing":
     with col_sw:
         st.subheader("🧩 Software")
         for i in range(len(df_sw)):
-            if df_sw["Produkt"][i] != "GAW":
+            if df_sw["Produkt"][i] not in ["GAW", "ADS"]:
                 df_sw.at[i, "Menge"] = st.number_input(
                     df_sw["Produkt"][i], min_value=0, value=0, step=1, key=f"sw_{i}",
                     help=f"Anzahl der Lizenzen/Einheiten für {df_sw['Produkt'][i]}"
                 )
-            else:
-                gaw_qty = st.number_input(
-                    "GAW Menge", min_value=1, value=1, step=1, key="gaw_qty",
-                    help="Mindestmenge 1 Einheit"
-                )
-                gaw_value = st.number_input(
-                    "GAW Betrag (€)", min_value=50.0, value=50.0, step=25.0, key="gaw_value",
-                    help="Betrag pro GAW-Einheit für OTF (min. 50€, Schritte 25€)"
-                )
-                df_sw.at[i, "Menge"] = gaw_qty
+        # GAW
+        gaw_qty = st.number_input(
+            "GAW Menge", min_value=1, value=1, step=1, key="gaw_qty",
+            help="Mindestmenge 1 Einheit"
+        )
+        gaw_value = st.number_input(
+            "GAW Betrag (€)", min_value=50.0, value=50.0, step=25.0, key="gaw_value",
+            help="Betrag pro GAW-Einheit für OTF (min. 50€, Schritte 25€)"
+        )
+        df_sw.loc[df_sw["Produkt"]=="GAW", "Menge"] = gaw_qty
+
+        # ADS
+        ads_qty = st.number_input(
+            "ADS Menge", min_value=1, value=1, step=1, key="ads_qty",
+            help="Anzahl der ADS-Einheiten für OTF"
+        )
+        ads_value = st.number_input(
+            "ADS Betrag (€)", min_value=50.0, value=50.0, step=25.0, key="ads_value",
+            help="Betrag pro ADS-Einheit für OTF (min. 50€, Schritte 25€)"
+        )
+        df_sw.loc[df_sw["Produkt"]=="ADS", "Menge"] = ads_qty
 
     with col_hw:
         st.subheader("🖥️ Hardware")
@@ -177,6 +188,39 @@ elif page == "Pricing":
                 key=f"hw_{i}",
                 help="Zusätzliche Drucker, 1 ist bei POS inklusive" if "Printer" in df_hw["Produkt"][i] else f"Anzahl der Einheiten für {df_hw['Produkt'][i]}"
             )
+
+    # Berechnungen
+    df_sw["OTF_min_sum"] = df_sw.apply(lambda row: (row["Menge"] * row["Min_OTF"]) if row["Produkt"] not in ["GAW","ADS"] else 0, axis=1)
+    df_sw["OTF_list_sum"] = df_sw.apply(lambda row: (row["Menge"] * row["List_OTF"]) if row["Produkt"] not in ["GAW","ADS"] else 0, axis=1)
+    df_hw["OTF_min_sum"] = df_hw["Menge"] * df_hw["Min_OTF"]
+    df_hw["OTF_list_sum"] = df_hw["Menge"] * df_hw["List_OTF"]
+
+    total_min_otf = df_sw["OTF_min_sum"].sum() + df_hw["OTF_min_sum"].sum() + gaw_qty * gaw_value + ads_qty * ads_value
+    total_list_otf = df_sw["OTF_list_sum"].sum() + df_hw["OTF_list_sum"].sum() + gaw_qty * gaw_value + ads_qty * ads_value
+
+    df_sw["MRR_min_sum"] = df_sw.apply(lambda row: row["Menge"] * row["Min_MRR"] if row["Produkt"] not in ["GAW","ADS"] else 0, axis=1)
+    df_sw["MRR_list_sum"] = df_sw.apply(lambda row: row["Menge"] * row["List_MRR"] if row["Produkt"] not in ["GAW","ADS"] else 0, axis=1)
+    df_hw["MRR_min_sum"] = df_hw["Menge"] * df_hw["Min_MRR"]
+    df_hw["MRR_list_sum"] = df_hw["Menge"] * df_hw["List_MRR"]
+
+    total_min_mrr = df_sw["MRR_min_sum"].sum() + df_hw["MRR_min_sum"].sum()
+    total_list_mrr = df_sw["MRR_list_sum"].sum() + df_hw["MRR_list_sum"].sum()
+
+    # Ergebnisse anzeigen
+    st.markdown("---")
+    st.subheader("📊 Gesamtergebnisse")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("OTF Min", f"{total_min_otf:,.2f} €")
+    col1.caption("Summe der Mindest-OTF inkl. GAW und ADS")
+    col2.metric("OTF List", f"{total_list_otf:,.2f} €")
+    col2.caption("Summe der Listen-OTF inkl. GAW und ADS")
+    col3.metric("MRR Min", f"{total_min_mrr:,.2f} €")
+    col3.caption("Summe der Mindest-MRR aller Software- und Hardwareeinheiten")
+    col4.metric("MRR List", f"{total_list_mrr:,.2f} €")
+    col4.caption("Summe der Listen-MRR aller Software- und Hardwareeinheiten")
+
+    with st.expander("Preisdetails anzeigen"):
+        st.dataframe(pd.concat([df_sw, df_hw])[["Produkt", "Min_OTF", "Min_MRR", "List_MRR"]])
 
 # ------------------------ Footer-Signatur ------------------------
 st.markdown(
