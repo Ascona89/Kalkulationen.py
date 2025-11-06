@@ -54,8 +54,8 @@ elif page == "Cardpayment":
 
     with col2:
         st.subheader("Offer")
-        rev_o = st.number_input("Revenue (€)", key="rev_o", min_value=0.0, value=0.0)
-        sum_pay_o = st.number_input("Sum of payments", key="sum_o", min_value=0.0, value=0.0)
+        rev_o = st.number_input("Revenue (€)", key="rev_o", min_value=0.0, value=rev_c)
+        sum_pay_o = st.number_input("Sum of payments", key="sum_o", min_value=0.0, value=sum_pay_c)
         otf_o = st.number_input("One Time Fee (€)", key="otf_o", min_value=0.0, value=0.0)
         mrr_o = st.number_input("Monthly Fee (€)", key="mrr_o", min_value=0.0, value=0.0)
         commission_o = st.number_input("Commission (%)", key="comm_o", min_value=0.0, value=1.19)/100
@@ -98,7 +98,6 @@ elif page == "Pricing":
     df_hw = pd.DataFrame(hardware_data)
 
     col_sw, col_hw = st.columns(2)
-
     with col_sw:
         st.subheader("🧩 Software")
         for i in range(len(df_sw)):
@@ -114,13 +113,13 @@ elif page == "Pricing":
         for i in range(len(df_hw)):
             df_hw.at[i, "Menge"] = st.number_input(df_hw["Produkt"][i], min_value=0, value=0, step=1, key=f"hw_{i}")
 
-    # Berechnung MRR ohne GAW
+    # MRR ohne GAW
     df_sw["MRR_min_sum"] = df_sw.apply(lambda row: row["Menge"] * row["Min_MRR"] if row["Produkt"] != "GAW" else 0, axis=1)
     df_sw["MRR_list_sum"] = df_sw.apply(lambda row: row["Menge"] * row["List_MRR"] if row["Produkt"] != "GAW" else 0, axis=1)
     df_hw["MRR_min_sum"] = df_hw["Menge"] * df_hw["Min_MRR"]
     df_hw["MRR_list_sum"] = df_hw["Menge"] * df_hw["List_MRR"]
 
-    # Berechnung OTF inkl. GAW
+    # OTF inkl. GAW
     df_sw["OTF_min_sum"] = df_sw.apply(lambda row: row["Menge"] * row["Min_OTF"] if row["Produkt"] != "GAW" else 0, axis=1)
     df_sw["OTF_list_sum"] = df_sw.apply(lambda row: row["Menge"] * row["List_OTF"] if row["Produkt"] != "GAW" else 0, axis=1)
     df_hw["OTF_min_sum"] = df_hw["Menge"] * df_hw["Min_OTF"]
@@ -140,4 +139,4 @@ elif page == "Pricing":
     col4.metric("MRR List", f"{total_list_mrr:,.2f} €")
 
     with st.expander("Preisdetails anzeigen"):
-        st.dataframe(pd.concat([df_sw, df_hw])[["Produkt", "Menge", "Min_OTF", "List_OTF", "Min_MRR", "List_MRR"]])
+        st.dataframe(pd.concat([df_sw, df_hw])[["Produkt", "Min_OTF", "Min_MRR", "List_MRR"]])
