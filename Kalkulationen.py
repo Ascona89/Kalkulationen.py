@@ -2,135 +2,137 @@ import streamlit as st
 import pandas as pd
 
 st.set_page_config(page_title="Kalkulations-App", layout="wide")
-st.title("Kalkulations-App für interne Nutzung")
 
-# Menü zur Auswahl der Kalkulation
-menu = ["Competitor", "Cardpayment", "Pricing"]
-choice = st.sidebar.selectbox("Wähle die Kalkulation:", menu)
+# Seitenmenü
+st.sidebar.title("Menü")
+page = st.sidebar.radio("Wähle eine Kalkulation:", ["Competitor", "Cardpayment", "Pricing"])
 
-# ----------------- Competitor -----------------
-if choice == "Competitor":
-    st.header("Competitor Kalkulation")
-    col_input, col_result = st.columns([1,1])
+# ---------- 1. COMPETITOR ----------
+if page == "Competitor":
+    st.title("🏁 Competitor Kalkulation")
 
-    with col_input:
+    col1, col2 = st.columns([2, 1.2])
+
+    with col1:
         st.subheader("Eingaben")
-        revenue = st.number_input("Revenue on Platform (€)", value=1000.0)
-        commission_percent = st.number_input("Commission (%)", value=14.0)
-        avg_order_value = st.number_input("Average Order Value (€)", value=35.0)
-        service_fee = st.number_input("Service Fee (€)", value=0.69)
-        otf = st.number_input("OTF (€)")
-        mrr = st.number_input("MRR (€)")
-        contract_length = st.selectbox("Contract Length (Monate)", options=[12, 24])
+        revenue = st.number_input("Revenue on platform (€)", min_value=0.0, value=0.0, step=100.0)
+        commission = st.number_input("Commission (%)", min_value=0.0, value=14.0, step=0.5)
+        avg_order_value = st.number_input("Average order value (€)", min_value=0.0, value=35.0, step=1.0)
+        service_fee = st.number_input("Service Fee (€)", min_value=0.0, value=0.69, step=0.1)
 
-    with col_result:
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
+
+        OTF = st.number_input("One Time Fee (OTF) (€)", min_value=0.0, value=0.0, step=100.0)
+        MRR = st.number_input("Monthly Recurring Revenue (MRR) (€)", min_value=0.0, value=0.0, step=10.0)
+        contract_length = st.selectbox("Contract length (Monate)", [12, 24])
+
+    # Berechnungen
+    total_orders = revenue / avg_order_value if avg_order_value else 0
+    online_payment = total_orders * 0.7
+    commission_month = (commission / 100) * revenue
+    transaction_fee = online_payment * service_fee
+    total_cost = commission_month + transaction_fee
+
+    transaction = 0.7 * revenue / 5 * 0.35
+    cost_oyy_monthly = MRR + transaction
+    saving_monthly = total_cost - cost_oyy_monthly
+    saving_over_contract = saving_monthly * contract_length
+
+    with col2:
         st.subheader("Ergebnisse")
-        total_orders = revenue / avg_order_value
-        online_payment_orders = total_orders * 0.7
-        commission_per_month = revenue * (commission_percent/100)
-        transaction_fee = online_payment_orders * service_fee
-        total_cost = commission_per_month + transaction_fee
-        transaction = (revenue * 0.7) / 5 * 0.35
-        cost_oyy_monthly = mrr + transaction
-        saving_monthly = total_cost - cost_oyy_monthly
-        saving_total = saving_monthly * contract_length
+        st.markdown("### 💶 **Total Cost**")
+        st.metric(label="", value=f"{total_cost:,.2f} €")
 
-        st.write(f"Total Orders: {total_orders:.2f}")
-        st.write(f"Online Payment Orders: {online_payment_orders:.2f}")
-        st.write(f"Commission per Month: €{commission_per_month:.2f}")
-        st.write(f"Transaction Fee: €{transaction_fee:.2f}")
-        st.write(f"Total Cost: €{total_cost:.2f}")
-        st.write(f"Transaction: €{transaction:.2f}")
-        st.write(f"Cost OYY Monthly: €{cost_oyy_monthly:.2f}")
-        st.write(f"Saving Monthly: €{saving_monthly:.2f}")
-        st.write(f"Saving over Contract Length: €{saving_total:.2f}")
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.markdown("### 📊 Weitere Kennzahlen")
+        st.write(f"**Cost OYY monthly:** {cost_oyy_monthly:,.2f} €")
+        st.write(f"**Saving monthly:** {saving_monthly:,.2f} €")
+        st.write(f"**Saving over contract length:** {saving_over_contract:,.2f} €")
 
-# ----------------- Cardpayment -----------------
-elif choice == "Cardpayment":
-    st.header("Cardpayment Kalkulation")
-    col_input, col_result = st.columns([1,1])
+# ---------- 2. CARDPAYMENT ----------
+elif page == "Cardpayment":
+    st.title("💳 Cardpayment Vergleich")
 
-    with col_input:
-        st.subheader("Eingaben")
-        col1, col2 = st.columns(2)
+    st.subheader("Eingaben")
 
-        with col1:
-            st.write("**Competitor**")
-            otf_comp = st.number_input("One Time Fee (€)", key="otf_comp")
-            monthly_fee_comp = st.number_input("Monthly Fee (€)", key="monthly_comp")
-            commission_comp = st.number_input("Commission (%)", key="commission_comp")
-            auth_fee_comp = st.number_input("Authentification Fee (€)", key="auth_comp")
+    col1, col2 = st.columns(2)
 
-        with col2:
-            st.write("**Offer**")
-            otf_offer = st.number_input("One Time Fee (€)", key="otf_offer")
-            monthly_fee_offer = st.number_input("Monthly Fee (€)", key="monthly_offer")
-            commission_offer = st.number_input("Commission (%)", key="commission_offer")
-            auth_fee_offer = st.number_input("Authentification Fee (€)", key="auth_offer")
+    with col1:
+        st.markdown("#### Competitor")
+        rev_c = st.number_input("Revenue (€)", key="rev_c", min_value=0.0, value=0.0)
+        sum_pay_c = st.number_input("Sum of payments", key="sum_c", min_value=0.0, value=0.0)
+        otf_c = st.number_input("One Time Fee (€)", key="otf_c", min_value=0.0, value=0.0)
+        mrr_c = st.number_input("Monthly Fee (€)", key="mrr_c", min_value=0.0, value=0.0)
+        comm_c = st.number_input("Commission (%)", key="comm_c", min_value=0.0, value=0.0)
+        auth_c = st.number_input("Authentification Fee (€)", key="auth_c", min_value=0.0, value=0.0)
 
-        revenue = st.number_input("Revenue (€)", value=1000.0)
-        sum_payments = st.number_input("Sum of Payments (€)", value=500.0)
+    with col2:
+        st.markdown("#### Offer")
+        rev_o = st.number_input("Revenue (€)", key="rev_o", min_value=0.0, value=0.0)
+        sum_pay_o = st.number_input("Sum of payments", key="sum_o", min_value=0.0, value=0.0)
+        otf_o = st.number_input("One Time Fee (€)", key="otf_o", min_value=0.0, value=0.0)
+        mrr_o = st.number_input("Monthly Fee (€)", key="mrr_o", min_value=0.0, value=0.0)
+        comm_o = st.number_input("Commission (%)", key="comm_o", min_value=0.0, value=0.0)
+        auth_o = st.number_input("Authentification Fee (€)", key="auth_o", min_value=0.0, value=0.0)
 
-    with col_result:
-        st.subheader("Ergebnisse")
-        commission_result_comp = revenue * (commission_comp/100)
-        auth_result_comp = sum_payments * auth_fee_comp
-        total_comp = monthly_fee_comp + commission_result_comp + auth_result_comp
+    # Berechnungen
+    total_c = mrr_c + (comm_c / 100 * rev_c) + (auth_c * sum_pay_c)
+    total_o = mrr_o + (comm_o / 100 * rev_o) + (auth_o * sum_pay_o)
+    saving = total_o - total_c
 
-        commission_result_offer = revenue * (commission_offer/100)
-        auth_result_offer = sum_payments * auth_fee_offer
-        total_offer = monthly_fee_offer + commission_result_offer + auth_result_offer
+    st.markdown("---")
+    st.subheader("Ergebnisse")
 
-        st.write("**Competitor**")
-        st.write(f"Commission: €{commission_result_comp:.2f}")
-        st.write(f"Authentification Fee: €{auth_result_comp:.2f}")
-        st.write(f"Total: €{total_comp:.2f}")
+    col3, col4, col5 = st.columns(3)
+    with col3:
+        st.metric("💳 Total Competitor", f"{total_c:,.2f} €")
+    with col4:
+        st.metric("💳 Total Offer", f"{total_o:,.2f} €")
+    with col5:
+        st.metric("💰 Saving (Offer - Competitor)", f"{saving:,.2f} €")
 
-        st.write("**Offer**")
-        st.write(f"Commission: €{commission_result_offer:.2f}")
-        st.write(f"Authentification Fee: €{auth_result_offer:.2f}")
-        st.write(f"Total: €{total_offer:.2f}")
+# ---------- 3. PRICING ----------
+elif page == "Pricing":
+    st.title("💰 Pricing Kalkulation")
 
-# ----------------- Pricing -----------------
-elif choice == "Pricing":
-    st.header("Pricing Kalkulation")
-    col_input, col_result = st.columns([1,1])
+    st.write("Bitte Mengen eingeben. Standardwert ist 0.")
 
-    # Items definieren
-    items = [
-        {"name": "Shop", "SUF_min": 365, "SUF_list": 999, "MRR_min": 50, "MRR_list": 119},
-        {"name": "App", "SUF_min": 15, "SUF_list": 49, "MRR_min": 15, "MRR_list": 49},
-        {"name": "POS", "SUF_min": 365, "SUF_list": 999, "MRR_min": 49, "MRR_list": 89},
-        {"name": "Pay", "SUF_min": 35, "SUF_list": 49, "MRR_min": 5, "MRR_list": 25},
-        {"name": "Kiosk", "SUF_min": 0, "SUF_list": 0, "MRR_min": 0, "MRR_list": 0},
-        {"name": "GAW", "SUF_min": 50, "SUF_list": 100, "MRR_min": 100, "MRR_list": 100},
-        {"name": "Ordermanager", "SUF_min": 135, "SUF_list": 299, "MRR_min": 0, "MRR_list": 0},
-        {"name": "POS inkl. 1 printer", "SUF_min": 350, "SUF_list": 1699, "MRR_min": 0, "MRR_list": 0},
-        {"name": "Cash Drawer", "SUF_min": 50, "SUF_list": 149, "MRR_min": 0, "MRR_list": 0},
-        {"name": "extra Printer", "SUF_min": 99, "SUF_list": 199, "MRR_min": 0, "MRR_list": 0},
-        {"name": "additional Display", "SUF_min": 100, "SUF_list": 100, "MRR_min": 0, "MRR_list": 0},
-        {"name": "PAX", "SUF_min": 225, "SUF_list": 299, "MRR_min": 0, "MRR_list": 0},
-        {"name": "Kiosk2", "SUF_min": 0, "SUF_list": 0, "MRR_min": 0, "MRR_list": 0},
-    ]
+    # Datenbasis (fix im Code)
+    data = {
+        "Produkt": ["Shop", "App", "POS", "Pay", "Kiosk", "GAW", "Ordermanager", "POS inkl. Printer",
+                    "Cash Drawer", "Extra Printer", "Additional Display", "PAX", "Kiosk2"],
+        "Menge": [0]*13,
+        "Min_OTF": [365, 15, 365, 35, 0, 50, 135, 350, 50, 99, 100, 225, 0],
+        "List_OTF": [999, 49, 999, 49, 0, 100, 299, 1699, 149, 199, 100, 299, 0],
+        "Min_MRR": [50, 15, 49, 5, 0, 100, 0, 0, 0, 0, 0, 0, 0],
+        "List_MRR": [119, 49, 89, 25, 0, 100, 0, 0, 0, 0, 0, 0, 0],
+    }
 
-    with col_input:
-        st.subheader("Mengen Eingaben")
-        qty_items = {}
-        for item in items:
-            qty_items[item["name"]] = st.number_input(
-                f"{item['name']} Menge", min_value=0, value=1, key=f"qty_{item['name']}"
-            )
+    df = pd.DataFrame(data)
 
-    with col_result:
-        st.subheader("Ergebnisse")
-        df = pd.DataFrame(items)
-        df["Menge"] = [qty_items[item["name"]] for item in items]
-        df["SUF_Min_Total"] = df["SUF_min"] * df["Menge"]
-        df["SUF_List_Total"] = df["SUF_list"] * df["Menge"]
-        df["MRR_Min_Total"] = df["MRR_min"] * df["Menge"]
-        df["MRR_List_Total"] = df["MRR_list"] * df["Menge"]
+    # Eingabefelder
+    for i in range(len(df)):
+        df.at[i, "Menge"] = st.number_input(df["Produkt"][i], min_value=0, value=0, step=1, key=f"qty_{i}")
 
-        st.dataframe(
-            df[["name", "Menge", "SUF_Min_Total", "SUF_List_Total", "MRR_Min_Total", "MRR_List_Total"]],
-            use_container_width=True
-        )
+    # Berechnungen
+    df["OTF_min_sum"] = df["Menge"] * df["Min_OTF"]
+    df["OTF_list_sum"] = df["Menge"] * df["List_OTF"]
+    df["MRR_min_sum"] = df["Menge"] * df["Min_MRR"]
+    df["MRR_list_sum"] = df["Menge"] * df["List_MRR"]
+
+    total_min_otf = df["OTF_min_sum"].sum()
+    total_list_otf = df["OTF_list_sum"].sum()
+    total_min_mrr = df["MRR_min_sum"].sum()
+    total_list_mrr = df["MRR_list_sum"].sum()
+
+    st.markdown("---")
+    st.subheader("📊 Gesamtergebnisse")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Min OTF", f"{total_min_otf:,.2f} €")
+    col2.metric("List OTF", f"{total_list_otf:,.2f} €")
+    col3.metric("Min MRR", f"{total_min_mrr:,.2f} €")
+    col4.metric("List MRR", f"{total_list_mrr:,.2f} €")
+
+    # Tabelle weiter unten
+    with st.expander("Preisdetails anzeigen"):
+        st.dataframe(df[["Produkt", "Menge", "Min_OTF", "List_OTF", "Min_MRR", "List_MRR"]])
