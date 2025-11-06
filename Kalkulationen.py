@@ -5,6 +5,13 @@ import pandas as pd
 st.set_page_config(page_title="Kalkulations-App", layout="wide")
 st.title("📊 Kalkulations-App")
 
+# ------------------------ Session State Initialisierung ------------------------
+def init_session_state(keys_defaults):
+    for key, default in keys_defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = default
+
+# ------------------------ Sidebar ------------------------
 page = st.sidebar.radio("Wähle eine Kalkulation:", ["Competitor", "Cardpayment", "Pricing"])
 
 # ------------------------ 1. COMPETITOR ------------------------
@@ -12,23 +19,21 @@ if page == "Competitor":
     st.header("🏁 Competitor Kalkulation")
     col1, col2 = st.columns([2, 1.5])
 
-    # --- session_state Initialisierung ---
-    for key, default in [("revenue",0.0), ("commission_pct",14.0), ("avg_order_value",25.0),
-                         ("service_fee",0.69), ("OTF",0.0), ("MRR",0.0), ("contract_length",12)]:
-        if key not in st.session_state:
-            st.session_state[key] = default
+    init_session_state({
+        "revenue":0.0, "commission_pct":14.0, "avg_order_value":25.0,
+        "service_fee":0.69, "OTF":0.0, "MRR":0.0, "contract_length":12
+    })
 
     with col1:
         st.subheader("Eingaben")
         revenue = st.number_input("Revenue on platform (€)", step=250.0, key="revenue",
-                                  help="Gesamter Umsatz, den der Wettbewerber auf der Plattform erzielt")
+                                  help="Gesamter Umsatz auf der Plattform")
         commission_pct = st.number_input("Commission (%)", step=1.0, key="commission_pct",
-                                         help="Provision des Wettbewerbers in Prozent") / 100
+                                         help="Provision in Prozent")/100
         avg_order_value = st.number_input("Average order value (€)", step=5.0, key="avg_order_value",
-                                          help="Durchschnittlicher Bestellwert für Transaktionsgebühren")
+                                          help="Durchschnittlicher Bestellwert")
         service_fee = st.number_input("Service Fee (€)", step=0.1, key="service_fee",
                                       help="Feste Transaktionsgebühr pro Bestellung")
-
         st.markdown("---")
         st.subheader("Vertragsdetails")
         OTF = st.number_input("One Time Fee (OTF) (€)", step=100.0, key="OTF")
@@ -58,12 +63,12 @@ elif page == "Cardpayment":
     st.header("💳 Cardpayment Vergleich")
     col1, col2 = st.columns(2)
 
-    # --- session_state Initialisierung ---
-    for key, default in [("rev_c",0.0), ("sum_c",0.0), ("otf_c",0.0), ("mrr_c",0.0),
-                         ("comm_c",1.39), ("auth_c",0.0), ("rev_o",0.0), ("sum_o",0.0),
-                         ("otf_o",0.0), ("mrr_o",0.0), ("comm_o",1.19), ("auth_o",0.06)]:
-        if key not in st.session_state:
-            st.session_state[key] = default
+    init_session_state({
+        "rev_c":0.0, "sum_c":0.0, "otf_c":0.0, "mrr_c":0.0,
+        "comm_c":1.39, "auth_c":0.0,
+        "rev_o":0.0, "sum_o":0.0, "otf_o":0.0, "mrr_o":0.0,
+        "comm_o":1.19, "auth_o":0.06
+    })
 
     with col1:
         st.subheader("Competitor")
@@ -125,19 +130,13 @@ elif page == "Pricing":
     df_sw = pd.DataFrame(software_data)
     df_hw = pd.DataFrame(hardware_data)
 
-    # --- session_state Initialisierung für alle Mengen ---
+    # Session State für Mengen
     for i in range(len(df_sw)):
-        key = f"sw_{i}"
-        if key not in st.session_state:
-            st.session_state[key] = 0
+        if f"sw_{i}" not in st.session_state: st.session_state[f"sw_{i}"] = 0
     for i in range(len(df_hw)):
-        key = f"hw_{i}"
-        if key not in st.session_state:
-            st.session_state[key] = 0
-    if "gaw_value" not in st.session_state:
-        st.session_state.gaw_value = 50.0
-    if "gaw_qty" not in st.session_state:
-        st.session_state.gaw_qty = 1
+        if f"hw_{i}" not in st.session_state: st.session_state[f"hw_{i}"] = 0
+    if "gaw_value" not in st.session_state: st.session_state["gaw_value"] = 50.0
+    if "gaw_qty" not in st.session_state: st.session_state["gaw_qty"] = 1
 
     col_sw, col_hw = st.columns(2)
     with col_sw:
@@ -154,12 +153,11 @@ elif page == "Pricing":
         for i in range(len(df_hw)):
             df_hw.at[i, "Menge"] = st.number_input(df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}")
 
-    # --- Berechnungen ---
+    # Berechnungen
     df_sw["OTF_min_sum"] = df_sw.apply(lambda row: row["Menge"]*row["Min_OTF"] if row["Produkt"]!="GAW" else 0, axis=1)
     df_sw["OTF_list_sum"] = df_sw.apply(lambda row: row["Menge"]*row["List_OTF"] if row["Produkt"]!="GAW" else 0, axis=1)
     df_hw["OTF_min_sum"] = df_hw["Menge"]*df_hw["Min_OTF"]
     df_hw["OTF_list_sum"] = df_hw["Menge"]*df_hw["List_OTF"]
-
     total_min_otf = df_sw["OTF_min_sum"].sum() + df_hw["OTF_min_sum"].sum() + gaw_qty*gaw_value
     total_list_otf = df_sw["OTF_list_sum"].sum() + df_hw["OTF_list_sum"].sum() + gaw_qty*gaw_value
 
@@ -167,11 +165,10 @@ elif page == "Pricing":
     df_sw["MRR_list_sum"] = df_sw.apply(lambda row: row["Menge"]*row["List_MRR"] if row["Produkt"]!="GAW" else 0, axis=1)
     df_hw["MRR_min_sum"] = df_hw["Menge"]*df_hw["Min_MRR"]
     df_hw["MRR_list_sum"] = df_hw["Menge"]*df_hw["List_MRR"]
-
     total_min_mrr = df_sw["MRR_min_sum"].sum() + df_hw["MRR_min_sum"].sum()
     total_list_mrr = df_sw["MRR_list_sum"].sum() + df_hw["MRR_list_sum"].sum()
 
-    # --- Ergebnisse anzeigen ---
+    # Ergebnisse
     st.markdown("---")
     st.subheader("📊 Gesamtergebnisse")
     st.markdown(f"""
@@ -184,9 +181,9 @@ elif page == "Pricing":
     """, unsafe_allow_html=True)
 
     with st.expander("Preisdetails anzeigen"):
-        st.dataframe(pd.concat([df_sw, df_hw])[["Produkt", "Min_OTF", "Min_MRR", "List_MRR"]])
+        st.dataframe(pd.concat([df_sw, df_hw])[["Produkt","Min_OTF","Min_MRR","List_MRR"]])
 
-# ------------------------ Footer-Signatur ------------------------
+# ------------------------ Footer ------------------------
 st.markdown(
     """
     <hr style="margin:20px 0;">
