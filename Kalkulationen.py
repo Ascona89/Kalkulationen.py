@@ -115,12 +115,41 @@ elif page == "Pricing":
         for i in range(len(df_hw)):
             df_hw.at[i, "Menge"] = st.number_input(df_hw["Produkt"][i], min_value=0, value=0, step=1, key=f"hw_{i}")
 
-    # MRR ohne GAW
+    # Berechnungen
     df_sw["MRR_min_sum"] = df_sw.apply(lambda row: row["Menge"] * row["Min_MRR"] if row["Produkt"] != "GAW" else 0, axis=1)
     df_sw["MRR_list_sum"] = df_sw.apply(lambda row: row["Menge"] * row["List_MRR"] if row["Produkt"] != "GAW" else 0, axis=1)
     df_hw["MRR_min_sum"] = df_hw["Menge"] * df_hw["Min_MRR"]
     df_hw["MRR_list_sum"] = df_hw["Menge"] * df_hw["List_MRR"]
 
-    # OTF inkl. GAW
     df_sw["OTF_min_sum"] = df_sw.apply(lambda row: row["Menge"] * row["Min_OTF"] if row["Produkt"] != "GAW" else 0, axis=1)
-    df_sw["OTF_list_sum"] = df_sw.apply(lambda row: row["Menge"] * row["List_OTF"] if row
+    df_sw["OTF_list_sum"] = df_sw.apply(lambda row: row["Menge"] * row["List_OTF"] if row["Produkt"] != "GAW" else 0, axis=1)
+    df_hw["OTF_min_sum"] = df_hw["Menge"] * df_hw["Min_OTF"]
+    df_hw["OTF_list_sum"] = df_hw["Menge"] * df_hw["List_OTF"]
+
+    total_min_otf = df_sw["OTF_min_sum"].sum() + df_hw["OTF_min_sum"].sum() + (gaw_qty * gaw_value)
+    total_list_otf = df_sw["OTF_list_sum"].sum() + df_hw["OTF_list_sum"].sum() + (gaw_qty * gaw_value)
+    total_min_mrr = df_sw["MRR_min_sum"].sum() + df_hw["MRR_min_sum"].sum()
+    total_list_mrr = df_sw["MRR_list_sum"].sum() + df_hw["MRR_list_sum"].sum()
+
+    # Ergebnisse anzeigen
+    st.markdown("---")
+    st.subheader("📊 Gesamtergebnisse")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("OTF Min", f"{total_min_otf:,.2f} €")
+    col2.metric("OTF List", f"{total_list_otf:,.2f} €")
+    col3.metric("MRR Min", f"{total_min_mrr:,.2f} €")
+    col4.metric("MRR List", f"{total_list_mrr:,.2f} €")
+
+    with st.expander("Preisdetails anzeigen"):
+        st.dataframe(pd.concat([df_sw, df_hw])[["Produkt", "Min_OTF", "Min_MRR", "List_MRR"]])
+
+# ------------------------ Footer-Signatur ------------------------
+st.markdown(
+    """
+    <hr style="margin:20px 0;">
+    <p style='text-align: center; font-size: 0.8rem; color: gray;'>
+        😉 Traue niemals Zahlen, die du nicht selbst gefälscht hast. Grüsse SAS
+    </p>
+    """,
+    unsafe_allow_html=True
+)
