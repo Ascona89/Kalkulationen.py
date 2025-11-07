@@ -7,16 +7,19 @@ import pandas as pd
 if "login_status" not in st.session_state:
     st.session_state["login_status"] = False
 
+def check_login():
+    code = st.session_state.get("login_code", "")
+    if code == "seba":
+        st.session_state["login_status"] = True
+        st.success("Zugriff gewährt!")
+        st.experimental_rerun()
+    else:
+        st.error("Falscher Code!")
+
 if not st.session_state["login_status"]:
     st.title("🔒 Zugriff geschützt")
-    code = st.text_input("Bitte Code eingeben", type="password")
-    if st.button("Login"):
-        if code == "seba":
-            st.session_state["login_status"] = True
-            st.success("Zugriff gewährt!")
-            st.experimental_rerun()
-        else:
-            st.error("Falscher Code!")
+    st.text_input("Bitte Code eingeben", type="password", key="login_code")
+    st.button("Login", on_click=check_login)
 else:
     # -----------------------------------
     # 🔧 Seitenkonfiguration
@@ -139,8 +142,7 @@ else:
     # ------------------------------------------------------------
     elif page == "Pricing":
         st.header("💰 Pricing Kalkulation")
-        # … (hier kommt der bisherige Pricing-Code, identisch wie vorher)
-        st.info("Pricing Kalkulation wie gehabt")  # Platzhalter, kann kompletten vorherigen Code hier einfügen
+        st.info("Pricing Kalkulation hier einfügen (wie zuvor implementiert)")
 
     # ------------------------------------------------------------
     # 😉 Footer
