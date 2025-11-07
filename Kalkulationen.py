@@ -158,6 +158,7 @@ elif page == "Pricing":
     df_sw = pd.DataFrame(software_data)
     df_hw = pd.DataFrame(hardware_data)
 
+    # Session State initialisieren
     for i in range(len(df_sw)):
         if f"sw_{i}" not in st.session_state: st.session_state[f"sw_{i}"] = 0
     for i in range(len(df_hw)):
@@ -166,29 +167,51 @@ elif page == "Pricing":
     if "gaw_qty" not in st.session_state: st.session_state["gaw_qty"] = 1
 
     col_sw, col_hw = st.columns(2)
+
+    # --- Software ---
     with col_sw:
         st.subheader("🧩 Software")
         for i in range(len(df_sw)):
             if df_sw["Produkt"][i] != "GAW":
-                df_sw.at[i, "Menge"] = st.number_input(df_sw["Produkt"][i], min_value=0, step=1, key=f"sw_{i}")
-        gaw_qty = st.number_input("GAW Menge", step=1, key="gaw_qty")
-        gaw_value = st.number_input("GAW Betrag (€)", min_value=0.0, value=50.0, step=25.0, key="gaw_value")
+                st.session_state[f"sw_{i}"] = st.number_input(
+                    df_sw["Produkt"][i], min_value=0, step=1, key=f"sw_{i}"
+                )
 
-        df_sw.loc[df_sw["Produkt"] == "GAW", "Menge"] = gaw_qty
+        # Dynamische Logik:
+        # Shop → Ordermanager =1, POS → Ordermanager =0, POS inkl 1 Printer=1
+        shop_selected = st.session_state["sw_0"] > 0
+        pos_selected = st.session_state["sw_2"] > 0
 
+        if shop_selected:
+            st.session_state["hw_0"] = max(st.session_state["hw_0"], 1)  # Ordermanager
+        if pos_selected:
+            st.session_state["hw_0"] = 0  # Ordermanager
+            st.session_state["hw_1"] = max(st.session_state["hw_1"], 1)  # POS inkl 1 Printer
+
+        # GAW
+        st.session_state["gaw_qty"] = st.number_input("GAW Menge", step=1, key="gaw_qty")
+        st.session_state["gaw_value"] = st.number_input(
+            "GAW Betrag (€)", min_value=0.0, value=50.0, step=25.0, key="gaw_value"
+        )
+
+        df_sw.loc[df_sw["Produkt"] == "GAW", "Menge"] = st.session_state["gaw_qty"]
+
+    # --- Hardware ---
     with col_hw:
         st.subheader("🖥️ Hardware")
         for i in range(len(df_hw)):
-            df_hw.at[i, "Menge"] = st.number_input(df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}")
+            st.session_state[f"hw_{i}"] = st.number_input(
+                df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}"
+            )
 
-    # Kalkulation
+    # --- Kalkulation ---
     df_sw["OTF_min_sum"] = df_sw.apply(lambda r: r["Menge"] * r["Min_OTF"] if r["Produkt"] != "GAW" else 0, axis=1)
     df_sw["OTF_list_sum"] = df_sw.apply(lambda r: r["Menge"] * r["List_OTF"] if r["Produkt"] != "GAW" else 0, axis=1)
     df_hw["OTF_min_sum"] = df_hw["Menge"] * df_hw["Min_OTF"]
     df_hw["OTF_list_sum"] = df_hw["Menge"] * df_hw["List_OTF"]
 
-    total_min_otf = df_sw["OTF_min_sum"].sum() + df_hw["OTF_min_sum"].sum() + gaw_qty * gaw_value
-    total_list_otf = df_sw["OTF_list_sum"].sum() + df_hw["OTF_list_sum"].sum() + gaw_qty * gaw_value
+    total_min_otf = df_sw["OTF_min_sum"].sum() + df_hw["OTF_min_sum"].sum() + st.session_state["gaw_qty"] * st.session_state["gaw_value"]
+    total_list_otf = df_sw["OTF_list_sum"].sum() + df_hw["OTF_list_sum"].sum() + st.session_state["gaw_qty"] * st.session_state["gaw_value"]
 
     df_sw["MRR_min_sum"] = df_sw.apply(lambda r: r["Menge"] * r["Min_MRR"] if r["Produkt"] != "GAW" else 0, axis=1)
     df_sw["MRR_list_sum"] = df_sw.apply(lambda r: r["Menge"] * r["List_MRR"] if r["Produkt"] != "GAW" else 0, axis=1)
@@ -198,7 +221,7 @@ elif page == "Pricing":
     total_min_mrr = df_sw["MRR_min_sum"].sum() + df_hw["MRR_min_sum"].sum()
     total_list_mrr = df_sw["MRR_list_sum"].sum() + df_hw["MRR_list_sum"].sum()
 
-    # Ausgabe
+    # --- Ausgabe ---
     st.markdown("---")
     st.subheader("📊 Gesamtergebnisse")
     st.markdown(f"""
