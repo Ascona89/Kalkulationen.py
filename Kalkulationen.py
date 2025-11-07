@@ -29,7 +29,7 @@ if page == "Competitor":
     col1, col2 = st.columns([2, 1.5])
     init_session_state({
         "revenue": 0.0, "commission_pct": 14.0, "avg_order_value": 25.0,
-        "service_fee": 0.69, "OTF": 0.0, "MRR": 0.0, "contract_length": 12
+        "service_fee": 0.69, "OTF": 0.0, "MRR": 0.0, "contract_length": 24
     })
 
     with col1:
@@ -47,7 +47,7 @@ if page == "Competitor":
         st.subheader("Vertragsdetails")
         st.number_input("One Time Fee (OTF) (€)", step=100.0, key="OTF")
         st.number_input("Monthly Recurring Revenue (MRR) (€)", step=10.0, key="MRR")
-        st.selectbox("Contract length (Monate)", [12, 24], key="contract_length")
+        st.number_input("Contract length (Monate)", step=12, key="contract_length")
 
     total_cost = st.session_state.revenue * (st.session_state.commission_pct / 100) + (
         (0.7 * st.session_state.revenue / st.session_state.avg_order_value if st.session_state.avg_order_value else 0)
@@ -86,11 +86,11 @@ elif page == "Cardpayment":
         st.subheader("Competitor")
         st.number_input("Revenue (€)", step=250.0, key="rev_c",
                         help="Gesamter Umsatz")
-        st.number_input("Sum of payments", key="sum_c",
+        st.number_input("Sum of payments", step=20, key="sum_c",
                         help="Anzahl Transaktionen")
-        st.number_input("Monthly Fee (€)", key="mrr_c",
+        st.number_input("Monthly Fee (€)", step=5.0, key="mrr_c",
                         help="Monatliche Grundgebühr")
-        st.number_input("Commission (%)", step=1.0, key="comm_c",
+        st.number_input("Commission (%)", step=0.01, key="comm_c",
                         help="Provisionssatz des Mitbewerbers")
         st.number_input("Authentification Fee (€)", key="auth_c",
                         help="Gebühr pro Zahlung")
@@ -104,11 +104,11 @@ elif page == "Cardpayment":
 
         st.number_input("Revenue (€)", step=250.0, key="rev_o",
                         help="Umsatz – automatisch übernommen vom Competitor")
-        st.number_input("Sum of payments", key="sum_o",
+        st.number_input("Sum of payments", step=20, key="sum_o",
                         help="Transaktionen – automatisch übernommen vom Competitor")
-        st.number_input("Monthly Fee (€)", key="mrr_o",
+        st.number_input("Monthly Fee (€)", step=5.0, key="mrr_o",
                         help="Monatliche Gebühr im Angebot")
-        st.number_input("Commission (%)", step=1.0, key="comm_o",
+        st.number_input("Commission (%)", step=0.01, key="comm_o",
                         help="Provisionssatz des Angebots")
         st.number_input("Authentification Fee (€)", key="auth_o",
                         help="Gebühr pro Zahlung im Angebot")
@@ -172,7 +172,7 @@ elif page == "Pricing":
             if df_sw["Produkt"][i] != "GAW":
                 df_sw.at[i, "Menge"] = st.number_input(df_sw["Produkt"][i], min_value=0, step=1, key=f"sw_{i}")
         gaw_qty = st.number_input("GAW Menge", step=1, key="gaw_qty")
-        gaw_value = st.number_input("GAW Betrag (€)", min_value=0.0, step=25.0, key="gaw_value")
+        gaw_value = st.number_input("GAW Betrag (€)", min_value=0.0, value=50.0, step=25.0, key="gaw_value")
 
         df_sw.loc[df_sw["Produkt"] == "GAW", "Menge"] = gaw_qty
 
@@ -211,7 +211,8 @@ elif page == "Pricing":
     """, unsafe_allow_html=True)
 
     with st.expander("Preisdetails anzeigen"):
-        st.dataframe(pd.concat([df_sw, df_hw])[["Produkt", "Min_OTF", "Min_MRR", "List_MRR"]])
+        df_show = pd.concat([df_sw, df_hw])[["Produkt", "Min_OTF", "List_OTF", "Min_MRR", "List_MRR"]]
+        st.dataframe(df_show, hide_index=True, use_container_width=True)
 
 # ------------------------------------------------------------
 # 😉 Footer
