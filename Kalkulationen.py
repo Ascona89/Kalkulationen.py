@@ -84,16 +84,11 @@ elif page == "Cardpayment":
 
     with col1:
         st.subheader("Competitor")
-        st.number_input("Revenue (€)", step=250.0, key="rev_c",
-                        help="Gesamter Umsatz")
-        st.number_input("Sum of payments", step=20, key="sum_c",
-                        help="Anzahl Transaktionen")
-        st.number_input("Monthly Fee (€)", step=5.0, key="mrr_c",
-                        help="Monatliche Grundgebühr")
-        st.number_input("Commission (%)", step=0.01, key="comm_c",
-                        help="Provisionssatz des Mitbewerbers")
-        st.number_input("Authentification Fee (€)", key="auth_c",
-                        help="Gebühr pro Zahlung")
+        st.number_input("Revenue (€)", step=250.0, key="rev_c", help="Gesamter Umsatz")
+        st.number_input("Sum of payments", step=20, key="sum_c", help="Anzahl Transaktionen")
+        st.number_input("Monthly Fee (€)", step=5.0, key="mrr_c", help="Monatliche Grundgebühr")
+        st.number_input("Commission (%)", step=0.01, key="comm_c", help="Provisionssatz des Mitbewerbers")
+        st.number_input("Authentification Fee (€)", key="auth_c", help="Gebühr pro Zahlung")
 
     with col2:
         st.subheader("Offer")
@@ -105,12 +100,9 @@ elif page == "Cardpayment":
                         help="Umsatz – automatisch übernommen vom Competitor")
         st.number_input("Sum of payments", step=20, key="sum_o",
                         help="Transaktionen – automatisch übernommen vom Competitor")
-        st.number_input("Monthly Fee (€)", step=5.0, key="mrr_o",
-                        help="Monatliche Gebühr im Angebot")
-        st.number_input("Commission (%)", step=0.01, key="comm_o",
-                        help="Provisionssatz des Angebots")
-        st.number_input("Authentification Fee (€)", key="auth_o",
-                        help="Gebühr pro Zahlung im Angebot")
+        st.number_input("Monthly Fee (€)", step=5.0, key="mrr_o", help="Monatliche Gebühr im Angebot")
+        st.number_input("Commission (%)", step=0.01, key="comm_o", help="Provisionssatz des Angebots")
+        st.number_input("Authentification Fee (€)", key="auth_o", help="Gebühr pro Zahlung im Angebot")
 
     # Kalkulation
     total_c = st.session_state.rev_c * (st.session_state.comm_c / 100) + \
@@ -122,14 +114,11 @@ elif page == "Cardpayment":
     st.markdown("---")
     st.subheader("Ergebnisse")
     col3, col4, col5 = st.columns(3)
-    col3.markdown(f"<div style='color:red; font-size:28px;'>💳 {total_c:,.2f} €</div>",
-                  unsafe_allow_html=True)
+    col3.markdown(f"<div style='color:red; font-size:28px;'>💳 {total_c:,.2f} €</div>", unsafe_allow_html=True)
     col3.caption("Total Competitor")
-    col4.markdown(f"<div style='color:blue; font-size:28px;'>💳 {total_o:,.2f} €</div>",
-                  unsafe_allow_html=True)
+    col4.markdown(f"<div style='color:blue; font-size:28px;'>💳 {total_o:,.2f} €</div>", unsafe_allow_html=True)
     col4.caption("Total Offer")
-    col5.markdown(f"<div style='color:green; font-size:28px;'>💰 {saving:,.2f} €</div>",
-                  unsafe_allow_html=True)
+    col5.markdown(f"<div style='color:green; font-size:28px;'>💰 {saving:,.2f} €</div>", unsafe_allow_html=True)
     col5.caption("Ersparnis (Offer - Competitor)")
 
 # ------------------------------------------------------------
@@ -194,6 +183,9 @@ elif page == "Pricing":
         st.subheader("🖥️ Hardware")
         for i in range(len(df_hw)):
             st.number_input(df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}")
+
+    # Hardware Menge aus Session State übernehmen
+    df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
 
     # --- Kalkulation ---
     df_sw["OTF_min_sum"] = df_sw.apply(lambda r: r["Menge"] * r["Min_OTF"] if r["Produkt"] != "GAW" else 0, axis=1)
