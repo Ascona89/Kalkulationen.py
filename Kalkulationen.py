@@ -41,23 +41,27 @@ if page == "Platform":
                         help="Durchschnittlicher Bestellwert")
         st.number_input("Service Fee (€)", step=0.1, key="service_fee",
                         help="Transaktionsgebühr pro Onlinezahlung")
+
+        # ---------------------------------------
+        # Ergebnis direkt unter Service Fee
+        # ---------------------------------------
+        total_cost = st.session_state.revenue * (st.session_state.commission_pct / 100) + \
+                     (0.7 * st.session_state.revenue / st.session_state.avg_order_value if st.session_state.avg_order_value else 0) * st.session_state.service_fee
+        st.markdown("### 💶 Cost on Platform")
+        st.markdown(f"<div style='color:red; font-size:28px;'>{total_cost:,.2f} €</div>",
+                    unsafe_allow_html=True)
+
         st.markdown("---")
         st.subheader("Vertragsdetails")
         st.number_input("One Time Fee (OTF) (€)", step=100.0, key="OTF")
         st.number_input("Monthly Recurring Revenue (MRR) (€)", step=10.0, key="MRR")
         st.number_input("Contract length (Monate)", step=12, key="contract_length")
 
-    total_cost = st.session_state.revenue * (st.session_state.commission_pct / 100) + \
-                 (0.7 * st.session_state.revenue / st.session_state.avg_order_value if st.session_state.avg_order_value else 0) * st.session_state.service_fee
+    # Kennzahlen
     transaction = 0.7 * st.session_state.revenue / 5 * 0.35
     cost_oyy_monthly = st.session_state.MRR + transaction
     saving_monthly = total_cost - cost_oyy_monthly
     saving_over_contract = saving_monthly * st.session_state.contract_length
-
-    with col2:
-        st.markdown("### 💶 Cost on Platform")
-        st.markdown(f"<div style='color:red; font-size:28px;'>{total_cost:,.2f} €</div>",
-                    unsafe_allow_html=True)
 
     st.subheader("📊 Kennzahlen")
     st.info(f"- Cost OYY monthly: {cost_oyy_monthly:,.2f} €\n"
