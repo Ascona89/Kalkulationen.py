@@ -18,14 +18,13 @@ def init_session_state(keys_defaults):
 # ------------------------------------------------------------
 # 📋 Seitenmenü
 # ------------------------------------------------------------
-page = st.sidebar.radio("Wähle eine Kalkulation:", ["Competitor", "Cardpayment", "Pricing"])
+page = st.sidebar.radio("Wähle eine Kalkulation:", ["Platform", "Cardpayment", "Pricing"])
 
 # ------------------------------------------------------------
-# 🏁 COMPETITOR
+# 🏁 PLATFORM
 # ------------------------------------------------------------
-if page == "Competitor":
-    st.header("🏁 Competitor Kalkulation")
-
+if page == "Platform":
+    st.header("🏁 Platform Kalkulation")
     col1, col2 = st.columns([2, 1.5])
     init_session_state({
         "revenue": 0.0, "commission_pct": 14.0, "avg_order_value": 25.0,
@@ -42,24 +41,21 @@ if page == "Competitor":
                         help="Durchschnittlicher Bestellwert")
         st.number_input("Service Fee (€)", step=0.1, key="service_fee",
                         help="Transaktionsgebühr pro Onlinezahlung")
-
         st.markdown("---")
         st.subheader("Vertragsdetails")
         st.number_input("One Time Fee (OTF) (€)", step=100.0, key="OTF")
         st.number_input("Monthly Recurring Revenue (MRR) (€)", step=10.0, key="MRR")
         st.number_input("Contract length (Monate)", step=12, key="contract_length")
 
-    total_cost = st.session_state.revenue * (st.session_state.commission_pct / 100) + (
-        (0.7 * st.session_state.revenue / st.session_state.avg_order_value if st.session_state.avg_order_value else 0)
-        * st.session_state.service_fee
-    )
+    total_cost = st.session_state.revenue * (st.session_state.commission_pct / 100) + \
+                 (0.7 * st.session_state.revenue / st.session_state.avg_order_value if st.session_state.avg_order_value else 0) * st.session_state.service_fee
     transaction = 0.7 * st.session_state.revenue / 5 * 0.35
     cost_oyy_monthly = st.session_state.MRR + transaction
     saving_monthly = total_cost - cost_oyy_monthly
     saving_over_contract = saving_monthly * st.session_state.contract_length
 
     with col2:
-        st.markdown("### 💶 Total Cost")
+        st.markdown("### 💶 Cost on Platform")
         st.markdown(f"<div style='color:red; font-size:28px;'>{total_cost:,.2f} €</div>",
                     unsafe_allow_html=True)
 
@@ -76,50 +72,48 @@ elif page == "Cardpayment":
     col1, col2 = st.columns(2)
 
     init_session_state({
-        "rev_c": 0.0, "sum_c": 0.0, "mrr_c": 0.0,
-        "comm_c": 1.39, "auth_c": 0.0,
+        "rev_a": 0.0, "sum_a": 0.0, "mrr_a": 0.0,
+        "comm_a": 1.39, "auth_a": 0.0,
         "rev_o": 0.0, "sum_o": 0.0, "mrr_o": 0.0,
         "comm_o": 1.19, "auth_o": 0.06
     })
 
     with col1:
-        st.subheader("Competitor")
-        st.number_input("Revenue (€)", step=250.0, key="rev_c", help="Gesamter Umsatz")
-        st.number_input("Sum of payments", step=20, key="sum_c", help="Anzahl Transaktionen")
-        st.number_input("Monthly Fee (€)", step=5.0, key="mrr_c", help="Monatliche Grundgebühr")
-        st.number_input("Commission (%)", step=0.01, key="comm_c", help="Provisionssatz des Mitbewerbers")
-        st.number_input("Authentification Fee (€)", key="auth_c", help="Gebühr pro Zahlung")
+        st.subheader("Actual")
+        st.number_input("Revenue (€)", step=250.0, key="rev_a")
+        st.number_input("Sum of payments", step=20, key="sum_a")
+        st.number_input("Monthly Fee (€)", step=5.0, key="mrr_a")
+        st.number_input("Commission (%)", step=0.01, key="comm_a")
+        st.number_input("Authentification Fee (€)", key="auth_a")
 
     with col2:
         st.subheader("Offer")
         # Werte automatisch übernehmen
-        st.session_state.rev_o = st.session_state.rev_c
-        st.session_state.sum_o = st.session_state.sum_c
+        st.session_state.rev_o = st.session_state.rev_a
+        st.session_state.sum_o = st.session_state.sum_a
 
-        st.number_input("Revenue (€)", step=250.0, key="rev_o",
-                        help="Umsatz – automatisch übernommen vom Competitor")
-        st.number_input("Sum of payments", step=20, key="sum_o",
-                        help="Transaktionen – automatisch übernommen vom Competitor")
-        st.number_input("Monthly Fee (€)", step=5.0, key="mrr_o", help="Monatliche Gebühr im Angebot")
-        st.number_input("Commission (%)", step=0.01, key="comm_o", help="Provisionssatz des Angebots")
-        st.number_input("Authentification Fee (€)", key="auth_o", help="Gebühr pro Zahlung im Angebot")
+        st.number_input("Revenue (€)", step=250.0, key="rev_o")
+        st.number_input("Sum of payments", step=20, key="sum_o")
+        st.number_input("Monthly Fee (€)", step=5.0, key="mrr_o")
+        st.number_input("Commission (%)", step=0.01, key="comm_o")
+        st.number_input("Authentification Fee (€)", key="auth_o")
 
     # Kalkulation
-    total_c = st.session_state.rev_c * (st.session_state.comm_c / 100) + \
-              st.session_state.sum_c * st.session_state.auth_c + st.session_state.mrr_c
+    total_actual = st.session_state.rev_a * (st.session_state.comm_a / 100) + \
+                   st.session_state.sum_a * st.session_state.auth_a + st.session_state.mrr_a
     total_o = st.session_state.rev_o * (st.session_state.comm_o / 100) + \
               st.session_state.sum_o * st.session_state.auth_o + st.session_state.mrr_o
-    saving = total_o - total_c
+    saving = total_o - total_actual
 
     st.markdown("---")
     st.subheader("Ergebnisse")
     col3, col4, col5 = st.columns(3)
-    col3.markdown(f"<div style='color:red; font-size:28px;'>💳 {total_c:,.2f} €</div>", unsafe_allow_html=True)
-    col3.caption("Total Competitor")
+    col3.markdown(f"<div style='color:red; font-size:28px;'>💳 {total_actual:,.2f} €</div>", unsafe_allow_html=True)
+    col3.caption("Total Actual")
     col4.markdown(f"<div style='color:blue; font-size:28px;'>💳 {total_o:,.2f} €</div>", unsafe_allow_html=True)
     col4.caption("Total Offer")
     col5.markdown(f"<div style='color:green; font-size:28px;'>💰 {saving:,.2f} €</div>", unsafe_allow_html=True)
-    col5.caption("Ersparnis (Offer - Competitor)")
+    col5.caption("Ersparnis (Offer - Actual)")
 
 # ------------------------------------------------------------
 # 💰 PRICING
@@ -163,7 +157,6 @@ elif page == "Pricing":
             if df_sw["Produkt"][i] != "GAW":
                 st.number_input(df_sw["Produkt"][i], min_value=0, step=1, key=f"sw_{i}")
 
-        # Dynamische Logik
         shop_selected = st.session_state["sw_0"] > 0
         pos_selected = st.session_state["sw_2"] > 0
 
@@ -175,8 +168,6 @@ elif page == "Pricing":
 
         st.number_input("GAW Menge", step=1, key="gaw_qty")
         st.number_input("GAW Betrag (€)", min_value=0.0, value=50.0, step=25.0, key="gaw_value")
-
-        # Software Menge für Berechnung
         df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
 
     # --- Hardware ---
@@ -217,7 +208,12 @@ elif page == "Pricing":
 
     with st.expander("Preisdetails anzeigen"):
         df_show = pd.concat([df_sw, df_hw])[["Produkt", "Min_OTF", "List_OTF", "Min_MRR", "List_MRR"]]
-        st.dataframe(df_show, hide_index=True, use_container_width=True)
+        st.dataframe(df_show.style.format({
+            "Min_OTF": "{:,.0f} €",
+            "List_OTF": "{:,.0f} €",
+            "Min_MRR": "{:,.0f} €",
+            "List_MRR": "{:,.0f} €",
+        }), hide_index=True, use_container_width=True)
 
 # ------------------------------------------------------------
 # 😉 Footer
