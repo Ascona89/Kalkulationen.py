@@ -97,7 +97,6 @@ elif page == "Cardpayment":
 
     with col2:
         st.subheader("Offer")
-
         # Werte automatisch übernehmen
         st.session_state.rev_o = st.session_state.rev_c
         st.session_state.sum_o = st.session_state.sum_c
@@ -173,26 +172,20 @@ elif page == "Pricing":
         st.subheader("🧩 Software")
         for i in range(len(df_sw)):
             if df_sw["Produkt"][i] != "GAW":
-                st.session_state[f"sw_{i}"] = st.number_input(
-                    df_sw["Produkt"][i], min_value=0, step=1, key=f"sw_{i}"
-                )
+                st.number_input(df_sw["Produkt"][i], min_value=0, step=1, key=f"sw_{i}")
 
-        # Dynamische Logik:
-        # Shop → Ordermanager =1, POS → Ordermanager =0, POS inkl 1 Printer=1
+        # Dynamische Logik
         shop_selected = st.session_state["sw_0"] > 0
         pos_selected = st.session_state["sw_2"] > 0
 
         if shop_selected:
-            st.session_state["hw_0"] = max(st.session_state["hw_0"], 1)  # Ordermanager
+            if st.session_state["hw_0"] < 1: st.session_state["hw_0"] = 1
         if pos_selected:
-            st.session_state["hw_0"] = 0  # Ordermanager
-            st.session_state["hw_1"] = max(st.session_state["hw_1"], 1)  # POS inkl 1 Printer
+            st.session_state["hw_0"] = 0
+            if st.session_state["hw_1"] < 1: st.session_state["hw_1"] = 1
 
-        # GAW
-        st.session_state["gaw_qty"] = st.number_input("GAW Menge", step=1, key="gaw_qty")
-        st.session_state["gaw_value"] = st.number_input(
-            "GAW Betrag (€)", min_value=0.0, value=50.0, step=25.0, key="gaw_value"
-        )
+        st.number_input("GAW Menge", step=1, key="gaw_qty")
+        st.number_input("GAW Betrag (€)", min_value=0.0, value=50.0, step=25.0, key="gaw_value")
 
         df_sw.loc[df_sw["Produkt"] == "GAW", "Menge"] = st.session_state["gaw_qty"]
 
@@ -200,9 +193,7 @@ elif page == "Pricing":
     with col_hw:
         st.subheader("🖥️ Hardware")
         for i in range(len(df_hw)):
-            st.session_state[f"hw_{i}"] = st.number_input(
-                df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}"
-            )
+            st.number_input(df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}")
 
     # --- Kalkulation ---
     df_sw["OTF_min_sum"] = df_sw.apply(lambda r: r["Menge"] * r["Min_OTF"] if r["Produkt"] != "GAW" else 0, axis=1)
