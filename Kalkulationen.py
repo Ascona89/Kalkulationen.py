@@ -176,16 +176,15 @@ elif page == "Pricing":
         st.number_input("GAW Menge", step=1, key="gaw_qty")
         st.number_input("GAW Betrag (€)", min_value=0.0, value=50.0, step=25.0, key="gaw_value")
 
-        df_sw.loc[df_sw["Produkt"] == "GAW", "Menge"] = st.session_state["gaw_qty"]
+        # Software Menge für Berechnung
+        df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
 
     # --- Hardware ---
     with col_hw:
         st.subheader("🖥️ Hardware")
         for i in range(len(df_hw)):
             st.number_input(df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}")
-
-    # Hardware Menge aus Session State übernehmen
-    df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
+        df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
 
     # --- Kalkulation ---
     df_sw["OTF_min_sum"] = df_sw.apply(lambda r: r["Menge"] * r["Min_OTF"] if r["Produkt"] != "GAW" else 0, axis=1)
