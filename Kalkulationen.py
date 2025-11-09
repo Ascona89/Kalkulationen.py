@@ -82,12 +82,12 @@ if page == "Platform":
 
     # Kennzahlen
     transaction = 0.7 * st.session_state.revenue / 5 * 0.35
-    cost_oyy_monthly = st.session_state.MRR + transaction
-    saving_monthly = total_cost - cost_oyy_monthly
+    cost_monthly = st.session_state.MRR + transaction
+    saving_monthly = total_cost - cost_monthly
     saving_over_contract = saving_monthly * st.session_state.contract_length
 
     st.subheader("📊 Kennzahlen")
-    st.info(f"- Cost OYY monthly: {cost_oyy_monthly:,.2f} €\n"
+    st.info(f"- Cost monthly: {cost_monthly:,.2f} €\n"
             f"- Saving monthly: {saving_monthly:,.2f} €\n"
             f"- Saving over contract length: {saving_over_contract:,.2f} €")
 
