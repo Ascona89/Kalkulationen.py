@@ -2,6 +2,29 @@ import streamlit as st
 import pandas as pd
 
 # ------------------------------------------------------------
+# 🔐 LOGIN-BEREICH
+# ------------------------------------------------------------
+PASSWORD = "welovekb"
+
+# Prüfen, ob User eingeloggt ist
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if not st.session_state.logged_in:
+    st.title("🔐 Login erforderlich")
+    password_input = st.text_input("Passwort eingeben:", type="password")
+
+    if st.button("Login"):
+        if password_input == PASSWORD:
+            st.session_state.logged_in = True
+            st.success("Login erfolgreich! 🚀")
+            st.rerun()
+        else:
+            st.error("❌ Falsches Passwort")
+
+    st.stop()
+
+# ------------------------------------------------------------
 # 🔧 Seitenkonfiguration
 # ------------------------------------------------------------
 st.set_page_config(page_title="Kalkulations-App", layout="wide")
