@@ -18,30 +18,29 @@ if "is_admin" not in st.session_state:
 if "login_history" not in st.session_state:
     st.session_state.login_history = []
 
-def log_attempt(username, role, success):
+def log_attempt(role, success):
     st.session_state.login_history.append({
-        "Benutzer": username,
         "Rolle": role,
         "Zeit": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "Erfolg": success
     })
 
-def login(username_input, password_input):
+def login(password_input):
     global USER_PASSWORD, ADMIN_PASSWORD
     if password_input == USER_PASSWORD:
         st.session_state.logged_in = True
         st.session_state.is_admin = False
-        log_attempt(username_input, "User", "Erfolg")
+        log_attempt("User", "Erfolg")
         st.success("Login erfolgreich! 🚀")
         st.rerun()
     elif password_input == ADMIN_PASSWORD:
         st.session_state.logged_in = True
         st.session_state.is_admin = True
-        log_attempt(username_input, "Admin", "Erfolg")
+        log_attempt("Admin", "Erfolg")
         st.success("Admin Login erfolgreich! 🚀")
         st.rerun()
     else:
-        log_attempt(username_input, "Unbekannt", "Fehlgeschlagen")
+        log_attempt("Unbekannt", "Fehlgeschlagen")
         st.error("❌ Falsches Passwort")
 
 # ------------------------------------------------------------
@@ -49,10 +48,9 @@ def login(username_input, password_input):
 # ------------------------------------------------------------
 if not st.session_state.logged_in:
     st.title("🔐 Login erforderlich")
-    username_input = st.text_input("Benutzername")
     password_input = st.text_input("Passwort", type="password")
     if st.button("Login"):
-        login(username_input, password_input)
+        login(password_input)
     st.stop()
 
 # ------------------------------------------------------------
@@ -252,17 +250,13 @@ elif page == "Pricing":
     total_min_mrr = df_sw["MRR_min_sum"].sum() + df_hw["MRR_min_sum"].sum()
     total_list_mrr = df_sw["MRR_list_sum"].sum() + df_hw["MRR_list_sum"].sum()
 
-    # --- Ausgabe ---
+    # --- List Price Ergebnisse ganz oben anzeigen ---
     st.markdown("---")
-    col_display_sw, col_display_hw = st.columns(2)
-
-    with col_display_sw:
-        st.markdown(f"<div style='color:#28a745; font-size:20px;'>MRR List: {total_list_mrr:,.2f} €</div>", unsafe_allow_html=True)
-        st.markdown(f"<div style='color:#e74c3c; font-size:20px;'>MRR Min: {total_min_mrr:,.2f} €</div>", unsafe_allow_html=True)
-
-    with col_display_hw:
-        st.markdown(f"<div style='color:#28a745; font-size:20px;'>OTF List: {total_list_otf:,.2f} €</div>", unsafe_allow_html=True)
-        st.markdown(f"<div style='color:#e74c3c; font-size:20px;'>OTF Min: {total_min_otf:,.2f} €</div>", unsafe_allow_html=True)
+    col_top_sw, col_top_hw = st.columns(2)
+    with col_top_sw:
+        st.markdown(f"<div style='color:#28a745; font-size:22px;'>MRR List: {total_list_mrr:,.2f} €</div>", unsafe_allow_html=True)
+    with col_top_hw:
+        st.markdown(f"<div style='color:#28a745; font-size:22px;'>OTF List: {total_list_otf:,.2f} €</div>", unsafe_allow_html=True)
 
     with st.expander("Preisdetails anzeigen"):
         df_show = pd.concat([df_sw, df_hw])[["Produkt", "Min_OTF", "List_OTF", "Min_MRR", "List_MRR"]]
