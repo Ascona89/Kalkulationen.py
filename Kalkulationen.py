@@ -66,6 +66,12 @@ if st.session_state.is_admin:
         st.dataframe(df_history, use_container_width=True)
         csv = df_history.to_csv(index=False).encode("utf-8")
         st.download_button("Download Login-Historie als CSV", csv, "login_history.csv", "text/csv")
+        
+        # --- Übersicht Logins pro Tag ---
+        df_history['Datum'] = pd.to_datetime(df_history['Zeit']).dt.date
+        logins_per_day = df_history.groupby('Datum').size().reset_index(name='Anzahl Logins')
+        st.subheader("📊 Logins pro Tag")
+        st.dataframe(logins_per_day, use_container_width=True)
     else:
         st.info("Noch keine Login-Versuche vorhanden.")
 
@@ -218,7 +224,6 @@ elif page == "Pricing":
 
     # --- Software ---
     with col_sw:
-        st.subheader("🧩 Software")
         for i in range(len(df_sw)):
             if df_sw["Produkt"][i] != "GAW":
                 st.number_input(df_sw["Produkt"][i], min_value=0, step=1, key=f"sw_{i}")
@@ -228,7 +233,6 @@ elif page == "Pricing":
 
     # --- Hardware ---
     with col_hw:
-        st.subheader("🖥️ Hardware")
         for i in range(len(df_hw)):
             st.number_input(df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}")
         df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
@@ -237,7 +241,7 @@ elif page == "Pricing":
     total_list_mrr = df_sw["Menge"].dot(df_sw["List_MRR"])
     total_list_otf = df_hw["Menge"].dot(df_hw["List_OTF"]) + st.session_state["gaw_qty"]*st.session_state["gaw_value"]
 
-    # Anzeige der List Prices direkt neben den Überschriften
+    # Anzeige der List Prices mit header-Schriftgröße
     col_sw.header(f"🧩 Software (MRR List: {total_list_mrr:,.2f} €)")
     col_hw.header(f"🖥️ Hardware (OTF List: {total_list_otf:,.2f} €)")
 
@@ -262,8 +266,8 @@ elif page == "Pricing":
 
     # --- MIN-Werte unterhalb der Tabelle ---
     st.markdown("---")
-    st.markdown(f"<div style='font-size:20px; color:#e74c3c;'>OTF Min: {total_min_otf:,.2f} €</div>", unsafe_allow_html=True)
-    st.markdown(f"<div style='font-size:20px; color:#e74c3c;'>MRR Min: {total_min_mrr:,.2f} €</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='font-size:28px; color:#e74c3c;'>OTF Min: {total_min_otf:,.2f} €</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='font-size:28px; color:#e74c3c;'>MRR Min: {total_min_mrr:,.2f} €</div>", unsafe_allow_html=True)
 
 # ------------------------------------------------------------
 # 😉 Footer
