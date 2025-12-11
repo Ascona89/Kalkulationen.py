@@ -233,31 +233,24 @@ elif page == "Pricing":
             st.number_input(df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}")
         df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
 
+    # --- Live List Price Berechnung ---
+    total_list_mrr = df_sw["Menge"].dot(df_sw["List_MRR"])
+    total_list_otf = df_hw["Menge"].dot(df_hw["List_OTF"]) + st.session_state["gaw_qty"]*st.session_state["gaw_value"]
+
+    # Anzeige der List Prices direkt neben den Überschriften
+    col_sw.header(f"🧩 Software (MRR List: {total_list_mrr:,.2f} €)")
+    col_hw.header(f"🖥️ Hardware (OTF List: {total_list_otf:,.2f} €)")
+
     # --- Kalkulation ---
     df_sw["OTF_min_sum"] = df_sw.apply(lambda r: r["Menge"] * r["Min_OTF"] if r["Produkt"] != "GAW" else 0, axis=1)
-    df_sw["OTF_list_sum"] = df_sw.apply(lambda r: r["Menge"] * r["List_OTF"] if r["Produkt"] != "GAW" else 0, axis=1)
-    df_hw["OTF_min_sum"] = df_hw["Menge"] * df_hw["Min_OTF"]
-    df_hw["OTF_list_sum"] = df_hw["Menge"] * df_hw["List_OTF"]
-
-    total_min_otf = df_sw["OTF_min_sum"].sum() + df_hw["OTF_min_sum"].sum() + st.session_state["gaw_qty"] * st.session_state["gaw_value"]
-    total_list_otf = df_sw["OTF_list_sum"].sum() + df_hw["OTF_list_sum"].sum() + st.session_state["gaw_qty"] * st.session_state["gaw_value"]
-
     df_sw["MRR_min_sum"] = df_sw.apply(lambda r: r["Menge"] * r["Min_MRR"] if r["Produkt"] != "GAW" else 0, axis=1)
-    df_sw["MRR_list_sum"] = df_sw.apply(lambda r: r["Menge"] * r["List_MRR"] if r["Produkt"] != "GAW" else 0, axis=1)
+    df_hw["OTF_min_sum"] = df_hw["Menge"] * df_hw["Min_OTF"]
     df_hw["MRR_min_sum"] = df_hw["Menge"] * df_hw["Min_MRR"]
-    df_hw["MRR_list_sum"] = df_hw["Menge"] * df_hw["List_MRR"]
 
+    total_min_otf = df_sw["OTF_min_sum"].sum() + df_hw["OTF_min_sum"].sum() + st.session_state["gaw_qty"]*st.session_state["gaw_value"]
     total_min_mrr = df_sw["MRR_min_sum"].sum() + df_hw["MRR_min_sum"].sum()
-    total_list_mrr = df_sw["MRR_list_sum"].sum() + df_hw["MRR_list_sum"].sum()
 
-    # --- List Price Ergebnisse ganz oben anzeigen ---
-    st.markdown("---")
-    col_top_sw, col_top_hw = st.columns(2)
-    with col_top_sw:
-        st.markdown(f"<div style='color:#28a745; font-size:22px;'>MRR List: {total_list_mrr:,.2f} €</div>", unsafe_allow_html=True)
-    with col_top_hw:
-        st.markdown(f"<div style='color:#28a745; font-size:22px;'>OTF List: {total_list_otf:,.2f} €</div>", unsafe_allow_html=True)
-
+    # --- Tabelle anzeigen ---
     with st.expander("Preisdetails anzeigen"):
         df_show = pd.concat([df_sw, df_hw])[["Produkt", "Min_OTF", "List_OTF", "Min_MRR", "List_MRR"]]
         st.dataframe(df_show.style.format({
@@ -266,6 +259,11 @@ elif page == "Pricing":
             "Min_MRR": "{:,.0f} €",
             "List_MRR": "{:,.0f} €",
         }), hide_index=True, use_container_width=True)
+
+    # --- MIN-Werte unterhalb der Tabelle ---
+    st.markdown("---")
+    st.markdown(f"<div style='font-size:20px; color:#e74c3c;'>OTF Min: {total_min_otf:,.2f} €</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='font-size:20px; color:#e74c3c;'>MRR Min: {total_min_mrr:,.2f} €</div>", unsafe_allow_html=True)
 
 # ------------------------------------------------------------
 # 😉 Footer
