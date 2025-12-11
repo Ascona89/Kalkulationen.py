@@ -1,45 +1,99 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
+
+# ------------------------------------------------------------
+# 🔐 PASSWÖRTER
+# ------------------------------------------------------------
+USER_PASSWORD = "welovekb"
+ADMIN_PASSWORD = "sebaforceo"
+
+# ------------------------------------------------------------
+# 🧠 SESSION STATE INITIALISIERUNG
+# ------------------------------------------------------------
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "is_admin" not in st.session_state:
+    st.session_state.is_admin = False
+if "login_history" not in st.session_state:
+    st.session_state.login_history = []
+
+def log_attempt(username, role, success):
+    st.session_state.login_history.append({
+        "Benutzer": username,
+        "Rolle": role,
+        "Zeit": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "Erfolg": success
+    })
+
+def login(username_input, password_input):
+    global USER_PASSWORD, ADMIN_PASSWORD
+    if password_input == USER_PASSWORD:
+        st.session_state.logged_in = True
+        st.session_state.is_admin = False
+        log_attempt(username_input, "User", "Erfolg")
+        st.success("Login erfolgreich! 🚀")
+        st.rerun()
+    elif password_input == ADMIN_PASSWORD:
+        st.session_state.logged_in = True
+        st.session_state.is_admin = True
+        log_attempt(username_input, "Admin", "Erfolg")
+        st.success("Admin Login erfolgreich! 🚀")
+        st.rerun()
+    else:
+        log_attempt(username_input, "Unbekannt", "Fehlgeschlagen")
+        st.error("❌ Falsches Passwort")
 
 # ------------------------------------------------------------
 # 🔐 LOGIN-BEREICH
 # ------------------------------------------------------------
-PASSWORD = "welovekb"
-
-# Prüfen, ob User eingeloggt ist
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-
 if not st.session_state.logged_in:
     st.title("🔐 Login erforderlich")
-    password_input = st.text_input("Passwort eingeben:", type="password")
-
+    username_input = st.text_input("Benutzername")
+    password_input = st.text_input("Passwort", type="password")
     if st.button("Login"):
-        if password_input == PASSWORD:
-            st.session_state.logged_in = True
-            st.success("Login erfolgreich! 🚀")
-            st.rerun()
-        else:
-            st.error("❌ Falsches Passwort")
+        login(username_input, password_input)
+    st.stop()
+
+# ------------------------------------------------------------
+# 🔧 ADMIN DASHBOARD
+# ------------------------------------------------------------
+if st.session_state.is_admin:
+    st.header("👑 Admin Dashboard")
+
+    # --- Login-Historie ---
+    st.subheader("Login-Historie")
+    if st.session_state.login_history:
+        df_history = pd.DataFrame(st.session_state.login_history)
+        st.dataframe(df_history, use_container_width=True)
+        csv = df_history.to_csv(index=False).encode("utf-8")
+        st.download_button("Download Login-Historie als CSV", csv, "login_history.csv", "text/csv")
+    else:
+        st.info("Noch keine Login-Versuche vorhanden.")
+
+    # --- Nutzerpasswort ändern ---
+    st.subheader("Nutzer-Passwort ändern")
+    new_user_pw = st.text_input("Neues Nutzer-Passwort", type="password")
+    if st.button("Passwort ändern"):
+        if new_user_pw:
+            USER_PASSWORD = new_user_pw
+            st.success("Nutzerpasswort erfolgreich geändert!")
 
     st.stop()
 
 # ------------------------------------------------------------
-# 🔧 Seitenkonfiguration
+# 🔧 SEITENKONFIGURATION
 # ------------------------------------------------------------
 st.set_page_config(page_title="Kalkulations-App", layout="wide")
 st.title("📊 Kalkulations-App")
 
-# ------------------------------------------------------------
-# 🧠 Session State Initialisierung
-# ------------------------------------------------------------
 def init_session_state(keys_defaults):
     for key, default in keys_defaults.items():
         if key not in st.session_state:
             st.session_state[key] = default
 
 # ------------------------------------------------------------
-# 📋 Seitenmenü
+# 📋 SEITENMENÜ
 # ------------------------------------------------------------
 page = st.sidebar.radio("Wähle eine Kalkulation:", ["Platform", "Cardpayment", "Pricing"])
 
@@ -56,23 +110,15 @@ if page == "Platform":
 
     with col1:
         st.subheader("Eingaben")
-        st.number_input("Revenue on platform (€)", step=250.0, key="revenue",
-                        help="Gesamter Umsatz auf der Plattform")
-        st.number_input("Commission (%)", step=1.0, key="commission_pct",
-                        help="Provision in Prozent")
-        st.number_input("Average order value (€)", step=5.0, key="avg_order_value",
-                        help="Durchschnittlicher Bestellwert")
-        st.number_input("Service Fee (€)", step=0.1, key="service_fee",
-                        help="Transaktionsgebühr pro Onlinezahlung")
+        st.number_input("Revenue on platform (€)", step=250.0, key="revenue")
+        st.number_input("Commission (%)", step=1.0, key="commission_pct")
+        st.number_input("Average order value (€)", step=5.0, key="avg_order_value")
+        st.number_input("Service Fee (€)", step=0.1, key="service_fee")
 
-        # ---------------------------------------
-        # Ergebnis direkt unter Service Fee
-        # ---------------------------------------
         total_cost = st.session_state.revenue * (st.session_state.commission_pct / 100) + \
                      (0.7 * st.session_state.revenue / st.session_state.avg_order_value if st.session_state.avg_order_value else 0) * st.session_state.service_fee
         st.markdown("### 💶 Cost on Platform")
-        st.markdown(f"<div style='color:red; font-size:28px;'>{total_cost:,.2f} €</div>",
-                    unsafe_allow_html=True)
+        st.markdown(f"<div style='color:red; font-size:28px;'>{total_cost:,.2f} €</div>", unsafe_allow_html=True)
 
         st.markdown("---")
         st.subheader("Vertragsdetails")
@@ -80,7 +126,6 @@ if page == "Platform":
         st.number_input("Monthly Recurring Revenue (MRR) (€)", step=10.0, key="MRR")
         st.number_input("Contract length (Monate)", step=12, key="contract_length")
 
-    # Kennzahlen
     transaction = 0.7 * st.session_state.revenue / 5 * 0.35
     cost_monthly = st.session_state.MRR + transaction
     saving_monthly = total_cost - cost_monthly
@@ -115,17 +160,14 @@ elif page == "Cardpayment":
 
     with col2:
         st.subheader("Offer")
-        # Werte automatisch übernehmen
         st.session_state.rev_o = st.session_state.rev_a
         st.session_state.sum_o = st.session_state.sum_a
-
         st.number_input("Revenue (€)", step=250.0, key="rev_o")
         st.number_input("Sum of payments", step=20, key="sum_o")
         st.number_input("Monthly Fee (€)", step=5.0, key="mrr_o")
         st.number_input("Commission (%)", step=0.01, key="comm_o")
         st.number_input("Authentification Fee (€)", key="auth_o")
 
-    # Kalkulation
     total_actual = st.session_state.rev_a * (st.session_state.comm_a / 100) + \
                    st.session_state.sum_a * st.session_state.auth_a + st.session_state.mrr_a
     total_o = st.session_state.rev_o * (st.session_state.comm_o / 100) + \
@@ -167,7 +209,6 @@ elif page == "Pricing":
     df_sw = pd.DataFrame(software_data)
     df_hw = pd.DataFrame(hardware_data)
 
-    # Session State initialisieren
     for i in range(len(df_sw)):
         if f"sw_{i}" not in st.session_state: st.session_state[f"sw_{i}"] = 0
     for i in range(len(df_hw)):
@@ -183,16 +224,6 @@ elif page == "Pricing":
         for i in range(len(df_sw)):
             if df_sw["Produkt"][i] != "GAW":
                 st.number_input(df_sw["Produkt"][i], min_value=0, step=1, key=f"sw_{i}")
-
-        shop_selected = st.session_state["sw_0"] > 0
-        pos_selected = st.session_state["sw_2"] > 0
-
-        if shop_selected:
-            if st.session_state["hw_0"] < 1: st.session_state["hw_0"] = 1
-        if pos_selected:
-            st.session_state["hw_0"] = 0
-            if st.session_state["hw_1"] < 1: st.session_state["hw_1"] = 1
-
         st.number_input("GAW Menge", step=1, key="gaw_qty")
         st.number_input("GAW Betrag (€)", min_value=0.0, value=50.0, step=25.0, key="gaw_value")
         df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
@@ -223,15 +254,15 @@ elif page == "Pricing":
 
     # --- Ausgabe ---
     st.markdown("---")
-    st.subheader("📊 Gesamtergebnisse")
-    st.markdown(f"""
-    <div style='display:flex; gap:40px; font-size:20px;'>
-        <div style='color:#e74c3c;'>OTF Min: {total_min_otf:,.2f} €</div>
-        <div style='color:#28a745;'>OTF List: {total_list_otf:,.2f} €</div>
-        <div style='color:#e74c3c;'>MRR Min: {total_min_mrr:,.2f} €</div>
-        <div style='color:#28a745;'>MRR List: {total_list_mrr:,.2f} €</div>
-    </div>
-    """, unsafe_allow_html=True)
+    col_display_sw, col_display_hw = st.columns(2)
+
+    with col_display_sw:
+        st.markdown(f"<div style='color:#28a745; font-size:20px;'>MRR List: {total_list_mrr:,.2f} €</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='color:#e74c3c; font-size:20px;'>MRR Min: {total_min_mrr:,.2f} €</div>", unsafe_allow_html=True)
+
+    with col_display_hw:
+        st.markdown(f"<div style='color:#28a745; font-size:20px;'>OTF List: {total_list_otf:,.2f} €</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='color:#e74c3c; font-size:20px;'>OTF Min: {total_min_otf:,.2f} €</div>", unsafe_allow_html=True)
 
     with st.expander("Preisdetails anzeigen"):
         df_show = pd.concat([df_sw, df_hw])[["Produkt", "Min_OTF", "List_OTF", "Min_MRR", "List_MRR"]]
@@ -251,5 +282,3 @@ st.markdown("""
 😉 Traue niemals Zahlen, die du nicht selbst gefälscht hast 😉
 </p>
 """, unsafe_allow_html=True)
-
-
