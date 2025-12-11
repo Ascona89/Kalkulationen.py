@@ -57,12 +57,12 @@ if not st.session_state.auth["logged_in"]:
             st.session_state.auth.update({"logged_in": True, "username": "user", "role": "user"})
             log_access("user", "user")
             st.success("Login erfolgreich! 🚀")
-            st.experimental_rerun()
+            st.rerun()
         elif pw == PASSWORD_ADMIN:
             st.session_state.auth.update({"logged_in": True, "username": "admin", "role": "admin"})
             log_access("admin", "admin")
             st.success("Admin Login erfolgreich! 🚀")
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("❌ Falsches Passwort")
     st.stop()
@@ -72,7 +72,7 @@ if not st.session_state.auth["logged_in"]:
 # --------------------------
 def logout():
     st.session_state.auth = {"logged_in": False, "username": None, "role": None}
-    st.experimental_rerun()
+    st.rerun()
 
 # --------------------------
 # Sidebar
@@ -152,7 +152,7 @@ def cardpayment_page():
     defaults = {"rev_a":0.0,"sum_a":0.0,"mrr_a":0.0,"comm_a":1.39,"auth_a":0.0,
                 "rev_o":0.0,"sum_o":0.0,"mrr_o":0.0,"comm_o":1.19,"auth_o":0.06}
     for k,v in defaults.items():
-        if k not in st.session_state: st.session_state[k]=v
+        if k not in st.session_state: st.session_state[k] = v
     with col1:
         st.subheader("Actual")
         st.number_input("Revenue (€)", step=250.0, key="rev_a")
