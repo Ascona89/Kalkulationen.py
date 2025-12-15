@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
 from supabase import create_client
+from datetime import datetime
 
 # ------------------------------------------------------------
 # 🔐 PASSWÖRTER
@@ -91,7 +91,7 @@ if st.session_state.is_admin:
     st.stop()
 
 # ------------------------------------------------------------
-# 🔧 APP KONFIG
+# 🔧 APP KONFIGURATION
 # ------------------------------------------------------------
 st.set_page_config(page_title="Kalkulations-App", layout="wide")
 st.title("📊 Kalkulations-App")
@@ -114,7 +114,7 @@ if page == "Platform":
 
     st.markdown("### 💶 Cost on Platform")
     st.markdown(
-        f"<div style='font-size:32px;color:red'>{total_cost:,.2f} €</div>",
+        f"<div style='font-size:28px;color:red'>{total_cost:,.2f} €</div>",
         unsafe_allow_html=True
     )
 
@@ -133,7 +133,7 @@ elif page == "Cardpayment":
     total = rev * (comm / 100) + tx * auth + mrr
 
     st.markdown(
-        f"<div style='font-size:32px;color:blue'>💳 {total:,.2f} €</div>",
+        f"<div style='font-size:28px;color:blue'>💳 {total:,.2f} €</div>",
         unsafe_allow_html=True
     )
 
@@ -143,12 +143,14 @@ elif page == "Cardpayment":
 elif page == "Pricing":
     st.header("💰 Pricing Kalkulation")
 
+    # Software Daten
     software = {
-        "Produkt": ["Shop", "App", "POS", "Pay"],
-        "List_MRR": [119, 49, 89, 25],
-        "Min_MRR": [50, 15, 49, 5]
+        "Produkt": ["Shop", "App", "POS", "Pay", "GAW"],
+        "List_MRR": [119, 49, 89, 25, 100],
+        "Min_MRR": [50, 15, 49, 5, 100]
     }
 
+    # Hardware Daten
     hardware = {
         "Produkt": ["Ordermanager", "POS inkl Printer", "PAX"],
         "List_OTF": [299, 1699, 299],
@@ -160,12 +162,14 @@ elif page == "Pricing":
 
     col_sw, col_hw = st.columns(2)
 
+    # --- Software Menge ---
     with col_sw:
         st.subheader("🧩 Software")
         qty_sw = []
         for p in df_sw["Produkt"]:
             qty_sw.append(st.number_input(p, 0, step=1))
 
+    # --- Hardware Menge ---
     with col_hw:
         st.subheader("🖥️ Hardware")
         qty_hw = []
@@ -175,12 +179,14 @@ elif page == "Pricing":
     df_sw["Menge"] = qty_sw
     df_hw["Menge"] = qty_hw
 
+    # --- List Prices Anzeige ---
     list_mrr = (df_sw["Menge"] * df_sw["List_MRR"]).sum()
     list_otf = (df_hw["Menge"] * df_hw["List_OTF"]).sum()
 
     col_sw.header(f"🧩 Software (MRR List: {list_mrr:,.2f} €)")
     col_hw.header(f"🖥️ Hardware (OTF List: {list_otf:,.2f} €)")
 
+    # --- Min Werte unterhalb ---
     min_mrr = (df_sw["Menge"] * df_sw["Min_MRR"]).sum()
     min_otf = (df_hw["Menge"] * df_hw["Min_OTF"]).sum()
 
