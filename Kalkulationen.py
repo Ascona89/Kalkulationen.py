@@ -233,21 +233,6 @@ elif page == "Pricing":
     if "gaw_value" not in st.session_state: st.session_state["gaw_value"]=50.0
     if "gaw_qty" not in st.session_state: st.session_state["gaw_qty"]=1
 
-    df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
-    df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
-
-    # --- List Prices nebeneinander ---
-    list_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum()
-    list_otf = (df_hw["Menge"]*df_hw["List_OTF"]).sum()
-    gaw_total = st.session_state["gaw_qty"]*st.session_state["gaw_value"]
-
-    col_list1, col_list2 = st.columns(2)
-    col_list1.markdown(f"### 🧩 Software MRR List: {list_mrr:,.2f} €", unsafe_allow_html=True)
-    col_list2.markdown(f"### 🖥️ Hardware OTF List: {list_otf:,.2f} €", unsafe_allow_html=True)
-
-    # --- GAW Gesamt ---
-    st.markdown(f"### 💰 GAW Gesamt: {gaw_total:,.2f} €", unsafe_allow_html=True)
-
     col_sw, col_hw = st.columns(2)
 
     # --- Software Eingaben ---
@@ -255,20 +240,33 @@ elif page == "Pricing":
         st.subheader("🧩 Software")
         for i in range(len(df_sw)):
             if df_sw["Produkt"][i] != "GAW":
-                st.number_input(df_sw["Produkt"][i], min_value=0, step=1, key=f"sw_{i}")
-        st.number_input("GAW Menge", step=1, key="gaw_qty")
-        st.number_input("GAW Betrag (€)", min_value=0.0, step=25.0, key="gaw_value")
+                st.session_state[f"sw_{i}"] = st.number_input(df_sw["Produkt"][i], min_value=0, step=1, key=f"sw_{i}")
+        st.session_state["gaw_qty"] = st.number_input("GAW Menge", step=1, key="gaw_qty")
+        st.session_state["gaw_value"] = st.number_input("GAW Betrag (€)", min_value=0.0, step=25.0, key="gaw_value")
         df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
 
     # --- Hardware Eingaben ---
     with col_hw:
         st.subheader("🖥️ Hardware")
         for i in range(len(df_hw)):
-            st.number_input(df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}")
+            st.session_state[f"hw_{i}"] = st.number_input(df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}")
         df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
 
+    # --- Berechnung List Prices & GAW ---
+    list_mrr = (df_sw[df_sw["Produkt"]!="GAW"]["Menge"]*df_sw[df_sw["Produkt"]!="GAW"]["List_MRR"]).sum()
+    list_otf = (df_hw["Menge"]*df_hw["List_OTF"]).sum()
+    gaw_total = st.session_state["gaw_qty"]*st.session_state["gaw_value"]
+
+    # --- Anzeige List Prices ---
+    col_list1, col_list2 = st.columns(2)
+    col_list1.markdown(f"### 🧩 Software MRR List: {list_mrr:,.2f} €", unsafe_allow_html=True)
+    col_list2.markdown(f"### 🖥️ Hardware OTF List: {list_otf:,.2f} €", unsafe_allow_html=True)
+
+    # --- GAW Gesamt ---
+    st.markdown(f"### 💰 GAW Gesamt: {gaw_total:,.2f} €", unsafe_allow_html=True)
+
     # --- Min Prices unten ---
-    min_mrr = (df_sw["Menge"]*df_sw["Min_MRR"]).sum()
+    min_mrr = (df_sw[df_sw["Produkt"]!="GAW"]["Menge"]*df_sw[df_sw["Produkt"]!="GAW"]["Min_MRR"]).sum()
     min_otf = (df_hw["Menge"]*df_hw["Min_OTF"]).sum()
     st.markdown("---")
     st.markdown(f"### 🔻 MRR Min: {min_mrr:,.2f} €")
