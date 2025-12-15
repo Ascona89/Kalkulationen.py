@@ -225,7 +225,7 @@ elif page == "Pricing":
     df_sw = pd.DataFrame(software_data)
     df_hw = pd.DataFrame(hardware_data)
 
-    # Session State korrekt initialisieren
+    # Session State initialisieren
     for i in range(len(df_sw)):
         if f"sw_{i}" not in st.session_state: st.session_state[f"sw_{i}"]=0
     for i in range(len(df_hw)):
@@ -233,9 +233,13 @@ elif page == "Pricing":
     if "gaw_value" not in st.session_state: st.session_state["gaw_value"]=50.0
     if "gaw_qty" not in st.session_state: st.session_state["gaw_qty"]=1
 
+    # Mengen initialisieren für List Price Berechnung
+    df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
+    df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
+
     # --- List Prices oben ---
-    list_mrr = (df_sw["List_MRR"]).sum()
-    list_otf = (df_hw["List_OTF"]).sum()
+    list_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum() + st.session_state["gaw_qty"]*st.session_state["gaw_value"]
+    list_otf = (df_hw["Menge"]*df_hw["List_OTF"]).sum()
     st.markdown(f"### 🧩 Software MRR List: {list_mrr:,.2f} €", unsafe_allow_html=True)
     st.markdown(f"### 🖥️ Hardware OTF List: {list_otf:,.2f} €", unsafe_allow_html=True)
 
@@ -255,7 +259,7 @@ elif page == "Pricing":
     with col_hw:
         st.subheader("🖥️ Hardware")
         for i in range(len(df_hw)):
-            st.number_input(df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}")
+            st.number_input(df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}"]
         df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
 
     # --- Min Prices unten ---
