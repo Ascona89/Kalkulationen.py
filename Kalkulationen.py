@@ -10,7 +10,7 @@ USER_PASSWORD = "welovekb"
 ADMIN_PASSWORD = "sebaforceo"
 
 # ------------------------------------------------------------
-# 🧠 SUPABASE INITIALISIERUNG (PERSISTENT)
+# 🧠 SUPABASE INITIALISIERUNG
 # ------------------------------------------------------------
 supabase = create_client(
     st.secrets["SUPABASE_URL"],
@@ -40,13 +40,11 @@ def login(password_input):
         st.session_state.is_admin = False
         log_attempt("User", True)
         st.rerun()
-
     elif password_input == ADMIN_PASSWORD:
         st.session_state.logged_in = True
         st.session_state.is_admin = True
         log_attempt("Admin", True)
         st.rerun()
-
     else:
         log_attempt("Unknown", False)
         st.error("❌ Falsches Passwort")
