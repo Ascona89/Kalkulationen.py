@@ -233,15 +233,20 @@ elif page == "Pricing":
     if "gaw_value" not in st.session_state: st.session_state["gaw_value"]=50.0
     if "gaw_qty" not in st.session_state: st.session_state["gaw_qty"]=1
 
-    # Mengen initialisieren
     df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
     df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
 
-    # --- List Prices oben ---
-    list_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum() + st.session_state["gaw_qty"]*st.session_state["gaw_value"]
+    # --- List Prices nebeneinander ---
+    list_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum()
     list_otf = (df_hw["Menge"]*df_hw["List_OTF"]).sum()
-    st.markdown(f"### 🧩 Software MRR List: {list_mrr:,.2f} €", unsafe_allow_html=True)
-    st.markdown(f"### 🖥️ Hardware OTF List: {list_otf:,.2f} €", unsafe_allow_html=True)
+    gaw_total = st.session_state["gaw_qty"]*st.session_state["gaw_value"]
+
+    col_list1, col_list2 = st.columns(2)
+    col_list1.markdown(f"### 🧩 Software MRR List: {list_mrr:,.2f} €", unsafe_allow_html=True)
+    col_list2.markdown(f"### 🖥️ Hardware OTF List: {list_otf:,.2f} €", unsafe_allow_html=True)
+
+    # --- GAW Gesamt ---
+    st.markdown(f"### 💰 GAW Gesamt: {gaw_total:,.2f} €", unsafe_allow_html=True)
 
     col_sw, col_hw = st.columns(2)
 
