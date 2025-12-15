@@ -233,7 +233,7 @@ elif page == "Pricing":
     if "gaw_value" not in st.session_state: st.session_state["gaw_value"]=50.0
     if "gaw_qty" not in st.session_state: st.session_state["gaw_qty"]=1
 
-    # Mengen initialisieren für List Price Berechnung
+    # Mengen initialisieren
     df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
     df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
 
@@ -259,7 +259,7 @@ elif page == "Pricing":
     with col_hw:
         st.subheader("🖥️ Hardware")
         for i in range(len(df_hw)):
-            st.number_input(df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}"]
+            st.number_input(df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}")
         df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
 
     # --- Min Prices unten ---
