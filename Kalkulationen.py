@@ -21,7 +21,8 @@ def log_login(role, success):
     """Loginversuch in Supabase speichern"""
     supabase.table("login_events").insert({
         "role": role,
-        "success": success
+        "success": success,
+        "created_at": datetime.utcnow().isoformat()
     }).execute()
 
 # -------------------------------
@@ -103,10 +104,11 @@ if page == "Platform":
     st.header("🏁 Platform Kalkulation")
     col1, col2 = st.columns([2, 1.5])
 
-    if "revenue" not in st.session_state: st.session_state.update({
-        "revenue":0.0, "commission_pct":14.0, "avg_order_value":25.0,
-        "service_fee":0.69, "OTF":0.0, "MRR":0.0, "contract_length":24
-    })
+    init_keys = ["revenue","commission_pct","avg_order_value","service_fee","OTF","MRR","contract_length"]
+    defaults = [0.0,14.0,25.0,0.69,0.0,0.0,24]
+    for k, v in zip(init_keys, defaults):
+        if k not in st.session_state:
+            st.session_state[k] = v
 
     with col1:
         st.subheader("Eingaben")
@@ -144,10 +146,10 @@ elif page == "Cardpayment":
     col1, col2 = st.columns(2)
 
     init_keys = ["rev_a","sum_a","mrr_a","comm_a","auth_a","rev_o","sum_o","mrr_o","comm_o","auth_o"]
-    for k in init_keys:
-        if k not in st.session_state: st.session_state[k]=0.0
-
-    st.session_state.update({"comm_a":1.39,"comm_o":1.19,"auth_o":0.06})
+    defaults = [0.0,0.0,0.0,1.39,0.0,0.0,0.0,0.0,1.19,0.06]
+    for k, v in zip(init_keys, defaults):
+        if k not in st.session_state:
+            st.session_state[k] = v
 
     with col1:
         st.subheader("Actual")
@@ -206,6 +208,7 @@ elif page == "Pricing":
     df_sw = pd.DataFrame(software_data)
     df_hw = pd.DataFrame(hardware_data)
 
+    # Session State korrekt initialisieren
     for i in range(len(df_sw)):
         if f"sw_{i}" not in st.session_state: st.session_state[f"sw_{i}"]=0
     for i in range(len(df_hw)):
@@ -221,9 +224,8 @@ elif page == "Pricing":
         for i in range(len(df_sw)):
             if df_sw["Produkt"][i] != "GAW":
                 st.number_input(df_sw["Produkt"][i], min_value=0, step=1, key=f"sw_{i}")
-
         st.number_input("GAW Menge", step=1, key="gaw_qty")
-        st.number_input("GAW Betrag (€)", min_value=0.0, value=50.0, step=25.0, key="gaw_value")
+        st.number_input("GAW Betrag (€)", min_value=0.0, step=25.0, key="gaw_value")
         df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
 
     # --- Hardware ---
@@ -234,12 +236,12 @@ elif page == "Pricing":
         df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
 
     # --- List Prices oben ---
-    list_mrr = (df_sw["Menge"] * df_sw["List_MRR"]).sum()
-    list_otf = (df_hw["Menge"] * df_hw["List_OTF"]).sum()
-    col_sw.header(f"🧩 Software (MRR List: {list_mrr:,.2f} €)")
-    col_hw.header(f"🖥️ Hardware (OTF List: {list_otf:,.2f} €)")
+    list_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum()
+    list_otf = (df_hw["Menge"]*df_hw["List_OTF"]).sum()
+    col_sw.markdown(f"### 🧩 Software (MRR List: {list_mrr:,.2f} €)", unsafe_allow_html=True)
+    col_hw.markdown(f"### 🖥️ Hardware (OTF List: {list_otf:,.2f} €)", unsafe_allow_html=True)
 
-    # --- Min Prices unterhalb ---
+    # --- Min Prices unten ---
     min_mrr = (df_sw["Menge"]*df_sw["Min_MRR"]).sum()
     min_otf = (df_hw["Menge"]*df_hw["Min_OTF"]).sum()
     st.markdown("---")
