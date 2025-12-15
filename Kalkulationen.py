@@ -240,16 +240,16 @@ elif page == "Pricing":
         st.subheader("🧩 Software")
         for i in range(len(df_sw)):
             if df_sw["Produkt"][i] != "GAW":
-                st.session_state[f"sw_{i}"] = st.number_input(df_sw["Produkt"][i], min_value=0, step=1, key=f"sw_{i}")
-        st.session_state["gaw_qty"] = st.number_input("GAW Menge", step=1, key="gaw_qty")
-        st.session_state["gaw_value"] = st.number_input("GAW Betrag (€)", min_value=0.0, step=25.0, key="gaw_value")
+                st.number_input(df_sw["Produkt"][i], min_value=0, step=1, key=f"sw_{i}")
+        st.number_input("GAW Menge", step=1, key="gaw_qty")
+        st.number_input("GAW Betrag (€)", min_value=0.0, step=25.0, key="gaw_value")
         df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
 
     # --- Hardware Eingaben ---
     with col_hw:
         st.subheader("🖥️ Hardware")
         for i in range(len(df_hw)):
-            st.session_state[f"hw_{i}"] = st.number_input(df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}")
+            st.number_input(df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}")
         df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
 
     # --- Berechnung List Prices & GAW ---
