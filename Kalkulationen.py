@@ -32,12 +32,16 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
+if "USER_PASSWORD" not in st.session_state:
+    st.session_state["USER_PASSWORD"] = USER_PASSWORD
 
 # -------------------------------
 # 🔐 Login
 # -------------------------------
 def login(password):
-    if password == USER_PASSWORD:
+    user_pw = st.session_state.get("USER_PASSWORD", USER_PASSWORD)
+    
+    if password == user_pw:
         st.session_state.logged_in = True
         st.session_state.is_admin = False
         log_login("User", True)
@@ -63,6 +67,8 @@ if not st.session_state.logged_in:
 # -------------------------------
 if st.session_state.is_admin:
     st.header("👑 Admin Dashboard")
+    
+    # Login-Historie
     data = supabase.table("login_events").select("*").order("created_at", desc=True).execute()
     df = pd.DataFrame(data.data)
     if not df.empty:
@@ -84,6 +90,17 @@ if st.session_state.is_admin:
         st.download_button("CSV Export", csv, "login_history.csv", "text/csv")
     else:
         st.info("Noch keine Login-Daten vorhanden.")
+
+    # Passwortänderung für normalen User
+    st.subheader("🔑 User Passwort ändern")
+    new_password = st.text_input("Neues User-Passwort", type="password")
+    if st.button("Update User Passwort"):
+        if new_password:
+            st.session_state['USER_PASSWORD'] = new_password
+            st.success("✅ Passwort erfolgreich geändert!")
+        else:
+            st.warning("Bitte ein gültiges Passwort eingeben.")
+    
     st.stop()
 
 # -------------------------------
@@ -216,9 +233,15 @@ elif page == "Pricing":
     if "gaw_value" not in st.session_state: st.session_state["gaw_value"]=50.0
     if "gaw_qty" not in st.session_state: st.session_state["gaw_qty"]=1
 
+    # --- List Prices oben ---
+    list_mrr = (df_sw["List_MRR"]).sum()
+    list_otf = (df_hw["List_OTF"]).sum()
+    st.markdown(f"### 🧩 Software MRR List: {list_mrr:,.2f} €", unsafe_allow_html=True)
+    st.markdown(f"### 🖥️ Hardware OTF List: {list_otf:,.2f} €", unsafe_allow_html=True)
+
     col_sw, col_hw = st.columns(2)
 
-    # --- Software ---
+    # --- Software Eingaben ---
     with col_sw:
         st.subheader("🧩 Software")
         for i in range(len(df_sw)):
@@ -228,18 +251,12 @@ elif page == "Pricing":
         st.number_input("GAW Betrag (€)", min_value=0.0, step=25.0, key="gaw_value")
         df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
 
-    # --- Hardware ---
+    # --- Hardware Eingaben ---
     with col_hw:
         st.subheader("🖥️ Hardware")
         for i in range(len(df_hw)):
             st.number_input(df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}")
         df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
-
-    # --- List Prices oben ---
-    list_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum()
-    list_otf = (df_hw["Menge"]*df_hw["List_OTF"]).sum()
-    col_sw.markdown(f"### 🧩 Software (MRR List: {list_mrr:,.2f} €)", unsafe_allow_html=True)
-    col_hw.markdown(f"### 🖥️ Hardware (OTF List: {list_otf:,.2f} €)", unsafe_allow_html=True)
 
     # --- Min Prices unten ---
     min_mrr = (df_sw["Menge"]*df_sw["Min_MRR"]).sum()
