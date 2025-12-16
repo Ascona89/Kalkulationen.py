@@ -3,15 +3,15 @@ import pandas as pd
 from datetime import datetime
 from supabase import create_client
 
-# -------------------------------
+# =========================================================
 # 🔐 Passwörter
-# -------------------------------
+# =========================================================
 USER_PASSWORD = "welovekb"
 ADMIN_PASSWORD = "sebaforceo"
 
-# -------------------------------
-# 🧠 Supabase-Client
-# -------------------------------
+# =========================================================
+# 🧠 Supabase
+# =========================================================
 supabase = create_client(
     st.secrets["SUPABASE_URL"],
     st.secrets["SUPABASE_KEY"]
@@ -24,9 +24,9 @@ def log_login(role, success):
         "created_at": datetime.utcnow().isoformat()
     }).execute()
 
-# -------------------------------
+# =========================================================
 # 🧠 Session State
-# -------------------------------
+# =========================================================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "is_admin" not in st.session_state:
@@ -34,9 +34,9 @@ if "is_admin" not in st.session_state:
 if "USER_PASSWORD" not in st.session_state:
     st.session_state["USER_PASSWORD"] = USER_PASSWORD
 
-# -------------------------------
+# =========================================================
 # 🔐 Login
-# -------------------------------
+# =========================================================
 def login(password):
     if password == st.session_state["USER_PASSWORD"]:
         st.session_state.logged_in = True
@@ -59,15 +59,15 @@ if not st.session_state.logged_in:
         login(pw)
     st.stop()
 
-# -------------------------------
+# =========================================================
 # 🔧 App Config
-# -------------------------------
+# =========================================================
 st.set_page_config(page_title="Kalkulations-App", layout="wide")
 st.title("📊 Kalkulations-App")
 
-# -------------------------------
+# =========================================================
 # 📋 Navigation
-# -------------------------------
+# =========================================================
 page = st.sidebar.radio(
     "Wähle eine Kalkulation:",
     ["Platform", "Cardpayment", "Pricing", "Contract Numbers"]
@@ -78,6 +78,7 @@ page = st.sidebar.radio(
 # =========================================================
 if page == "Platform":
     st.header("🏁 Platform Kalkulation")
+
     revenue = st.number_input("Revenue (€)", step=250.0)
     commission = st.number_input("Commission (%)", value=14.0)
     aov = st.number_input("Average Order Value (€)", value=25.0)
@@ -91,31 +92,33 @@ if page == "Platform":
 # =========================================================
 elif page == "Cardpayment":
     st.header("💳 Cardpayment Vergleich")
-    rev = st.number_input("Revenue (€)")
-    comm = st.number_input("Commission (%)", value=1.39)
-    fee = st.number_input("Monthly Fee (€)")
-    total = rev * comm / 100 + fee
-    st.markdown(f"### Total: **{total:,.2f} €**")
+
+    revenue = st.number_input("Revenue (€)", step=250.0)
+    commission = st.number_input("Commission (%)", value=1.39)
+    monthly_fee = st.number_input("Monthly Fee (€)", value=0.0)
+
+    total = revenue * commission / 100 + monthly_fee
+    st.markdown(f"### 💳 Total: **{total:,.2f} €**")
 
 # =========================================================
-# 💰 PRICING
+# 💰 PRICING (Single Source of Truth)
 # =========================================================
 elif page == "Pricing":
-    st.header("💰 Pricing Kalkulation")
+    st.header("💰 Pricing")
 
     software_data = {
-        "Produkt": ["Web","App","Kasse"],
-        "List_MRR": [79.0,129.0,69.0],
-        "List_OTF": [999.0,49.0,999.0]
+        "Produkt": ["Web", "App", "Kasse"],
+        "List_MRR (€)": [79.0, 129.0, 69.0],
+        "List_OTF (€)": [999.0, 49.0, 999.0]
     }
 
     df_sw = pd.DataFrame(software_data)
 
     for i in range(len(df_sw)):
         if f"sw_{i}" not in st.session_state:
-            st.session_state[f"sw_{i}"] = 1
+            st.session_state[f"sw_{i}"] = 0
 
-    st.subheader("🧩 Software Preise")
+    st.subheader("🧩 Software Auswahl")
     for i, row in df_sw.iterrows():
         st.number_input(
             f"{row['Produkt']} Menge",
@@ -125,7 +128,7 @@ elif page == "Pricing":
         )
 
     df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
-    st.dataframe(df_sw, use_container_width=True)
+    st.dataframe(df_sw, use_container_width=True, hide_index=True)
 
 # =========================================================
 # 📑 CONTRACT NUMBERS
@@ -133,52 +136,60 @@ elif page == "Pricing":
 elif page == "Contract Numbers":
     st.header("📑 Contract Numbers")
 
-    # 🔗 Preise DIREKT aus Pricing (List_MRR)
-    pricing_prices = {
-        "Web":   79.0,
-        "App":   129.0,
-        "Kasse": 69.0
-    }
+    # 🔗 Preise & Auswahl aus Pricing
+    pricing_products = [
+        {"name": "Web",   "price": 79.0,  "qty": st.session_state.get("sw_0", 0)},
+        {"name": "App",   "price": 129.0, "qty": st.session_state.get("sw_1", 0)},
+        {"name": "Kasse", "price": 69.0,  "qty": st.session_state.get("sw_2", 0)},
+    ]
 
-    def render_package(title, products, key):
-        st.subheader(title)
+    active_products = [p for p in pricing_products if p["qty"] > 0]
 
-        col1, col2 = st.columns(2)
-        with col1:
-            mrr = st.number_input("Paket MRR (€)", min_value=0.0, key=f"{key}_mrr")
-        with col2:
-            otf = st.number_input("Paket OTF (€)", min_value=0.0, step=10.0, key=f"{key}_otf")
+    if not active_products:
+        st.warning("⚠️ Bitte zuerst Produkte im Pricing auswählen.")
+        st.stop()
 
-        originals = {p: pricing_prices[p] for p in products}
-        total_original = sum(originals.values())
-
-        rows = []
-        for p in products:
-            pct = originals[p] / total_original if total_original else 0
-            rows.append({
-                "Bestandteil": p,
-                "Originalpreis (€)": f"{originals[p]:,.2f}",
-                "%-Anteil": f"{pct*100:,.2f} %",
-                "MRR anteilig (€)": f"{pct*mrr:,.2f}",
-                "OTF anteilig (€)": f"{pct*otf:,.2f}"
-            })
-
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-        st.markdown(
-            f"**Prüfsumme:** 100 % | "
-            f"**MRR:** {mrr:,.2f} € | "
-            f"**OTF:** {otf:,.2f} €"
+    col1, col2 = st.columns(2)
+    with col1:
+        package_mrr = st.number_input(
+            "Paket MRR gesamt (€)",
+            min_value=0.0,
+            step=1.0
         )
-        st.markdown("---")
+    with col2:
+        package_otf = st.number_input(
+            "Paket OTF gesamt (€)",
+            min_value=0.0,
+            step=10.0
+        )
 
-    render_package("📦 Paket App & Web", ["Web","App"], "pkg_app_web")
-    render_package("📦 Paket App & Web & Kasse", ["Web","App","Kasse"], "pkg_app_web_kasse")
-    render_package("📦 Paket App & Kasse", ["App","Kasse"], "pkg_app_kasse")
-    render_package("📦 Paket Web & Kasse", ["Web","Kasse"], "pkg_web_kasse")
+    total_original = sum(p["price"] for p in active_products)
 
-# -------------------------------
+    rows = []
+    for p in active_products:
+        pct = p["price"] / total_original if total_original else 0
+        rows.append({
+            "Produkt": p["name"],
+            "Originalpreis (€)": f"{p['price']:,.2f}",
+            "%-Anteil": f"{pct*100:,.2f} %",
+            "MRR Vertrag (€)": f"{pct*package_mrr:,.2f}",
+            "OTF Vertrag (€)": f"{pct*package_otf:,.2f}"
+        })
+
+    df_contract = pd.DataFrame(rows)
+
+    st.subheader("📄 Vertragswerte (direkt eintragen)")
+    st.dataframe(df_contract, use_container_width=True, hide_index=True)
+
+    st.markdown(
+        f"**Prüfsumme:** 100 % | "
+        f"**MRR gesamt:** {package_mrr:,.2f} € | "
+        f"**OTF gesamt:** {package_otf:,.2f} €"
+    )
+
+# =========================================================
 # Footer
-# -------------------------------
+# =========================================================
 st.markdown("""
 <hr>
 <p style='text-align:center; font-size:0.8rem; color:gray;'>
