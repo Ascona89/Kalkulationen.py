@@ -40,7 +40,7 @@ if "USER_PASSWORD" not in st.session_state:
 # -------------------------------
 def login(password):
     user_pw = st.session_state.get("USER_PASSWORD", USER_PASSWORD)
-    
+
     if password == user_pw:
         st.session_state.logged_in = True
         st.session_state.is_admin = False
@@ -67,23 +67,23 @@ if not st.session_state.logged_in:
 # -------------------------------
 if st.session_state.is_admin:
     st.header("👑 Admin Dashboard")
-    
-    # Login-Historie
+
     data = supabase.table("login_events").select("*").order("created_at", desc=True).execute()
     df = pd.DataFrame(data.data)
+
     if not df.empty:
         df["Datum"] = pd.to_datetime(df["created_at"]).dt.date
+
         st.subheader("📄 Login-Historie")
         st.dataframe(df, use_container_width=True)
 
         st.subheader("📊 Logins pro Tag")
         logins_per_day = (
-            df[df["success"]==True]
+            df[df["success"] == True]
             .groupby("Datum")
             .size()
             .reset_index(name="Logins")
         )
-        st.dataframe(logins_per_day, use_container_width=True)
         st.bar_chart(logins_per_day.set_index("Datum"))
 
         csv = df.to_csv(index=False).encode("utf-8")
@@ -91,16 +91,14 @@ if st.session_state.is_admin:
     else:
         st.info("Noch keine Login-Daten vorhanden.")
 
-    # Passwortänderung für normalen User
     st.subheader("🔑 User Passwort ändern")
     new_password = st.text_input("Neues User-Passwort", type="password")
     if st.button("Update User Passwort"):
         if new_password:
-            st.session_state['USER_PASSWORD'] = new_password
+            st.session_state["USER_PASSWORD"] = new_password
             st.success("✅ Passwort erfolgreich geändert!")
         else:
             st.warning("Bitte ein gültiges Passwort eingeben.")
-    
     st.stop()
 
 # -------------------------------
@@ -134,10 +132,18 @@ if page == "Platform":
         st.number_input("Average order value (€)", step=5.0, key="avg_order_value")
         st.number_input("Service Fee (€)", step=0.1, key="service_fee")
 
-        total_cost = st.session_state.revenue*(st.session_state.commission_pct/100) + \
-                     (0.7*st.session_state.revenue/st.session_state.avg_order_value if st.session_state.avg_order_value else 0)*st.session_state.service_fee
+        total_cost = (
+            st.session_state.revenue * (st.session_state.commission_pct / 100)
+            + (0.7 * st.session_state.revenue / st.session_state.avg_order_value
+               if st.session_state.avg_order_value else 0)
+            * st.session_state.service_fee
+        )
+
         st.markdown("### 💶 Cost on Platform")
-        st.markdown(f"<div style='color:red; font-size:28px;'>{total_cost:,.2f} €</div>", unsafe_allow_html=True)
+        st.markdown(
+            f"<div style='color:red; font-size:28px;'>{total_cost:,.2f} €</div>",
+            unsafe_allow_html=True
+        )
 
         st.markdown("---")
         st.subheader("Vertragsdetails")
@@ -145,15 +151,17 @@ if page == "Platform":
         st.number_input("Monthly Recurring Revenue (MRR) (€)", step=10.0, key="MRR")
         st.number_input("Contract length (Monate)", step=12, key="contract_length")
 
-    transaction = 0.7*st.session_state.revenue/5*0.35
+    transaction = 0.7 * st.session_state.revenue / 5 * 0.35
     cost_monthly = st.session_state.MRR + transaction
     saving_monthly = total_cost - cost_monthly
-    saving_over_contract = saving_monthly*st.session_state.contract_length
+    saving_over_contract = saving_monthly * st.session_state.contract_length
 
     st.subheader("📊 Kennzahlen")
-    st.info(f"- Cost monthly: {cost_monthly:,.2f} €\n"
-            f"- Saving monthly: {saving_monthly:,.2f} €\n"
-            f"- Saving over contract length: {saving_over_contract:,.2f} €")
+    st.info(
+        f"- Cost monthly: {cost_monthly:,.2f} €\n"
+        f"- Saving monthly: {saving_monthly:,.2f} €\n"
+        f"- Saving over contract length: {saving_over_contract:,.2f} €"
+    )
 
 # -------------------------------
 # 💳 Cardpayment
@@ -180,15 +188,24 @@ elif page == "Cardpayment":
         st.subheader("Offer")
         st.session_state.rev_o = st.session_state.rev_a
         st.session_state.sum_o = st.session_state.sum_a
-
         st.number_input("Revenue (€)", step=250.0, key="rev_o")
         st.number_input("Sum of payments", step=20, key="sum_o")
         st.number_input("Monthly Fee (€)", step=5.0, key="mrr_o")
         st.number_input("Commission (%)", step=0.01, key="comm_o")
         st.number_input("Authentification Fee (€)", key="auth_o")
 
-    total_actual = st.session_state.rev_a*(st.session_state.comm_a/100) + st.session_state.sum_a*st.session_state.auth_a + st.session_state.mrr_a
-    total_offer  = st.session_state.rev_o*(st.session_state.comm_o/100) + st.session_state.sum_o*st.session_state.auth_o + st.session_state.mrr_o
+    total_actual = (
+        st.session_state.rev_a * (st.session_state.comm_a / 100)
+        + st.session_state.sum_a * st.session_state.auth_a
+        + st.session_state.mrr_a
+    )
+
+    total_offer = (
+        st.session_state.rev_o * (st.session_state.comm_o / 100)
+        + st.session_state.sum_o * st.session_state.auth_o
+        + st.session_state.mrr_o
+    )
+
     saving = total_offer - total_actual
 
     st.markdown("---")
@@ -201,7 +218,7 @@ elif page == "Cardpayment":
     col5.caption("Ersparnis (Offer - Actual)")
 
 # -------------------------------
-# 💰 Pricing
+# 💰 Pricing (KORRIGIERT)
 # -------------------------------
 elif page == "Pricing":
     st.header("💰 Pricing Kalkulation")
@@ -225,17 +242,20 @@ elif page == "Pricing":
     df_sw = pd.DataFrame(software_data)
     df_hw = pd.DataFrame(hardware_data)
 
-    # Session State initialisieren
     for i in range(len(df_sw)):
-        if f"sw_{i}" not in st.session_state: st.session_state[f"sw_{i}"]=0
+        if f"sw_{i}" not in st.session_state:
+            st.session_state[f"sw_{i}"] = 0
     for i in range(len(df_hw)):
-        if f"hw_{i}" not in st.session_state: st.session_state[f"hw_{i}"]=0
-    if "gaw_value" not in st.session_state: st.session_state["gaw_value"]=50.0
-    if "gaw_qty" not in st.session_state: st.session_state["gaw_qty"]=1
+        if f"hw_{i}" not in st.session_state:
+            st.session_state[f"hw_{i}"] = 0
+
+    if "gaw_value" not in st.session_state:
+        st.session_state["gaw_value"] = 50.0
+    if "gaw_qty" not in st.session_state:
+        st.session_state["gaw_qty"] = 1
 
     col_sw, col_hw = st.columns(2)
 
-    # --- Software Eingaben ---
     with col_sw:
         st.subheader("🧩 Software")
         for i in range(len(df_sw)):
@@ -245,42 +265,46 @@ elif page == "Pricing":
         st.number_input("GAW Betrag (€)", min_value=0.0, step=25.0, key="gaw_value")
         df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
 
-    # --- Hardware Eingaben ---
     with col_hw:
         st.subheader("🖥️ Hardware")
         for i in range(len(df_hw)):
             st.number_input(df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}")
         df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
 
-    # --- Berechnung List Prices & GAW ---
-    list_mrr = (df_sw[df_sw["Produkt"]!="GAW"]["Menge"]*df_sw[df_sw["Produkt"]!="GAW"]["List_MRR"]).sum()
-    list_otf = (df_hw["Menge"]*df_hw["List_OTF"]).sum()
-    gaw_total = st.session_state["gaw_qty"]*st.session_state["gaw_value"]
+    # --- Berechnung ---
+    list_mrr = (df_sw[df_sw["Produkt"]!="GAW"]["Menge"] * df_sw[df_sw["Produkt"]!="GAW"]["List_MRR"]).sum()
 
-    # --- Anzeige List Prices ---
-    col_list1, col_list2 = st.columns(2)
-    col_list1.markdown(f"### 🧩 Software MRR List: {list_mrr:,.2f} €", unsafe_allow_html=True)
-    col_list2.markdown(f"### 🖥️ Hardware OTF List: {list_otf:,.2f} €", unsafe_allow_html=True)
+    software_list_otf = (df_sw[df_sw["Produkt"]!="GAW"]["Menge"] * df_sw[df_sw["Produkt"]!="GAW"]["List_OTF"]).sum()
+    hardware_list_otf = (df_hw["Menge"] * df_hw["List_OTF"]).sum()
+    list_otf = software_list_otf + hardware_list_otf
 
-    # --- GAW Gesamt ---
-    st.markdown(f"### 💰 GAW Gesamt: {gaw_total:,.2f} €", unsafe_allow_html=True)
+    gaw_total = st.session_state["gaw_qty"] * st.session_state["gaw_value"]
 
-    # --- Min Prices unten ---
-    min_mrr = (df_sw[df_sw["Produkt"]!="GAW"]["Menge"]*df_sw[df_sw["Produkt"]!="GAW"]["Min_MRR"]).sum()
-    min_otf = (df_hw["Menge"]*df_hw["Min_OTF"]).sum()
+    st.markdown(f"### 🧩 Software MRR List: {list_mrr:,.2f} €")
+    st.markdown(f"### 🧾 Gesamt OTF List (Software + Hardware): {list_otf:,.2f} €")
+    st.markdown(f"### 💰 GAW Gesamt: {gaw_total:,.2f} €")
+
+    min_mrr = (df_sw[df_sw["Produkt"]!="GAW"]["Menge"] * df_sw[df_sw["Produkt"]!="GAW"]["Min_MRR"]).sum()
+    software_min_otf = (df_sw[df_sw["Produkt"]!="GAW"]["Menge"] * df_sw[df_sw["Produkt"]!="GAW"]["Min_OTF"]).sum()
+    hardware_min_otf = (df_hw["Menge"] * df_hw["Min_OTF"]).sum()
+    min_otf = software_min_otf + hardware_min_otf
+
     st.markdown("---")
     st.markdown(f"### 🔻 MRR Min: {min_mrr:,.2f} €")
     st.markdown(f"### 🔻 OTF Min: {min_otf:,.2f} €")
 
-    # --- Tabelle ---
     with st.expander("Preisdetails anzeigen"):
         df_show = pd.concat([df_sw, df_hw])[["Produkt","Min_OTF","List_OTF","Min_MRR","List_MRR"]]
-        st.dataframe(df_show.style.format({
-            "Min_OTF":"{:,.0f} €",
-            "List_OTF":"{:,.0f} €",
-            "Min_MRR":"{:,.0f} €",
-            "List_MRR":"{:,.0f} €",
-        }), hide_index=True, use_container_width=True)
+        st.dataframe(
+            df_show.style.format({
+                "Min_OTF":"{:,.0f} €",
+                "List_OTF":"{:,.0f} €",
+                "Min_MRR":"{:,.0f} €",
+                "List_MRR":"{:,.0f} €",
+            }),
+            hide_index=True,
+            use_container_width=True
+        )
 
 # -------------------------------
 # Footer
