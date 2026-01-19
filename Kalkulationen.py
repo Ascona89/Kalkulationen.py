@@ -152,8 +152,17 @@ elif page == "Cardpayment":
         for k in ["rev_o","sum_o","mrr_o","comm_o","auth_o"]:
             st.number_input(k, key=k)
 
-    total_a = st.session_state.rev_a * st.session_state.comm_a / 100 + st.session_state.sum_a * st.session_state.auth_a + st.session_state.mrr_a
-    total_o = st.session_state.rev_o * st.session_state.comm_o / 100 + st.session_state.sum_o * st.session_state.auth_o + st.session_state.mrr_o
+    total_a = (
+        st.session_state.rev_a * st.session_state.comm_a / 100 +
+        st.session_state.sum_a * st.session_state.auth_a +
+        st.session_state.mrr_a
+    )
+
+    total_o = (
+        st.session_state.rev_o * st.session_state.comm_o / 100 +
+        st.session_state.sum_o * st.session_state.auth_o +
+        st.session_state.mrr_o
+    )
 
     st.success(f"Ersparnis: {total_o - total_a:,.2f} €")
 
@@ -163,20 +172,25 @@ elif page == "Cardpayment":
 elif page == "Pricing":
     st.header("💰 Pricing Kalkulation")
 
+    # ---------- SOFTWARE (inkl. CONNECT) ----------
     df_sw = pd.DataFrame({
-        "Produkt":["Shop","App","POS","Pay","GAW"],
-        "Min_OTF":[365,15,365,35,0],
-        "List_OTF":[999,49,999,49,0],
-        "Min_MRR":[50,15,49,5,0],
-        "List_MRR":[119,49,89,25,0]
+        "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW"],
+        "Min_OTF": [365, 15, 365, 35, 0, 0],
+        "List_OTF": [999, 49, 999, 49, 0, 0],
+        "Min_MRR": [50, 15, 49, 5, 15, 0],
+        "List_MRR": [119, 49, 89, 25, 15, 0]
     })
 
+    # ---------- HARDWARE ----------
     df_hw = pd.DataFrame({
-        "Produkt":["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX"],
-        "Min_OTF":[135,350,50,99,100,225],
-        "List_OTF":[299,1699,149,199,100,299],
-        "Min_MRR":[0]*6,
-        "List_MRR":[0]*6
+        "Produkt": [
+            "Ordermanager", "POS inkl 1 Printer", "Cash Drawer",
+            "Extra Printer", "Additional Display", "PAX"
+        ],
+        "Min_OTF": [135, 350, 50, 99, 100, 225],
+        "List_OTF": [299, 1699, 149, 199, 100, 299],
+        "Min_MRR": [0]*6,
+        "List_MRR": [0]*6
     })
 
     for i in range(len(df_sw)):
@@ -187,19 +201,19 @@ elif page == "Pricing":
     df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
     df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
 
-    # 🔢 Berechnung
-    list_otf = (df_sw["Menge"]*df_sw["List_OTF"]).sum() + (df_hw["Menge"]*df_hw["List_OTF"]).sum()
-    list_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum()
-    min_otf  = (df_sw["Menge"]*df_sw["Min_OTF"]).sum()  + (df_hw["Menge"]*df_hw["Min_OTF"]).sum()
-    min_mrr  = (df_sw["Menge"]*df_sw["Min_MRR"]).sum()
+    # ---------- BERECHNUNG ----------
+    list_otf = (df_sw["Menge"] * df_sw["List_OTF"]).sum() + (df_hw["Menge"] * df_hw["List_OTF"]).sum()
+    min_otf  = (df_sw["Menge"] * df_sw["Min_OTF"]).sum()  + (df_hw["Menge"] * df_hw["Min_OTF"]).sum()
+    list_mrr = (df_sw["Menge"] * df_sw["List_MRR"]).sum()
+    min_mrr  = (df_sw["Menge"] * df_sw["Min_MRR"]).sum()
 
-    # ===== LIST PREISE (OBEN) =====
+    # ---------- LIST PREISE (OBEN) ----------
     st.markdown("### 🧾 LIST PREISE")
     st.markdown(f"**OTF LIST gesamt:** {list_otf:,.2f} €")
     st.markdown(f"**MRR LIST gesamt:** {list_mrr:,.2f} €")
     st.markdown("---")
 
-    # ===== EINGABEN =====
+    # ---------- EINGABEN ----------
     col1, col2 = st.columns(2)
 
     with col1:
@@ -213,7 +227,7 @@ elif page == "Pricing":
         for i, p in enumerate(df_hw["Produkt"]):
             st.number_input(p, min_value=0, step=1, key=f"hw_{i}")
 
-    # ===== MIN PREISE (UNTEN) =====
+    # ---------- MIN PREISE (UNTEN) ----------
     st.markdown("---")
     st.markdown("### 🔻 MIN PREISE")
     st.markdown(f"**OTF MIN gesamt:** {min_otf:,.2f} €")
