@@ -213,6 +213,23 @@ elif page == "Pricing":
     st.markdown(f"**MRR LIST gesamt:** {list_mrr:,.2f} €")
     st.markdown("---")
 
+    # ---------- RABATT ----------
+    col_discount, col_reason = st.columns([1, 3])
+    with col_discount:
+        discount = st.selectbox("Rabatt (%)", options=[0,5,10,15,20,25,30,35,40,45,50], index=0)
+    with col_reason:
+        reason = st.text_input("Grund")
+
+    if discount > 0:
+        list_otf_discounted = list_otf * (1 - discount/100)
+        list_mrr_discounted = list_mrr * (1 - discount/100)
+        st.info(f"Rabatt angewendet ({discount}%) – Grund: {reason}\n"
+                f"OTF nach Rabatt: {list_otf_discounted:,.2f} €\n"
+                f"MRR nach Rabatt: {list_mrr_discounted:,.2f} €")
+    else:
+        list_otf_discounted = list_otf
+        list_mrr_discounted = list_mrr
+
     # ---------- EINGABEN ----------
     col1, col2 = st.columns(2)
 
