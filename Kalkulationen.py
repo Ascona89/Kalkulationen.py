@@ -176,7 +176,7 @@ elif page == "Cardpayment":
 elif page == "Pricing":
     st.header("💰 Pricing Kalkulation")
 
-    # --- Software (inkl Connect) ---
+    # --- Software inkl Connect ---
     df_sw = pd.DataFrame({
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW"],
         "Min_OTF": [365, 15, 365, 35, 0, 0],
@@ -194,16 +194,16 @@ elif page == "Pricing":
         "List_MRR":[0]*6
     })
 
+    # --- Session State Mengen ---
     for i in range(len(df_sw)):
         st.session_state.setdefault(f"sw_{i}",0)
     for i in range(len(df_hw)):
         st.session_state.setdefault(f"hw_{i}",0)
 
-    # --- Menge setzen ---
+    # --- Berechnung Gesamtpreise ---
     df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
     df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
 
-    # --- Berechnung Gesamtpreise ---
     list_otf = (df_sw["Menge"]*df_sw["List_OTF"]).sum() + (df_hw["Menge"]*df_hw["List_OTF"]).sum()
     min_otf = (df_sw["Menge"]*df_sw["Min_OTF"]).sum() + (df_hw["Menge"]*df_hw["Min_OTF"]).sum()
     list_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum()
@@ -221,13 +221,12 @@ elif page == "Pricing":
         discount_otf = st.selectbox("OTF Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], index=0)
     with col_otf_reason:
         reason_otf = st.text_input("Grund OTF Rabatt")
-    if discount_otf > 0:
-        if len(reason_otf) < 10:
-            st.warning("Bitte mindestens 10 Zeichen im OTF-Rabattgrund eintragen.")
-            otf_discounted = list_otf
-        else:
-            otf_discounted = list_otf * (1 - discount_otf/100)
-            st.info(f"OTF nach Rabatt ({discount_otf}%) – Grund: {reason_otf}: {otf_discounted:,.2f} €")
+        if discount_otf > 0 and len(reason_otf) < 10:
+            st.warning("Bitte Begründung eintragen (mindestens 10 Zeichen).")
+
+    if discount_otf > 0 and len(reason_otf) >= 10:
+        otf_discounted = list_otf * (1 - discount_otf/100)
+        st.info(f"OTF nach Rabatt ({discount_otf}%) – Grund: {reason_otf}: {otf_discounted:,.2f} €")
     else:
         otf_discounted = list_otf
 
@@ -237,13 +236,12 @@ elif page == "Pricing":
         discount_mrr = st.selectbox("MRR Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], index=0)
     with col_mrr_reason:
         reason_mrr = st.text_input("Grund MRR Rabatt")
-    if discount_mrr > 0:
-        if len(reason_mrr) < 10:
-            st.warning("Bitte mindestens 10 Zeichen im MRR-Rabattgrund eintragen.")
-            mrr_discounted = list_mrr
-        else:
-            mrr_discounted = list_mrr * (1 - discount_mrr/100)
-            st.info(f"MRR nach Rabatt ({discount_mrr}%) – Grund: {reason_mrr}: {mrr_discounted:,.2f} €")
+        if discount_mrr > 0 and len(reason_mrr) < 10:
+            st.warning("Bitte Begründung eintragen (mindestens 10 Zeichen).")
+
+    if discount_mrr > 0 and len(reason_mrr) >= 10:
+        mrr_discounted = list_mrr * (1 - discount_mrr/100)
+        st.info(f"MRR nach Rabatt ({discount_mrr}%) – Grund: {reason_mrr}: {mrr_discounted:,.2f} €")
     else:
         mrr_discounted = list_mrr
 
