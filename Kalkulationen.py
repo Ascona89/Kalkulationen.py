@@ -67,7 +67,9 @@ if st.session_state.is_admin:
 
     if not df.empty:
         df["Datum"] = pd.to_datetime(df["created_at"]).dt.date
+        st.subheader("📄 Login-Historie")
         st.dataframe(df, use_container_width=True)
+        st.subheader("📊 Logins pro Tag")
         st.bar_chart(df[df["success"]].groupby("Datum").size())
 
     new_pw = st.text_input("Neues User Passwort", type="password")
@@ -120,10 +122,14 @@ if page == "Platform":
 
     transaction = 0.7 * st.session_state.revenue / 5 * 0.35
     cost_monthly = st.session_state.MRR + transaction
+    saving_monthly = total_cost - cost_monthly
+    saving_over_contract = saving_monthly * st.session_state.contract_length
 
+    st.subheader("📊 Kennzahlen")
     st.info(
-        f"Platform Cost: {total_cost:,.2f} €\n"
-        f"Monthly Cost: {cost_monthly:,.2f} €"
+        f"- Cost monthly: {cost_monthly:,.2f} €\n"
+        f"- Saving monthly: {saving_monthly:,.2f} €\n"
+        f"- Saving over contract length: {saving_over_contract:,.2f} €"
     )
 
 # =====================================================
@@ -132,19 +138,18 @@ if page == "Platform":
 elif page == "Cardpayment":
     st.header("💳 Cardpayment Vergleich")
 
-    for k, v in {
-        "rev_a": 0.0, "sum_a": 0, "mrr_a": 0.0, "comm_a": 1.39, "auth_a": 0.0,
-        "rev_o": 0.0, "sum_o": 0, "mrr_o": 0.0, "comm_o": 1.19, "auth_o": 0.06
-    }.items():
-        st.session_state.setdefault(k, v)
+    defaults = {
+        "rev_a":0.0, "sum_a":0, "mrr_a":0.0, "comm_a":1.39, "auth_a":0.0,
+        "rev_o":0.0, "sum_o":0, "mrr_o":0.0, "comm_o":1.19, "auth_o":0.06
+    }
+    for k,v in defaults.items():
+        st.session_state.setdefault(k,v)
 
     col1, col2 = st.columns(2)
-
     with col1:
         st.subheader("Actual")
         for k in ["rev_a","sum_a","mrr_a","comm_a","auth_a"]:
             st.number_input(k, key=k)
-
     with col2:
         st.subheader("Offer")
         st.session_state.rev_o = st.session_state.rev_a
@@ -152,19 +157,18 @@ elif page == "Cardpayment":
         for k in ["rev_o","sum_o","mrr_o","comm_o","auth_o"]:
             st.number_input(k, key=k)
 
-    total_a = (
-        st.session_state.rev_a * st.session_state.comm_a / 100 +
-        st.session_state.sum_a * st.session_state.auth_a +
-        st.session_state.mrr_a
-    )
+    total_a = st.session_state.rev_a * st.session_state.comm_a / 100 + st.session_state.sum_a * st.session_state.auth_a + st.session_state.mrr_a
+    total_o = st.session_state.rev_o * st.session_state.comm_o / 100 + st.session_state.sum_o * st.session_state.auth_o + st.session_state.mrr_o
+    saving = total_o - total_a
 
-    total_o = (
-        st.session_state.rev_o * st.session_state.comm_o / 100 +
-        st.session_state.sum_o * st.session_state.auth_o +
-        st.session_state.mrr_o
-    )
-
-    st.success(f"Ersparnis: {total_o - total_a:,.2f} €")
+    st.markdown("---")
+    col3, col4, col5 = st.columns(3)
+    col3.markdown(f"<div style='color:red; font-size:28px;'>💳 {total_a:,.2f} €</div>", unsafe_allow_html=True)
+    col3.caption("Total Actual")
+    col4.markdown(f"<div style='color:blue; font-size:28px;'>💳 {total_o:,.2f} €</div>", unsafe_allow_html=True)
+    col4.caption("Total Offer")
+    col5.markdown(f"<div style='color:green; font-size:28px;'>💰 {saving:,.2f} €</div>", unsafe_allow_html=True)
+    col5.caption("Ersparnis (Offer - Actual)")
 
 # =====================================================
 # 💰 PRICING
@@ -172,7 +176,7 @@ elif page == "Cardpayment":
 elif page == "Pricing":
     st.header("💰 Pricing Kalkulation")
 
-    # ---------- SOFTWARE (inkl. CONNECT) ----------
+    # --- Software (inkl Connect) ---
     df_sw = pd.DataFrame({
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW"],
         "Min_OTF": [365, 15, 365, 35, 0, 0],
@@ -181,70 +185,81 @@ elif page == "Pricing":
         "List_MRR": [119, 49, 89, 25, 15, 0]
     })
 
-    # ---------- HARDWARE ----------
+    # --- Hardware ---
     df_hw = pd.DataFrame({
-        "Produkt": [
-            "Ordermanager", "POS inkl 1 Printer", "Cash Drawer",
-            "Extra Printer", "Additional Display", "PAX"
-        ],
-        "Min_OTF": [135, 350, 50, 99, 100, 225],
-        "List_OTF": [299, 1699, 149, 199, 100, 299],
-        "Min_MRR": [0]*6,
-        "List_MRR": [0]*6
+        "Produkt":["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX"],
+        "Min_OTF":[135,350,50,99,100,225],
+        "List_OTF":[299,1699,149,199,100,299],
+        "Min_MRR":[0]*6,
+        "List_MRR":[0]*6
     })
 
     for i in range(len(df_sw)):
-        st.session_state.setdefault(f"sw_{i}", 0)
+        st.session_state.setdefault(f"sw_{i}",0)
     for i in range(len(df_hw)):
-        st.session_state.setdefault(f"hw_{i}", 0)
+        st.session_state.setdefault(f"hw_{i}",0)
 
+    # --- Menge setzen ---
     df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
     df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
 
-    # ---------- BERECHNUNG ----------
-    list_otf = (df_sw["Menge"] * df_sw["List_OTF"]).sum() + (df_hw["Menge"] * df_hw["List_OTF"]).sum()
-    min_otf  = (df_sw["Menge"] * df_sw["Min_OTF"]).sum()  + (df_hw["Menge"] * df_hw["Min_OTF"]).sum()
-    list_mrr = (df_sw["Menge"] * df_sw["List_MRR"]).sum()
-    min_mrr  = (df_sw["Menge"] * df_sw["Min_MRR"]).sum()
+    # --- Berechnung Gesamtpreise ---
+    list_otf = (df_sw["Menge"]*df_sw["List_OTF"]).sum() + (df_hw["Menge"]*df_hw["List_OTF"]).sum()
+    min_otf = (df_sw["Menge"]*df_sw["Min_OTF"]).sum() + (df_hw["Menge"]*df_hw["Min_OTF"]).sum()
+    list_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum()
+    min_mrr = (df_sw["Menge"]*df_sw["Min_MRR"]).sum()
 
-    # ---------- LIST PREISE (OBEN) ----------
+    # --- LIST PREISE oben ---
     st.markdown("### 🧾 LIST PREISE")
     st.markdown(f"**OTF LIST gesamt:** {list_otf:,.2f} €")
     st.markdown(f"**MRR LIST gesamt:** {list_mrr:,.2f} €")
     st.markdown("---")
 
-    # ---------- RABATT ----------
-    col_discount, col_reason = st.columns([1, 3])
-    with col_discount:
-        discount = st.selectbox("Rabatt (%)", options=[0,5,10,15,20,25,30,35,40,45,50], index=0)
-    with col_reason:
-        reason = st.text_input("Grund")
-
-    if discount > 0:
-        list_otf_discounted = list_otf * (1 - discount/100)
-        list_mrr_discounted = list_mrr * (1 - discount/100)
-        st.info(f"Rabatt angewendet ({discount}%) – Grund: {reason}\n"
-                f"OTF nach Rabatt: {list_otf_discounted:,.2f} €\n"
-                f"MRR nach Rabatt: {list_mrr_discounted:,.2f} €")
+    # --- OTF Rabatt ---
+    col_otf, col_otf_reason = st.columns([1,3])
+    with col_otf:
+        discount_otf = st.selectbox("OTF Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], index=0)
+    with col_otf_reason:
+        reason_otf = st.text_input("Grund OTF Rabatt")
+    if discount_otf > 0:
+        if len(reason_otf) < 10:
+            st.warning("Bitte mindestens 10 Zeichen im OTF-Rabattgrund eintragen.")
+            otf_discounted = list_otf
+        else:
+            otf_discounted = list_otf * (1 - discount_otf/100)
+            st.info(f"OTF nach Rabatt ({discount_otf}%) – Grund: {reason_otf}: {otf_discounted:,.2f} €")
     else:
-        list_otf_discounted = list_otf
-        list_mrr_discounted = list_mrr
+        otf_discounted = list_otf
 
-    # ---------- EINGABEN ----------
+    # --- MRR Rabatt ---
+    col_mrr, col_mrr_reason = st.columns([1,3])
+    with col_mrr:
+        discount_mrr = st.selectbox("MRR Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], index=0)
+    with col_mrr_reason:
+        reason_mrr = st.text_input("Grund MRR Rabatt")
+    if discount_mrr > 0:
+        if len(reason_mrr) < 10:
+            st.warning("Bitte mindestens 10 Zeichen im MRR-Rabattgrund eintragen.")
+            mrr_discounted = list_mrr
+        else:
+            mrr_discounted = list_mrr * (1 - discount_mrr/100)
+            st.info(f"MRR nach Rabatt ({discount_mrr}%) – Grund: {reason_mrr}: {mrr_discounted:,.2f} €")
+    else:
+        mrr_discounted = list_mrr
+
+    # --- Eingaben Software/Hardware ---
     col1, col2 = st.columns(2)
-
     with col1:
         st.subheader("Software")
         for i, p in enumerate(df_sw["Produkt"]):
             if p != "GAW":
                 st.number_input(p, min_value=0, step=1, key=f"sw_{i}")
-
     with col2:
         st.subheader("Hardware")
         for i, p in enumerate(df_hw["Produkt"]):
             st.number_input(p, min_value=0, step=1, key=f"hw_{i}")
 
-    # ---------- MIN PREISE (UNTEN) ----------
+    # --- MIN PREISE unten ---
     st.markdown("---")
     st.markdown("### 🔻 MIN PREISE")
     st.markdown(f"**OTF MIN gesamt:** {min_otf:,.2f} €")
