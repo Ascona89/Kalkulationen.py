@@ -109,16 +109,16 @@ if page == "Platform":
         st.number_input("Avg Order Value (€)", step=5.0, key="avg_order_value")
         st.number_input("Service Fee (€)", step=0.1, key="service_fee")
 
+    with col2:
+        st.number_input("OTF (€)", step=100.0, key="OTF")
+        st.number_input("MRR (€)", step=10.0, key="MRR")
+        st.number_input("Contract (Monate)", step=12, key="contract_length")
+
     total_cost = (
         st.session_state.revenue * st.session_state.commission_pct / 100 +
         (0.7 * st.session_state.revenue / st.session_state.avg_order_value)
         * st.session_state.service_fee
     )
-
-    with col2:
-        st.number_input("OTF (€)", step=100.0, key="OTF")
-        st.number_input("MRR (€)", step=10.0, key="MRR")
-        st.number_input("Contract (Monate)", step=12, key="contract_length")
 
     transaction = 0.7 * st.session_state.revenue / 5 * 0.35
     cost_monthly = st.session_state.MRR + transaction
@@ -200,6 +200,18 @@ elif page == "Pricing":
     for i in range(len(df_hw)):
         st.session_state.setdefault(f"hw_{i}",0)
 
+    # --- Eingaben Software/Hardware ---
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("Software")
+        for i, p in enumerate(df_sw["Produkt"]):
+            if p != "GAW":
+                st.number_input(p, min_value=0, step=1, key=f"sw_{i}")
+    with col2:
+        st.subheader("Hardware")
+        for i, p in enumerate(df_hw["Produkt"]):
+            st.number_input(p, min_value=0, step=1, key=f"hw_{i}")
+
     # --- Berechnung Gesamtpreise ---
     df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
     df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
@@ -215,7 +227,8 @@ elif page == "Pricing":
     st.markdown(f"**MRR LIST gesamt:** {list_mrr:,.2f} €")
     st.markdown("---")
 
-    # --- OTF Rabatt ---
+    # --- Rabattfunktion unter den Eingaben ---
+    st.subheader("💸 Rabattfunktion")
     col_otf, col_otf_reason = st.columns([1,3])
     with col_otf:
         discount_otf = st.selectbox("OTF Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], index=0)
@@ -224,13 +237,6 @@ elif page == "Pricing":
         if discount_otf > 0 and len(reason_otf) < 10:
             st.warning("Bitte Begründung eintragen (mindestens 10 Zeichen).")
 
-    if discount_otf > 0 and len(reason_otf) >= 10:
-        otf_discounted = list_otf * (1 - discount_otf/100)
-        st.info(f"OTF nach Rabatt ({discount_otf}%) – Grund: {reason_otf}: {otf_discounted:,.2f} €")
-    else:
-        otf_discounted = list_otf
-
-    # --- MRR Rabatt ---
     col_mrr, col_mrr_reason = st.columns([1,3])
     with col_mrr:
         discount_mrr = st.selectbox("MRR Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], index=0)
@@ -239,23 +245,11 @@ elif page == "Pricing":
         if discount_mrr > 0 and len(reason_mrr) < 10:
             st.warning("Bitte Begründung eintragen (mindestens 10 Zeichen).")
 
-    if discount_mrr > 0 and len(reason_mrr) >= 10:
-        mrr_discounted = list_mrr * (1 - discount_mrr/100)
-        st.info(f"MRR nach Rabatt ({discount_mrr}%) – Grund: {reason_mrr}: {mrr_discounted:,.2f} €")
-    else:
-        mrr_discounted = list_mrr
+    otf_discounted = list_otf * (1 - discount_otf/100) if discount_otf > 0 and len(reason_otf) >= 10 else list_otf
+    mrr_discounted = list_mrr * (1 - discount_mrr/100) if discount_mrr > 0 and len(reason_mrr) >= 10 else list_mrr
 
-    # --- Eingaben Software/Hardware ---
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("Software")
-        for i, p in enumerate(df_sw["Produkt"]):
-            if p != "GAW":
-                st.number_input(p, min_value=0, step=1, key=f"sw_{i}")
-    with col2:
-        st.subheader("Hardware")
-        for i, p in enumerate(df_hw["Produkt"]):
-            st.number_input(p, min_value=0, step=1, key=f"hw_{i}")
+    st.info(f"OTF nach Rabatt: {otf_discounted:,.2f} €")
+    st.info(f"MRR nach Rabatt: {mrr_discounted:,.2f} €")
 
     # --- MIN PREISE unten ---
     st.markdown("---")
