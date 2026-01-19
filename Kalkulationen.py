@@ -67,23 +67,13 @@ if st.session_state.is_admin:
 
     if not df.empty:
         df["Datum"] = pd.to_datetime(df["created_at"]).dt.date
-        st.subheader("📄 Login-Historie")
         st.dataframe(df, use_container_width=True)
-
-        st.subheader("📊 Logins pro Tag")
         st.bar_chart(df[df["success"]].groupby("Datum").size())
 
-        st.download_button(
-            "CSV Export",
-            df.to_csv(index=False).encode("utf-8"),
-            "login_history.csv"
-        )
-
-    st.subheader("🔑 User Passwort ändern")
-    new_pw = st.text_input("Neues Passwort", type="password")
+    new_pw = st.text_input("Neues User Passwort", type="password")
     if st.button("Passwort ändern") and new_pw:
         st.session_state["USER_PASSWORD"] = new_pw
-        st.success("✅ Passwort aktualisiert")
+        st.success("✅ Passwort geändert")
 
     st.stop()
 
@@ -93,10 +83,7 @@ if st.session_state.is_admin:
 st.set_page_config(page_title="Kalkulations-App", layout="wide")
 st.title("📊 Kalkulations-App")
 
-page = st.sidebar.radio(
-    "Wähle eine Kalkulation:",
-    ["Platform", "Cardpayment", "Pricing"]
-)
+page = st.sidebar.radio("Wähle eine Kalkulation:", ["Platform", "Cardpayment", "Pricing"])
 
 # =====================================================
 # 🏁 PLATFORM
@@ -120,13 +107,11 @@ if page == "Platform":
         st.number_input("Avg Order Value (€)", step=5.0, key="avg_order_value")
         st.number_input("Service Fee (€)", step=0.1, key="service_fee")
 
-        total_cost = (
-            st.session_state.revenue * (st.session_state.commission_pct / 100)
-            + (0.7 * st.session_state.revenue / st.session_state.avg_order_value)
-            * st.session_state.service_fee
-        )
-
-        st.markdown(f"### 💶 Platform Kosten: **{total_cost:,.2f} €**")
+    total_cost = (
+        st.session_state.revenue * st.session_state.commission_pct / 100 +
+        (0.7 * st.session_state.revenue / st.session_state.avg_order_value)
+        * st.session_state.service_fee
+    )
 
     with col2:
         st.number_input("OTF (€)", step=100.0, key="OTF")
@@ -135,13 +120,10 @@ if page == "Platform":
 
     transaction = 0.7 * st.session_state.revenue / 5 * 0.35
     cost_monthly = st.session_state.MRR + transaction
-    saving_monthly = total_cost - cost_monthly
-    saving_total = saving_monthly * st.session_state.contract_length
 
     st.info(
-        f"Cost monthly: {cost_monthly:,.2f} €\n"
-        f"Saving monthly: {saving_monthly:,.2f} €\n"
-        f"Saving total: {saving_total:,.2f} €"
+        f"Platform Cost: {total_cost:,.2f} €\n"
+        f"Monthly Cost: {cost_monthly:,.2f} €"
     )
 
 # =====================================================
@@ -160,35 +142,20 @@ elif page == "Cardpayment":
 
     with col1:
         st.subheader("Actual")
-        st.number_input("Revenue", key="rev_a")
-        st.number_input("Payments", key="sum_a")
-        st.number_input("MRR", key="mrr_a")
-        st.number_input("Commission %", key="comm_a")
-        st.number_input("Auth Fee", key="auth_a")
+        for k in ["rev_a","sum_a","mrr_a","comm_a","auth_a"]:
+            st.number_input(k, key=k)
 
     with col2:
         st.subheader("Offer")
         st.session_state.rev_o = st.session_state.rev_a
         st.session_state.sum_o = st.session_state.sum_a
-        st.number_input("Revenue", key="rev_o")
-        st.number_input("Payments", key="sum_o")
-        st.number_input("MRR", key="mrr_o")
-        st.number_input("Commission %", key="comm_o")
-        st.number_input("Auth Fee", key="auth_o")
+        for k in ["rev_o","sum_o","mrr_o","comm_o","auth_o"]:
+            st.number_input(k, key=k)
 
-    total_a = (
-        st.session_state.rev_a * st.session_state.comm_a / 100
-        + st.session_state.sum_a * st.session_state.auth_a
-        + st.session_state.mrr_a
-    )
+    total_a = st.session_state.rev_a * st.session_state.comm_a / 100 + st.session_state.sum_a * st.session_state.auth_a + st.session_state.mrr_a
+    total_o = st.session_state.rev_o * st.session_state.comm_o / 100 + st.session_state.sum_o * st.session_state.auth_o + st.session_state.mrr_o
 
-    total_o = (
-        st.session_state.rev_o * st.session_state.comm_o / 100
-        + st.session_state.sum_o * st.session_state.auth_o
-        + st.session_state.mrr_o
-    )
-
-    st.success(f"Ersparnis: **{total_o - total_a:,.2f} €**")
+    st.success(f"Ersparnis: {total_o - total_a:,.2f} €")
 
 # =====================================================
 # 💰 PRICING
@@ -196,31 +163,43 @@ elif page == "Cardpayment":
 elif page == "Pricing":
     st.header("💰 Pricing Kalkulation")
 
-    software = {
-        "Produkt": ["Shop", "App", "POS", "Pay", "GAW"],
-        "Min_OTF": [365, 15, 365, 35, 0],
-        "List_OTF": [999, 49, 999, 49, 0],
-        "Min_MRR": [50, 15, 49, 5, 0],
-        "List_MRR": [119, 49, 89, 25, 0]
-    }
+    df_sw = pd.DataFrame({
+        "Produkt":["Shop","App","POS","Pay","GAW"],
+        "Min_OTF":[365,15,365,35,0],
+        "List_OTF":[999,49,999,49,0],
+        "Min_MRR":[50,15,49,5,0],
+        "List_MRR":[119,49,89,25,0]
+    })
 
-    hardware = {
-        "Produkt": ["Ordermanager", "POS inkl 1 Printer", "Cash Drawer",
-                    "Extra Printer", "Additional Display", "PAX"],
-        "Min_OTF": [135, 350, 50, 99, 100, 225],
-        "List_OTF": [299, 1699, 149, 199, 100, 299],
-        "Min_MRR": [0, 0, 0, 0, 0, 0],
-        "List_MRR": [0, 0, 0, 0, 0, 0]
-    }
-
-    df_sw = pd.DataFrame(software)
-    df_hw = pd.DataFrame(hardware)
+    df_hw = pd.DataFrame({
+        "Produkt":["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX"],
+        "Min_OTF":[135,350,50,99,100,225],
+        "List_OTF":[299,1699,149,199,100,299],
+        "Min_MRR":[0]*6,
+        "List_MRR":[0]*6
+    })
 
     for i in range(len(df_sw)):
         st.session_state.setdefault(f"sw_{i}", 0)
     for i in range(len(df_hw)):
         st.session_state.setdefault(f"hw_{i}", 0)
 
+    df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
+    df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
+
+    # 🔢 Berechnung
+    list_otf = (df_sw["Menge"]*df_sw["List_OTF"]).sum() + (df_hw["Menge"]*df_hw["List_OTF"]).sum()
+    list_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum()
+    min_otf  = (df_sw["Menge"]*df_sw["Min_OTF"]).sum()  + (df_hw["Menge"]*df_hw["Min_OTF"]).sum()
+    min_mrr  = (df_sw["Menge"]*df_sw["Min_MRR"]).sum()
+
+    # ===== LIST PREISE (OBEN) =====
+    st.markdown("### 🧾 LIST PREISE")
+    st.markdown(f"**OTF LIST gesamt:** {list_otf:,.2f} €")
+    st.markdown(f"**MRR LIST gesamt:** {list_mrr:,.2f} €")
+    st.markdown("---")
+
+    # ===== EINGABEN =====
     col1, col2 = st.columns(2)
 
     with col1:
@@ -228,23 +207,17 @@ elif page == "Pricing":
         for i, p in enumerate(df_sw["Produkt"]):
             if p != "GAW":
                 st.number_input(p, min_value=0, step=1, key=f"sw_{i}")
-        df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
 
     with col2:
         st.subheader("Hardware")
         for i, p in enumerate(df_hw["Produkt"]):
             st.number_input(p, min_value=0, step=1, key=f"hw_{i}")
-        df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
 
-    list_otf = (df_sw["Menge"] * df_sw["List_OTF"]).sum() + (df_hw["Menge"] * df_hw["List_OTF"]).sum()
-    min_otf = (df_sw["Menge"] * df_sw["Min_OTF"]).sum() + (df_hw["Menge"] * df_hw["Min_OTF"]).sum()
-    list_mrr = (df_sw["Menge"] * df_sw["List_MRR"]).sum()
-    min_mrr = (df_sw["Menge"] * df_sw["Min_MRR"]).sum()
-
-    st.markdown(f"### 🧾 LIST OTF gesamt: **{list_otf:,.2f} €**")
-    st.markdown(f"### 🔻 MIN OTF gesamt: **{min_otf:,.2f} €**")
-    st.markdown(f"### LIST MRR: {list_mrr:,.2f} €")
-    st.markdown(f"### MIN MRR: {min_mrr:,.2f} €")
+    # ===== MIN PREISE (UNTEN) =====
+    st.markdown("---")
+    st.markdown("### 🔻 MIN PREISE")
+    st.markdown(f"**OTF MIN gesamt:** {min_otf:,.2f} €")
+    st.markdown(f"**MRR MIN gesamt:** {min_mrr:,.2f} €")
 
 # =====================================================
 # Footer
