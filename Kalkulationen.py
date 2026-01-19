@@ -25,7 +25,7 @@ def log_login(role, success):
     }).execute()
 
 # =====================================================
-# 🧠 Session State
+# 🧠 Session State Initialisierung
 # =====================================================
 st.session_state.setdefault("logged_in", False)
 st.session_state.setdefault("is_admin", False)
@@ -35,7 +35,8 @@ st.session_state.setdefault("USER_PASSWORD", USER_PASSWORD)
 # 🔐 Login
 # =====================================================
 def login(password):
-    if password == st.session_state["USER_PASSWORD"]:
+    user_pw = st.session_state.get("USER_PASSWORD", USER_PASSWORD)
+    if password == user_pw:
         st.session_state.logged_in = True
         st.session_state.is_admin = False
         log_login("User", True)
@@ -57,26 +58,34 @@ if not st.session_state.logged_in:
     st.stop()
 
 # =====================================================
-# 👑 Admin
+# 👑 Admin Backend
 # =====================================================
 if st.session_state.is_admin:
     st.header("👑 Admin Dashboard")
 
     data = supabase.table("login_events").select("*").order("created_at", desc=True).execute()
     df = pd.DataFrame(data.data)
-
     if not df.empty:
         df["Datum"] = pd.to_datetime(df["created_at"]).dt.date
         st.subheader("📄 Login-Historie")
         st.dataframe(df, use_container_width=True)
         st.subheader("📊 Logins pro Tag")
-        st.bar_chart(df[df["success"]].groupby("Datum").size())
+        logins_per_day = df[df["success"]==True].groupby("Datum").size().reset_index(name="Logins")
+        st.dataframe(logins_per_day, use_container_width=True)
+        st.bar_chart(logins_per_day.set_index("Datum"))
+        csv = df.to_csv(index=False).encode("utf-8")
+        st.download_button("CSV Export", csv, "login_history.csv", "text/csv")
+    else:
+        st.info("Noch keine Login-Daten vorhanden.")
 
-    new_pw = st.text_input("Neues User Passwort", type="password")
-    if st.button("Passwort ändern") and new_pw:
-        st.session_state["USER_PASSWORD"] = new_pw
-        st.success("✅ Passwort geändert")
-
+    st.subheader("🔑 User Passwort ändern")
+    new_password = st.text_input("Neues User-Passwort", type="password")
+    if st.button("Update User Passwort"):
+        if new_password:
+            st.session_state['USER_PASSWORD'] = new_password
+            st.success("✅ Passwort erfolgreich geändert!")
+        else:
+            st.warning("Bitte ein gültiges Passwort eingeben.")
     st.stop()
 
 # =====================================================
@@ -88,42 +97,40 @@ st.title("📊 Kalkulations-App")
 page = st.sidebar.radio("Wähle eine Kalkulation:", ["Platform", "Cardpayment", "Pricing"])
 
 # =====================================================
-# 🏁 PLATFORM
+# 🏁 Platform
 # =====================================================
 if page == "Platform":
     st.header("🏁 Platform Kalkulation")
+    col1, col2 = st.columns([2, 1.5])
 
-    st.session_state.setdefault("revenue", 0.0)
-    st.session_state.setdefault("commission_pct", 14.0)
-    st.session_state.setdefault("avg_order_value", 25.0)
-    st.session_state.setdefault("service_fee", 0.69)
-    st.session_state.setdefault("OTF", 0.0)
-    st.session_state.setdefault("MRR", 0.0)
-    st.session_state.setdefault("contract_length", 24)
-
-    col1, col2 = st.columns(2)
+    init_keys = ["revenue","commission_pct","avg_order_value","service_fee","OTF","MRR","contract_length"]
+    defaults = [0.0,14.0,25.0,0.69,0.0,0.0,24]
+    for k, v in zip(init_keys, defaults):
+        st.session_state.setdefault(k, v)
 
     with col1:
-        st.number_input("Revenue (€)", step=250.0, key="revenue")
+        st.subheader("Eingaben")
+        st.number_input("Revenue on platform (€)", step=250.0, key="revenue")
         st.number_input("Commission (%)", step=1.0, key="commission_pct")
-        st.number_input("Avg Order Value (€)", step=5.0, key="avg_order_value")
+        st.number_input("Average order value (€)", step=5.0, key="avg_order_value")
         st.number_input("Service Fee (€)", step=0.1, key="service_fee")
 
-    with col2:
-        st.number_input("OTF (€)", step=100.0, key="OTF")
-        st.number_input("MRR (€)", step=10.0, key="MRR")
-        st.number_input("Contract (Monate)", step=12, key="contract_length")
+        total_cost = st.session_state.revenue*(st.session_state.commission_pct/100) + \
+                     (0.7*st.session_state.revenue/st.session_state.avg_order_value if st.session_state.avg_order_value else 0)*st.session_state.service_fee
 
-    total_cost = (
-        st.session_state.revenue * st.session_state.commission_pct / 100 +
-        (0.7 * st.session_state.revenue / st.session_state.avg_order_value)
-        * st.session_state.service_fee
-    )
+        st.markdown("### 💶 Cost on Platform")
+        st.markdown(f"<div style='color:red; font-size:28px;'>{total_cost:,.2f} €</div>", unsafe_allow_html=True)
 
-    transaction = 0.7 * st.session_state.revenue / 5 * 0.35
+        st.markdown("---")
+        st.subheader("Vertragsdetails")
+        st.number_input("One Time Fee (OTF) (€)", step=100.0, key="OTF")
+        st.number_input("Monthly Recurring Revenue (MRR) (€)", step=10.0, key="MRR")
+        st.number_input("Contract length (Monate)", step=12, key="contract_length")
+
+    transaction = 0.7*st.session_state.revenue/5*0.35
     cost_monthly = st.session_state.MRR + transaction
     saving_monthly = total_cost - cost_monthly
-    saving_over_contract = saving_monthly * st.session_state.contract_length
+    saving_over_contract = saving_monthly*st.session_state.contract_length
 
     st.subheader("📊 Kennzahlen")
     st.info(
@@ -133,45 +140,50 @@ if page == "Platform":
     )
 
 # =====================================================
-# 💳 CARDPAYMENT
+# 💳 Cardpayment
 # =====================================================
 elif page == "Cardpayment":
     st.header("💳 Cardpayment Vergleich")
-
-    defaults = {
-        "rev_a":0.0, "sum_a":0, "mrr_a":0.0, "comm_a":1.39, "auth_a":0.0,
-        "rev_o":0.0, "sum_o":0, "mrr_o":0.0, "comm_o":1.19, "auth_o":0.06
-    }
-    for k,v in defaults.items():
-        st.session_state.setdefault(k,v)
-
     col1, col2 = st.columns(2)
+
+    init_keys = ["rev_a","sum_a","mrr_a","comm_a","auth_a","rev_o","sum_o","mrr_o","comm_o","auth_o"]
+    defaults = [0.0,0.0,0.0,1.39,0.0,0.0,0.0,0.0,1.19,0.06]
+    for k, v in zip(init_keys, defaults):
+        st.session_state.setdefault(k, v)
+
     with col1:
         st.subheader("Actual")
-        for k in ["rev_a","sum_a","mrr_a","comm_a","auth_a"]:
-            st.number_input(k, key=k)
+        st.number_input("Revenue (€)", step=250.0, key="rev_a")
+        st.number_input("Sum of payments", step=20, key="sum_a")
+        st.number_input("Monthly Fee (€)", step=5.0, key="mrr_a")
+        st.number_input("Commission (%)", step=0.01, key="comm_a")
+        st.number_input("Authentification Fee (€)", key="auth_a")
+
     with col2:
         st.subheader("Offer")
         st.session_state.rev_o = st.session_state.rev_a
         st.session_state.sum_o = st.session_state.sum_a
-        for k in ["rev_o","sum_o","mrr_o","comm_o","auth_o"]:
-            st.number_input(k, key=k)
+        st.number_input("Revenue (€)", step=250.0, key="rev_o")
+        st.number_input("Sum of payments", step=20, key="sum_o")
+        st.number_input("Monthly Fee (€)", step=5.0, key="mrr_o")
+        st.number_input("Commission (%)", step=0.01, key="comm_o")
+        st.number_input("Authentification Fee (€)", key="auth_o")
 
-    total_a = st.session_state.rev_a * st.session_state.comm_a / 100 + st.session_state.sum_a * st.session_state.auth_a + st.session_state.mrr_a
-    total_o = st.session_state.rev_o * st.session_state.comm_o / 100 + st.session_state.sum_o * st.session_state.auth_o + st.session_state.mrr_o
-    saving = total_o - total_a
+    total_actual = st.session_state.rev_a*(st.session_state.comm_a/100) + st.session_state.sum_a*st.session_state.auth_a + st.session_state.mrr_a
+    total_offer  = st.session_state.rev_o*(st.session_state.comm_o/100) + st.session_state.sum_o*st.session_state.auth_o + st.session_state.mrr_o
+    saving = total_offer - total_actual
 
     st.markdown("---")
     col3, col4, col5 = st.columns(3)
-    col3.markdown(f"<div style='color:red; font-size:28px;'>💳 {total_a:,.2f} €</div>", unsafe_allow_html=True)
+    col3.markdown(f"<div style='color:red; font-size:28px;'>💳 {total_actual:,.2f} €</div>", unsafe_allow_html=True)
     col3.caption("Total Actual")
-    col4.markdown(f"<div style='color:blue; font-size:28px;'>💳 {total_o:,.2f} €</div>", unsafe_allow_html=True)
+    col4.markdown(f"<div style='color:blue; font-size:28px;'>💳 {total_offer:,.2f} €</div>", unsafe_allow_html=True)
     col4.caption("Total Offer")
     col5.markdown(f"<div style='color:green; font-size:28px;'>💰 {saving:,.2f} €</div>", unsafe_allow_html=True)
     col5.caption("Ersparnis (Offer - Actual)")
 
 # =====================================================
-# 💰 PRICING
+# 💰 Pricing
 # =====================================================
 elif page == "Pricing":
     st.header("💰 Pricing Kalkulation")
@@ -205,8 +217,7 @@ elif page == "Pricing":
     with col1:
         st.subheader("Software")
         for i, p in enumerate(df_sw["Produkt"]):
-            if p != "GAW":
-                st.number_input(p, min_value=0, step=1, key=f"sw_{i}")
+            st.number_input(p, min_value=0, step=1, key=f"sw_{i}")
     with col2:
         st.subheader("Hardware")
         for i, p in enumerate(df_hw["Produkt"]):
