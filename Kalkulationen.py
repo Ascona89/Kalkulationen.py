@@ -102,10 +102,12 @@ page = st.sidebar.radio("Wähle eine Kalkulation:", ["Platform", "Cardpayment", 
 if page == "Platform":
     st.header("🏁 Platform Kalkulation")
     col1, col2 = st.columns([2, 1.5])
+
     init_keys = ["revenue","commission_pct","avg_order_value","service_fee","OTF","MRR","contract_length"]
     defaults = [0.0,14.0,25.0,0.69,0.0,0.0,24]
     for k, v in zip(init_keys, defaults):
         st.session_state.setdefault(k, v)
+
     with col1:
         st.subheader("Eingaben")
         st.number_input("Revenue on platform (€)", step=250.0, key="revenue")
@@ -113,16 +115,17 @@ if page == "Platform":
         st.number_input("Average order value (€)", step=5.0, key="avg_order_value")
         st.number_input("Service Fee (€)", step=0.1, key="service_fee")
 
-    total_cost = st.session_state.revenue*(st.session_state.commission_pct/100) + \
-        (0.7*st.session_state.revenue/st.session_state.avg_order_value if st.session_state.avg_order_value else 0)*st.session_state.service_fee
-    st.markdown("### 💶 Cost on Platform")
-    st.markdown(f"<div style='color:red; font-size:28px;'>{total_cost:,.2f} €</div>", unsafe_allow_html=True)
+        total_cost = st.session_state.revenue*(st.session_state.commission_pct/100) + \
+                     (0.7*st.session_state.revenue/st.session_state.avg_order_value if st.session_state.avg_order_value else 0)*st.session_state.service_fee
 
-    st.markdown("---")
-    st.subheader("Vertragsdetails")
-    st.number_input("One Time Fee (OTF) (€)", step=100.0, key="OTF")
-    st.number_input("Monthly Recurring Revenue (MRR) (€)", step=10.0, key="MRR")
-    st.number_input("Contract length (Monate)", step=12, key="contract_length")
+        st.markdown("### 💶 Cost on Platform")
+        st.markdown(f"<div style='color:red; font-size:28px;'>{total_cost:,.2f} €</div>", unsafe_allow_html=True)
+
+        st.markdown("---")
+        st.subheader("Vertragsdetails")
+        st.number_input("One Time Fee (OTF) (€)", step=100.0, key="OTF")
+        st.number_input("Monthly Recurring Revenue (MRR) (€)", step=10.0, key="MRR")
+        st.number_input("Contract length (Monate)", step=12, key="contract_length")
 
     transaction = 0.7*st.session_state.revenue/5*0.35
     cost_monthly = st.session_state.MRR + transaction
@@ -142,10 +145,12 @@ if page == "Platform":
 elif page == "Cardpayment":
     st.header("💳 Cardpayment Vergleich")
     col1, col2 = st.columns(2)
+
     init_keys = ["rev_a","sum_a","mrr_a","comm_a","auth_a","rev_o","sum_o","mrr_o","comm_o","auth_o"]
     defaults = [0.0,0.0,0.0,1.39,0.0,0.0,0.0,0.0,1.19,0.06]
     for k, v in zip(init_keys, defaults):
         st.session_state.setdefault(k, v)
+
     with col1:
         st.subheader("Actual")
         st.number_input("Revenue (€)", step=250.0, key="rev_a")
@@ -153,6 +158,7 @@ elif page == "Cardpayment":
         st.number_input("Monthly Fee (€)", step=5.0, key="mrr_a")
         st.number_input("Commission (%)", step=0.01, key="comm_a")
         st.number_input("Authentification Fee (€)", key="auth_a")
+
     with col2:
         st.subheader("Offer")
         st.session_state.rev_o = st.session_state.rev_a
@@ -164,7 +170,7 @@ elif page == "Cardpayment":
         st.number_input("Authentification Fee (€)", key="auth_o")
 
     total_actual = st.session_state.rev_a*(st.session_state.comm_a/100) + st.session_state.sum_a*st.session_state.auth_a + st.session_state.mrr_a
-    total_offer = st.session_state.rev_o*(st.session_state.comm_o/100) + st.session_state.sum_o*st.session_state.auth_o + st.session_state.mrr_o
+    total_offer  = st.session_state.rev_o*(st.session_state.comm_o/100) + st.session_state.sum_o*st.session_state.auth_o + st.session_state.mrr_o
     saving = total_offer - total_actual
 
     st.markdown("---")
@@ -232,11 +238,42 @@ elif page == "Pricing":
     st.markdown(f"**MRR LIST gesamt:** {list_mrr:,.2f} €")
     st.markdown("---")
 
-   col_mrr, col_mrr_reason = st.columns([1,3])
-with col_mrr:
-    discount_mrr = st.selectbox("MRR Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], index=0)
-with col_mrr_reason:
-    reason_mrr = st.text_input("Grund MRR Rabatt")
-if discount_mrr > 0 and len(reason_mrr) < 10:
-    st.warning("Bitte Begründung eintragen (mindestens 10 Zeichen).")
+    # --- Rabattfunktion unter den Eingaben ---
+    st.subheader("💸 Rabattfunktion")
+    col_otf, col_otf_reason = st.columns([1,3])
+    with col_otf:
+        discount_otf = st.selectbox("OTF Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], index=0)
+    with col_otf_reason:
+        reason_otf = st.text_input("Grund OTF Rabatt")
+        if discount_otf > 0 and len(reason_otf) < 10:
+            st.warning("Bitte Begründung eintragen (mindestens 10 Zeichen).")
 
+    col_mrr, col_mrr_reason = st.columns([1,3])
+    with col_mrr:
+        discount_mrr = st.selectbox("MRR Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], index=0)
+    with col_mrr_reason:
+        reason_mrr = st.text_input("Grund MRR Rabatt")
+        if discount_mrr > 0 and len(reason_mrr) < 10:
+            st.warning("Bitte Begründung eintragen (mindestens 10 Zeichen).")
+
+    otf_discounted = list_otf * (1 - discount_otf/100) if discount_otf > 0 and len(reason_otf) >= 10 else list_otf
+    mrr_discounted = list_mrr * (1 - discount_mrr/100) if discount_mrr > 0 and len(reason_mrr) >= 10 else list_mrr
+
+    st.info(f"OTF nach Rabatt: {otf_discounted:,.2f} €")
+    st.info(f"MRR nach Rabatt: {mrr_discounted:,.2f} €")
+
+    # --- MIN PREISE unten ---
+    st.markdown("---")
+    st.markdown("### 🔻 MIN PREISE")
+    st.markdown(f"**OTF MIN gesamt:** {min_otf:,.2f} €")
+    st.markdown(f"**MRR MIN gesamt:** {min_mrr:,.2f} €")
+
+# =====================================================
+# Footer
+# =====================================================
+st.markdown("""
+<hr>
+<p style='text-align:center; font-size:0.8rem; color:gray;'>
+😉 Traue niemals Zahlen, die du nicht selbst gefälscht hast 😉
+</p>
+""", unsafe_allow_html=True)
