@@ -275,7 +275,7 @@ elif page == "Pricing":
     st.markdown(f"**MRR MIN gesamt:** {min_mrr:,.2f} €")
 
 # =====================================================
-# 🗺️ Radien – Eine Adresse, mehrere Radien
+# 🗺️ Radien – Eine Adresse, mehrere Radien, Auto-Zoom
 # =====================================================
 elif page == "Radien":
     import folium
@@ -292,7 +292,7 @@ elif page == "Radien":
     )
 
     if st.button("Karte anzeigen") and adresse.strip() and radien:
-        geolocator = Nominatim(user_agent="streamlit-single-address-radius")
+        geolocator = Nominatim(user_agent="streamlit-single-address-radius", timeout=10)
         m = folium.Map(zoom_start=12)
 
         try:
@@ -308,9 +308,10 @@ elif page == "Radien":
                     icon=folium.Icon(color="red", icon="info-sign")
                 ).add_to(m)
 
-                # Kreise für jeden Radius
+                # Kreise für jeden Radius & Auto-Zoom
+                bounds = []
                 for r in radien:
-                    folium.Circle(
+                    circle = folium.Circle(
                         location=[lat, lon],
                         radius=r*1000,
                         color="blue",
@@ -319,11 +320,17 @@ elif page == "Radien":
                         fill_opacity=0.15
                     ).add_to(m)
 
+                    # Eckpunkte für Auto-Zoom
+                    bounds.append([lat + r/111, lon + r/111])
+                    bounds.append([lat - r/111, lon - r/111])
+
+                m.fit_bounds(bounds)  # Karte so zoomed, dass alle Radien sichtbar sind
+
                 st_folium(m, width=1000, height=600)
             else:
                 st.warning("Adresse nicht gefunden.")
         except Exception as e:
-            st.error(f"Fehler bei Geocoding: {e}")
+            st.error(f"Fehler bei Geocoding: {e}\nVersuche es in ein paar Sekunden erneut.")
 
 # =====================================================
 # Footer
