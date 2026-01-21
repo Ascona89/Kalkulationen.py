@@ -27,11 +27,15 @@ def log_login(role, success):
 # =====================================================
 # 🧠 Session State Initialisierung
 # =====================================================
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.is_admin = False
-    st.session_state.USER_PASSWORD = USER_PASSWORD
-    st.session_state.show_map = False  # Radien Seite
+def set_default(key, value):
+    if key not in st.session_state:
+        st.session_state[key] = value
+
+# Login & Admin Flags
+set_default("logged_in", False)
+set_default("is_admin", False)
+set_default("USER_PASSWORD", USER_PASSWORD)
+set_default("show_map", False)
 
 # =====================================================
 # 🔐 Login
@@ -42,19 +46,15 @@ def login(password):
         st.session_state.logged_in = True
         st.session_state.is_admin = False
         log_login("User", True)
-        st.rerun()
+        st.experimental_rerun()
     elif password == ADMIN_PASSWORD:
         st.session_state.logged_in = True
         st.session_state.is_admin = True
         log_login("Admin", True)
-        st.rerun()
+        st.experimental_rerun()
     else:
         log_login("Unknown", False)
         st.error("❌ Falsches Passwort")
-
-def logout():
-    st.session_state.clear()
-    st.rerun()
 
 if not st.session_state.logged_in:
     st.title("🔐 Login erforderlich")
@@ -62,8 +62,6 @@ if not st.session_state.logged_in:
     if st.button("Login"):
         login(pw)
     st.stop()
-
-st.sidebar.button("Logout", on_click=logout)
 
 # =====================================================
 # 👑 Admin Backend
@@ -109,22 +107,22 @@ page = st.sidebar.radio(
 )
 
 # =====================================================
-# Helper Funktion für Session Defaults
-# =====================================================
-def set_default(key, default):
-    if key not in st.session_state:
-        st.session_state[key] = default
-
-# =====================================================
 # 🏁 Platform
 # =====================================================
 if page == "Platform":
     st.header("🏁 Platform Kalkulation")
     col1, col2 = st.columns([2, 1.5])
 
-    init_keys = ["revenue","commission_pct","avg_order_value","service_fee","OTF","MRR","contract_length"]
-    defaults = [0.0,14.0,25.0,0.69,0.0,0.0,24]
-    for k, v in zip(init_keys, defaults):
+    keys_defaults = {
+        "revenue": 0.0,
+        "commission_pct": 14.0,
+        "avg_order_value": 25.0,
+        "service_fee": 0.69,
+        "OTF": 0.0,
+        "MRR": 0.0,
+        "contract_length": 24
+    }
+    for k, v in keys_defaults.items():
         set_default(k, v)
 
     with col1:
@@ -133,19 +131,14 @@ if page == "Platform":
         st.number_input("Commission (%)", step=1.0, key="commission_pct")
         st.number_input("Average order value (€)", step=5.0, key="avg_order_value")
         st.number_input("Service Fee (€)", step=0.1, key="service_fee")
-
-        total_cost = st.session_state.revenue*(st.session_state.commission_pct/100) + \
-                     (0.7*st.session_state.revenue/st.session_state.avg_order_value if st.session_state.avg_order_value else 0)*st.session_state.service_fee
-
-        st.markdown("### 💶 Cost on Platform")
-        st.markdown(f"<div style='color:red; font-size:28px;'>{total_cost:,.2f} €</div>", unsafe_allow_html=True)
-
         st.markdown("---")
         st.subheader("Vertragsdetails")
         st.number_input("One Time Fee (OTF) (€)", step=100.0, key="OTF")
         st.number_input("Monthly Recurring Revenue (MRR) (€)", step=10.0, key="MRR")
         st.number_input("Contract length (Monate)", step=12, key="contract_length")
 
+    total_cost = st.session_state.revenue*(st.session_state.commission_pct/100) + \
+                 (0.7*st.session_state.revenue/st.session_state.avg_order_value if st.session_state.avg_order_value else 0)*st.session_state.service_fee
     transaction = 0.7*st.session_state.revenue/5*0.35
     cost_monthly = st.session_state.MRR + transaction
     saving_monthly = total_cost - cost_monthly
@@ -165,9 +158,11 @@ elif page == "Cardpayment":
     st.header("💳 Cardpayment Vergleich")
     col1, col2 = st.columns(2)
 
-    init_keys = ["rev_a","sum_a","mrr_a","comm_a","auth_a","rev_o","sum_o","mrr_o","comm_o","auth_o"]
-    defaults = [0.0,0.0,0.0,1.39,0.0,0.0,0.0,0.0,1.19,0.06]
-    for k, v in zip(init_keys, defaults):
+    keys_defaults = {
+        "rev_a":0.0, "sum_a":0.0, "mrr_a":0.0, "comm_a":1.39, "auth_a":0.0,
+        "rev_o":0.0, "sum_o":0.0, "mrr_o":0.0, "comm_o":1.19, "auth_o":0.06
+    }
+    for k, v in keys_defaults.items():
         set_default(k, v)
 
     with col1:
@@ -177,11 +172,8 @@ elif page == "Cardpayment":
         st.number_input("Monthly Fee (€)", step=5.0, key="mrr_a")
         st.number_input("Commission (%)", step=0.01, key="comm_a")
         st.number_input("Authentification Fee (€)", key="auth_a")
-
     with col2:
         st.subheader("Offer")
-        st.session_state.rev_o = st.session_state.rev_o if st.session_state.rev_o else st.session_state.rev_a
-        st.session_state.sum_o = st.session_state.sum_o if st.session_state.sum_o else st.session_state.sum_a
         st.number_input("Revenue (€)", step=250.0, key="rev_o")
         st.number_input("Sum of payments", step=20, key="sum_o")
         st.number_input("Monthly Fee (€)", step=5.0, key="mrr_o")
@@ -207,7 +199,6 @@ elif page == "Cardpayment":
 elif page == "Pricing":
     st.header("💰 Pricing Kalkulation")
 
-    # --- Software inkl Connect ---
     df_sw = pd.DataFrame({
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW"],
         "Min_OTF": [365, 15, 365, 35, 0, 0],
@@ -215,8 +206,6 @@ elif page == "Pricing":
         "Min_MRR": [50, 15, 49, 5, 15, 0],
         "List_MRR": [119, 49, 89, 25, 15, 0]
     })
-
-    # --- Hardware ---
     df_hw = pd.DataFrame({
         "Produkt":["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX"],
         "Min_OTF":[135,350,50,99,100,225],
@@ -225,13 +214,11 @@ elif page == "Pricing":
         "List_MRR":[0]*6
     })
 
-    # --- Session State Mengen ---
     for i in range(len(df_sw)):
         set_default(f"sw_{i}",0)
     for i in range(len(df_hw)):
         set_default(f"hw_{i}",0)
 
-    # --- Eingaben Software/Hardware ---
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Software")
@@ -242,72 +229,52 @@ elif page == "Pricing":
         for i, p in enumerate(df_hw["Produkt"]):
             st.number_input(p, min_value=0, step=1, key=f"hw_{i}")
 
+    df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
+    df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
+
+    list_otf = (df_sw["Menge"]*df_sw["List_OTF"]).sum() + (df_hw["Menge"]*df_hw["List_OTF"]).sum()
+    min_otf = (df_sw["Menge"]*df_sw["Min_OTF"]).sum() + (df_hw["Menge"]*df_hw["Min_OTF"]).sum()
+    list_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum()
+    min_mrr = (df_sw["Menge"]*df_sw["Min_MRR"]).sum()
+
+    st.markdown("### 🧾 LIST PREISE")
+    st.markdown(f"**OTF LIST gesamt:** {list_otf:,.2f} €")
+    st.markdown(f"**MRR LIST gesamt:** {list_mrr:,.2f} €")
+    st.markdown("---")
+
 # =====================================================
-# 🗺️ Radien – Neue Seite
+# 🗺️ Radien
 # =====================================================
 elif page == "Radien":
     import folium
     from geopy.geocoders import Nominatim
     from streamlit_folium import st_folium
 
-    st.header("🗺️ Radien um eine Adresse")
-
     set_default("adresse","")
     set_default("radien_input","5,10")
 
-    adresse = st.text_input("Adresse eingeben", key="adresse")
-    radien_input = st.text_input("Radien eingeben (km, durch Komma getrennt)", key="radien_input")
-
+    st.header("🗺️ Radien um eine Adresse")
+    st.text_input("Adresse eingeben", key="adresse")
+    st.text_input("Radien eingeben (km, durch Komma getrennt)", key="radien_input")
     if st.button("Karte anzeigen"):
-        st.session_state['show_map'] = True
+        st.session_state.show_map = True
 
-    if st.session_state.get('show_map', False):
-        if adresse.strip() and radien_input.strip():
-            try:
-                radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
-            except ValueError:
-                st.warning("Bitte nur Zahlen für Radien eingeben, getrennt durch Komma.")
-                radien = []
-
-            if radien:
-                geolocator = Nominatim(user_agent="streamlit-free-radius-map", timeout=10)
-                try:
-                    location = geolocator.geocode(adresse)
-                    if location:
-                        lat, lon = location.latitude, location.longitude
-
-                        m = folium.Map(location=[lat, lon], zoom_start=12)
-                        folium.Marker(
-                            [lat, lon],
-                            popup=adresse,
-                            tooltip="Zentrum",
-                            icon=folium.Icon(color="red", icon="info-sign")
-                        ).add_to(m)
-
-                        bounds = []
-                        for r in radien:
-                            folium.Circle(
-                                location=[lat, lon],
-                                radius=r*1000,
-                                color="blue",
-                                weight=2,
-                                fill=True,
-                                fill_opacity=0.15
-                            ).add_to(m)
-
-                            bounds.append([lat + r/111, lon + r/111])
-                            bounds.append([lat - r/111, lon - r/111])
-
-                        m.fit_bounds(bounds)
-                        st_folium(m, width=1000, height=600)
-                    else:
-                        st.warning("Adresse nicht gefunden.")
-                except Exception as e:
-                    st.error(f"Fehler bei Geocoding: {e}\nVersuche es in ein paar Sekunden erneut.")
+    if st.session_state.show_map:
+        try:
+            radien = [float(r.strip()) for r in st.session_state.radien_input.split(",") if r.strip()]
+            geolocator = Nominatim(user_agent="streamlit-free-radius-map", timeout=10)
+            location = geolocator.geocode(st.session_state.adresse)
+            if location:
+                lat, lon = location.latitude, location.longitude
+                m = folium.Map(location=[lat, lon], zoom_start=12)
+                folium.Marker([lat, lon], popup=st.session_state.adresse, icon=folium.Icon(color="red")).add_to(m)
+                for r in radien:
+                    folium.Circle([lat, lon], radius=r*1000, color="blue", fill=True, fill_opacity=0.15).add_to(m)
+                st_folium(m, width=1000, height=600)
             else:
-                st.warning("Bitte gültige Radien eingeben.")
-        else:
-            st.warning("Bitte Adresse eingeben und mindestens einen Radius angeben.")
+                st.warning("Adresse nicht gefunden.")
+        except Exception as e:
+            st.error(f"Fehler: {e}")
 
 # =====================================================
 # Footer
