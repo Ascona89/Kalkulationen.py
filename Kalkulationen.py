@@ -281,7 +281,6 @@ elif page == "Radien":
     import folium
     from geopy.geocoders import Nominatim
     from streamlit_folium import st_folium
-    import time
 
     st.header("🗺️ Radien um eine Adresse")
 
@@ -319,7 +318,6 @@ elif page == "Radien":
                         fill=True,
                         fill_opacity=0.15
                     ).add_to(m)
-                    time.sleep(1)  # Rate-Limit
 
                 st_folium(m, width=1000, height=600)
             else:
