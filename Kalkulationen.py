@@ -223,50 +223,39 @@ elif page == "Pricing":
     for i in range(len(df_hw_lease)):
         st.session_state.setdefault(f"hwl_{i}",0)
 
-    st.subheader("Eingaben")
+    # --- Drei Spalten für die Auswahl ---
+    col_sw, col_hwk, col_hwl = st.columns(3)
+    
+    with col_sw:
+        st.subheader("Software")
+        for i, produkt in enumerate(df_sw["Produkt"]):
+            st.number_input(produkt, min_value=0, step=1, key=f"sw_{i}")
+            
+    with col_hwk:
+        st.subheader("Hardware Kauf")
+        for i, produkt in enumerate(df_hw_kauf["Produkt"]):
+            st.number_input(produkt, min_value=0, step=1, key=f"hwk_{i}")
+            
+    with col_hwl:
+        st.subheader("Hardware Leasing")
+        for i, produkt in enumerate(df_hw_lease["Produkt"]):
+            st.number_input(produkt, min_value=0, step=1, key=f"hwl_{i}")
 
-    # --- Eingabefelder nebeneinander in Zeilen ---
-    max_rows = max(len(df_sw), len(df_hw_kauf), len(df_hw_lease))
-    for i in range(max_rows):
-        cols = st.columns([1,1,1,1])  # Software | HW Kauf | HW Leasing | Ergebnis
-        # Software
-        if i < len(df_sw):
-            cols[0].number_input(df_sw["Produkt"][i], min_value=0, step=1, key=f"sw_{i}")
-        # Hardware Kauf
-        if i < len(df_hw_kauf):
-            cols[1].number_input(df_hw_kauf["Produkt"][i], min_value=0, step=1, key=f"hwk_{i}")
-        # Hardware Leasing
-        if i < len(df_hw_lease):
-            cols[2].number_input(df_hw_lease["Produkt"][i], min_value=0, step=1, key=f"hwl_{i}")
-        # Ergebnis: MRR inkl Leasing (für die aktuelle Zeile)
-        mrr_value = 0
-        if i < len(df_sw):
-            mrr_value += st.session_state[f"sw_{i}"]*df_sw.loc[i,"List_MRR"]
-        if i < len(df_hw_lease):
-            mrr_value += st.session_state[f"hwl_{i}"]*df_hw_lease.loc[i,"List_MRR"]
-        cols[3].markdown(f"**MRR:** {mrr_value:,.2f} €")
-
-    # --- Berechnung Gesamt OTF und MRR ---
-    df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
-    df_hw_kauf["Menge"] = [st.session_state[f"hwk_{i}"] for i in range(len(df_hw_kauf))]
-    df_hw_lease["Menge"] = [st.session_state[f"hwl_{i}"] for i in range(len(df_hw_lease))]
-
-    total_otf = (df_sw["Menge"]*df_sw["List_OTF"]).sum() + \
-                (df_hw_kauf["Menge"]*df_hw_kauf["List_OTF"]).sum() + \
-                (df_hw_lease["Menge"]*df_hw_lease["List_OTF"]).sum()
-    total_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum() + \
-                (df_hw_lease["Menge"]*df_hw_lease["List_MRR"]).sum()
+    # --- Ergebnisse berechnen ---
+    sw_mrr = sum(st.session_state[f"sw_{i}"]*df_sw.loc[i,"List_MRR"] for i in range(len(df_sw)))
+    hwk_otf = sum(st.session_state[f"hwk_{i}"]*df_hw_kauf.loc[i,"List_OTF"] for i in range(len(df_hw_kauf)))
+    hwl_mrr = sum(st.session_state[f"hwl_{i}"]*df_hw_lease.loc[i,"List_MRR"] for i in range(len(df_hw_lease)))
+    hwl_otf = sum(st.session_state[f"hwl_{i}"]*df_hw_lease.loc[i,"List_OTF"] for i in range(len(df_hw_lease)))
 
     # --- Ratenzahlung ---
-    raten_col, otf_col = st.columns([3,1])
-    with raten_col:
-        raten = st.selectbox("Ratenzahlung (Monate)", list(range(1,13)), index=0)
-    with otf_col:
-        st.markdown(f"OTF pro Rate: {total_otf/raten:,.2f} €")
+    raten = st.selectbox("Ratenzahlung Hardware Leasing (Monate)", list(range(1,13)), index=0)
+    hwl_rate = hwl_otf / raten if raten else hwl_otf
 
-    # --- Anzeige Gesamtpreise ---
-    st.markdown("---")
-    st.markdown(f"**OTF LIST gesamt:** {total_otf:,.2f} €  |  **MRR LIST gesamt inkl. Leasing:** {total_mrr:,.2f} €")
+    # --- Ergebnisse nebeneinander anzeigen ---
+    res_col1, res_col2, res_col3 = st.columns(3)
+    res_col1.metric("MRR Software", f"{sw_mrr:,.2f} €")
+    res_col2.metric("OTF Hardware Kauf", f"{hwk_otf:,.2f} €")
+    res_col3.metric(f"MRR Leasing + Rate ({raten} Monate)", f"{hwl_mrr + hwl_rate:,.2f} €")
 
 # =====================================================
 # 🌐 Radien
