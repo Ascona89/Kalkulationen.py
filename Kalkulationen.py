@@ -94,7 +94,13 @@ if st.session_state.is_admin:
 st.set_page_config(page_title="Kalkulations-App", layout="wide")
 st.title("📊 Kalkulations-App")
 
-page = st.sidebar.radio("Wähle eine Kalkulation:", ["Platform", "Cardpayment", "Pricing"])
+# =====================================================
+# 🗂 Seitenauswahl (Sidebar)
+# =====================================================
+page = st.sidebar.radio(
+    "Wähle eine Kalkulation:",
+    ["Platform", "Cardpayment", "Pricing", "Radien"]
+)
 
 # =====================================================
 # 🏁 Platform
@@ -267,6 +273,87 @@ elif page == "Pricing":
     st.markdown("### 🔻 MIN PREISE")
     st.markdown(f"**OTF MIN gesamt:** {min_otf:,.2f} €")
     st.markdown(f"**MRR MIN gesamt:** {min_mrr:,.2f} €")
+
+# =====================================================
+# 🗺️ Radien – Mehrere Standorte
+# =====================================================
+elif page == "Radien":
+    import folium
+    from geopy.geocoders import Nominatim
+    from streamlit_folium import st_folium
+
+    st.header("🗺️ Mehrere Radien um Adressen")
+
+    st.markdown("Gib mehrere Adressen ein und wähle für jede einen Radius.")
+
+    # Leere Liste für Adressen und Radien
+    if "radien_list" not in st.session_state:
+        st.session_state.radien_list = [{"adresse": "", "radius": 5}]
+
+    # Dynamische Eingabefelder
+    for i, entry in enumerate(st.session_state.radien_list):
+        col1, col2, col3 = st.columns([5,2,1])
+        with col1:
+            st.session_state.radien_list[i]["adresse"] = st.text_input(
+                f"Adresse {i+1}",
+                value=entry["adresse"],
+                key=f"adresse_{i}"
+            )
+        with col2:
+            st.session_state.radien_list[i]["radius"] = st.selectbox(
+                "Radius (km)",
+                [1,3,5,10,15,20,25,50],
+                index=[1,3,5,10,15,20,25,50].index(entry["radius"]),
+                key=f"radius_{i}"
+            )
+        with col3:
+            if st.button("❌ Entfernen", key=f"remove_{i}") and len(st.session_state.radien_list) > 1:
+                st.session_state.radien_list.pop(i)
+                st.experimental_rerun()
+
+    if st.button("➕ Weitere Adresse hinzufügen"):
+        st.session_state.radien_list.append({"adresse": "", "radius": 5})
+        st.experimental_rerun()
+
+    if st.button("Karte anzeigen"):
+        geolocator = Nominatim(user_agent="streamlit-multiple-radius-app")
+        m = folium.Map(zoom_start=12)
+
+        added_any = False
+
+        for entry in st.session_state.radien_list:
+            adresse = entry["adresse"]
+            radius_km = entry["radius"]
+            if adresse.strip():
+                location = geolocator.geocode(adresse)
+                if location:
+                    lat, lon = location.latitude, location.longitude
+
+                    # Mittelpunkt Marker
+                    folium.Marker(
+                        [lat, lon],
+                        popup=adresse,
+                        tooltip="Zentrum",
+                        icon=folium.Icon(color="red", icon="info-sign")
+                    ).add_to(m)
+
+                    # Kreis
+                    folium.Circle(
+                        location=[lat, lon],
+                        radius=radius_km * 1000,
+                        color="blue",
+                        weight=2,
+                        fill=True,
+                        fill_opacity=0.15
+                    ).add_to(m)
+                    added_any = True
+                else:
+                    st.warning(f"Adresse nicht gefunden: {adresse}")
+
+        if added_any:
+            st_folium(m, width=1000, height=600)
+        else:
+            st.info("Keine gültigen Adressen für die Karte.")
 
 # =====================================================
 # Footer
