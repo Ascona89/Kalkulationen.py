@@ -27,10 +27,11 @@ def log_login(role, success):
 # =====================================================
 # 🧠 Session State Initialisierung
 # =====================================================
-st.session_state.setdefault("logged_in", False)
-st.session_state.setdefault("is_admin", False)
-st.session_state.setdefault("USER_PASSWORD", USER_PASSWORD)
-st.session_state.setdefault("show_map", False)  # Für Radien-Seite
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.is_admin = False
+    st.session_state.USER_PASSWORD = USER_PASSWORD
+    st.session_state.show_map = False  # Radien Seite
 
 # =====================================================
 # 🔐 Login
@@ -51,12 +52,18 @@ def login(password):
         log_login("Unknown", False)
         st.error("❌ Falsches Passwort")
 
+def logout():
+    st.session_state.clear()
+    st.rerun()
+
 if not st.session_state.logged_in:
     st.title("🔐 Login erforderlich")
     pw = st.text_input("Passwort", type="password")
     if st.button("Login"):
         login(pw)
     st.stop()
+
+st.sidebar.button("Logout", on_click=logout)
 
 # =====================================================
 # 👑 Admin Backend
@@ -102,6 +109,13 @@ page = st.sidebar.radio(
 )
 
 # =====================================================
+# Helper Funktion für Session Defaults
+# =====================================================
+def set_default(key, default):
+    if key not in st.session_state:
+        st.session_state[key] = default
+
+# =====================================================
 # 🏁 Platform
 # =====================================================
 if page == "Platform":
@@ -111,7 +125,7 @@ if page == "Platform":
     init_keys = ["revenue","commission_pct","avg_order_value","service_fee","OTF","MRR","contract_length"]
     defaults = [0.0,14.0,25.0,0.69,0.0,0.0,24]
     for k, v in zip(init_keys, defaults):
-        st.session_state.setdefault(k, v)
+        set_default(k, v)
 
     with col1:
         st.subheader("Eingaben")
@@ -154,7 +168,7 @@ elif page == "Cardpayment":
     init_keys = ["rev_a","sum_a","mrr_a","comm_a","auth_a","rev_o","sum_o","mrr_o","comm_o","auth_o"]
     defaults = [0.0,0.0,0.0,1.39,0.0,0.0,0.0,0.0,1.19,0.06]
     for k, v in zip(init_keys, defaults):
-        st.session_state.setdefault(k, v)
+        set_default(k, v)
 
     with col1:
         st.subheader("Actual")
@@ -166,8 +180,8 @@ elif page == "Cardpayment":
 
     with col2:
         st.subheader("Offer")
-        st.session_state.rev_o = st.session_state.rev_a
-        st.session_state.sum_o = st.session_state.sum_a
+        st.session_state.rev_o = st.session_state.rev_o if st.session_state.rev_o else st.session_state.rev_a
+        st.session_state.sum_o = st.session_state.sum_o if st.session_state.sum_o else st.session_state.sum_a
         st.number_input("Revenue (€)", step=250.0, key="rev_o")
         st.number_input("Sum of payments", step=20, key="sum_o")
         st.number_input("Monthly Fee (€)", step=5.0, key="mrr_o")
@@ -213,9 +227,9 @@ elif page == "Pricing":
 
     # --- Session State Mengen ---
     for i in range(len(df_sw)):
-        st.session_state.setdefault(f"sw_{i}",0)
+        set_default(f"sw_{i}",0)
     for i in range(len(df_hw)):
-        st.session_state.setdefault(f"hw_{i}",0)
+        set_default(f"hw_{i}",0)
 
     # --- Eingaben Software/Hardware ---
     col1, col2 = st.columns(2)
@@ -228,51 +242,6 @@ elif page == "Pricing":
         for i, p in enumerate(df_hw["Produkt"]):
             st.number_input(p, min_value=0, step=1, key=f"hw_{i}")
 
-    # --- Berechnung Gesamtpreise ---
-    df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
-    df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
-
-    list_otf = (df_sw["Menge"]*df_sw["List_OTF"]).sum() + (df_hw["Menge"]*df_hw["List_OTF"]).sum()
-    min_otf = (df_sw["Menge"]*df_sw["Min_OTF"]).sum() + (df_hw["Menge"]*df_hw["Min_OTF"]).sum()
-    list_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum()
-    min_mrr = (df_sw["Menge"]*df_sw["Min_MRR"]).sum()
-
-    # --- LIST PREISE oben ---
-    st.markdown("### 🧾 LIST PREISE")
-    st.markdown(f"**OTF LIST gesamt:** {list_otf:,.2f} €")
-    st.markdown(f"**MRR LIST gesamt:** {list_mrr:,.2f} €")
-    st.markdown("---")
-
-    # --- Rabattfunktion unter den Eingaben ---
-    st.subheader("💸 Rabattfunktion")
-    col_otf, col_otf_reason = st.columns([1,3])
-    with col_otf:
-        discount_otf = st.selectbox("OTF Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], index=0)
-    with col_otf_reason:
-        reason_otf = st.text_input("Grund OTF Rabatt")
-        if discount_otf > 0 and len(reason_otf) < 10:
-            st.warning("Bitte Begründung eintragen (mindestens 10 Zeichen).")
-
-    col_mrr, col_mrr_reason = st.columns([1,3])
-    with col_mrr:
-        discount_mrr = st.selectbox("MRR Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], index=0)
-    with col_mrr_reason:
-        reason_mrr = st.text_input("Grund MRR Rabatt")
-        if discount_mrr > 0 and len(reason_mrr) < 10:
-            st.warning("Bitte Begründung eintragen (mindestens 10 Zeichen).")
-
-    otf_discounted = list_otf * (1 - discount_otf/100) if discount_otf > 0 and len(reason_otf) >= 10 else list_otf
-    mrr_discounted = list_mrr * (1 - discount_mrr/100) if discount_mrr > 0 and len(reason_mrr) >= 10 else list_mrr
-
-    st.info(f"OTF nach Rabatt: {otf_discounted:,.2f} €")
-    st.info(f"MRR nach Rabatt: {mrr_discounted:,.2f} €")
-
-    # --- MIN PREISE unten ---
-    st.markdown("---")
-    st.markdown("### 🔻 MIN PREISE")
-    st.markdown(f"**OTF MIN gesamt:** {min_otf:,.2f} €")
-    st.markdown(f"**MRR MIN gesamt:** {min_mrr:,.2f} €")
-
 # =====================================================
 # 🗺️ Radien – Neue Seite
 # =====================================================
@@ -283,8 +252,11 @@ elif page == "Radien":
 
     st.header("🗺️ Radien um eine Adresse")
 
+    set_default("adresse","")
+    set_default("radien_input","5,10")
+
     adresse = st.text_input("Adresse eingeben", key="adresse")
-    radien_input = st.text_input("Radien eingeben (km, durch Komma getrennt)", value="5,10", key="radien_input")
+    radien_input = st.text_input("Radien eingeben (km, durch Komma getrennt)", key="radien_input")
 
     if st.button("Karte anzeigen"):
         st.session_state['show_map'] = True
