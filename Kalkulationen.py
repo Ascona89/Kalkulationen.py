@@ -232,14 +232,11 @@ elif page == "Pricing":
     st.markdown(f"**MRR LIST gesamt:** {list_mrr:,.2f} €")
     st.markdown("---")
 
-    # --- Rabattfunktion unter den Eingaben ---
-    st.subheader("💸 Rabattfunktion")
-    col_otf, col_otf_reason = st.columns([1,3])
-    with col_otf:
-        discount_otf = st.selectbox("OTF Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], index=0)
-    with col_otf_reason:
-        reason_otf = st.text_input("Grund OTF Rabatt")
-    if discount_otf > 0 and len(reason_otf) < 10:
-        st.warning("Bitte Begründung eintragen (mindestens 10 Zeichen).")
+   col_mrr, col_mrr_reason = st.columns([1,3])
+with col_mrr:
+    discount_mrr = st.selectbox("MRR Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], index=0)
+with col_mrr_reason:
+    reason_mrr = st.text_input("Grund MRR Rabatt")
+if discount_mrr > 0 and len(reason_mrr) < 10:
+    st.warning("Bitte Begründung eintragen (mindestens 10 Zeichen).")
 
-    col_mrr, col_mrr_re_
