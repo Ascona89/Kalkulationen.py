@@ -170,7 +170,7 @@ elif page == "Cardpayment":
         st.session_state.rev_o = st.session_state.rev_a
         st.session_state.sum_o = st.session_state.sum_a
         st.number_input("Revenue (€)", step=250.0, key="rev_o")
-        st.number_input("Sum of payments", step=20, key="sum_o")
+        st.number_input("Sum of payments", step=20.0, key="sum_o")
         st.number_input("Monthly Fee (€)", step=5.0, key="mrr_o")
         st.number_input("Commission (%)", step=0.01, key="comm_o")
         st.number_input("Authentification Fee (€)", key="auth_o")
@@ -275,85 +275,57 @@ elif page == "Pricing":
     st.markdown(f"**MRR MIN gesamt:** {min_mrr:,.2f} €")
 
 # =====================================================
-# 🗺️ Radien – Mehrere Standorte
+# 🗺️ Radien – Eine Adresse, mehrere Radien
 # =====================================================
 elif page == "Radien":
     import folium
     from geopy.geocoders import Nominatim
     from streamlit_folium import st_folium
+    import time
 
-    st.header("🗺️ Mehrere Radien um Adressen")
+    st.header("🗺️ Radien um eine Adresse")
 
-    st.markdown("Gib mehrere Adressen ein und wähle für jede einen Radius.")
+    adresse = st.text_input("Adresse eingeben")
+    radien = st.multiselect(
+        "Radien auswählen (km)",
+        [1,3,5,10,15,20,25,50],
+        default=[5,10]
+    )
 
-    # Leere Liste für Adressen und Radien
-    if "radien_list" not in st.session_state:
-        st.session_state.radien_list = [{"adresse": "", "radius": 5}]
-
-    # Dynamische Eingabefelder
-    for i, entry in enumerate(st.session_state.radien_list):
-        col1, col2, col3 = st.columns([5,2,1])
-        with col1:
-            st.session_state.radien_list[i]["adresse"] = st.text_input(
-                f"Adresse {i+1}",
-                value=entry["adresse"],
-                key=f"adresse_{i}"
-            )
-        with col2:
-            st.session_state.radien_list[i]["radius"] = st.selectbox(
-                "Radius (km)",
-                [1,3,5,10,15,20,25,50],
-                index=[1,3,5,10,15,20,25,50].index(entry["radius"]),
-                key=f"radius_{i}"
-            )
-        with col3:
-            if st.button("❌ Entfernen", key=f"remove_{i}") and len(st.session_state.radien_list) > 1:
-                st.session_state.radien_list.pop(i)
-                st.experimental_rerun()
-
-    if st.button("➕ Weitere Adresse hinzufügen"):
-        st.session_state.radien_list.append({"adresse": "", "radius": 5})
-        st.experimental_rerun()
-
-    if st.button("Karte anzeigen"):
-        geolocator = Nominatim(user_agent="streamlit-multiple-radius-app")
+    if st.button("Karte anzeigen") and adresse.strip() and radien:
+        geolocator = Nominatim(user_agent="streamlit-single-address-radius")
         m = folium.Map(zoom_start=12)
 
-        added_any = False
+        try:
+            location = geolocator.geocode(adresse)
+            if location:
+                lat, lon = location.latitude, location.longitude
 
-        for entry in st.session_state.radien_list:
-            adresse = entry["adresse"]
-            radius_km = entry["radius"]
-            if adresse.strip():
-                location = geolocator.geocode(adresse)
-                if location:
-                    lat, lon = location.latitude, location.longitude
+                # Mittelpunkt Marker
+                folium.Marker(
+                    [lat, lon],
+                    popup=adresse,
+                    tooltip="Zentrum",
+                    icon=folium.Icon(color="red", icon="info-sign")
+                ).add_to(m)
 
-                    # Mittelpunkt Marker
-                    folium.Marker(
-                        [lat, lon],
-                        popup=adresse,
-                        tooltip="Zentrum",
-                        icon=folium.Icon(color="red", icon="info-sign")
-                    ).add_to(m)
-
-                    # Kreis
+                # Kreise für jeden Radius
+                for r in radien:
                     folium.Circle(
                         location=[lat, lon],
-                        radius=radius_km * 1000,
+                        radius=r*1000,
                         color="blue",
                         weight=2,
                         fill=True,
                         fill_opacity=0.15
                     ).add_to(m)
-                    added_any = True
-                else:
-                    st.warning(f"Adresse nicht gefunden: {adresse}")
+                    time.sleep(1)  # Rate-Limit
 
-        if added_any:
-            st_folium(m, width=1000, height=600)
-        else:
-            st.info("Keine gültigen Adressen für die Karte.")
+                st_folium(m, width=1000, height=600)
+            else:
+                st.warning("Adresse nicht gefunden.")
+        except Exception as e:
+            st.error(f"Fehler bei Geocoding: {e}")
 
 # =====================================================
 # Footer
