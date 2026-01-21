@@ -27,11 +27,10 @@ def log_login(role, success):
 # =====================================================
 # 🧠 Session State Initialisierung
 # =====================================================
-# Login
 st.session_state.setdefault("logged_in", False)
 st.session_state.setdefault("is_admin", False)
 st.session_state.setdefault("USER_PASSWORD", USER_PASSWORD)
-st.session_state.setdefault("show_map", False)  # Für Radien-Seite
+st.session_state.setdefault("show_map", False)
 
 # =====================================================
 # 🔐 Login
@@ -103,10 +102,9 @@ page = st.sidebar.radio(
 )
 
 # ==========================
-# Hilfsfunktion: Persistente Inputs
+# Hilfsfunktionen für persistente Inputs
 # ==========================
 def persistent_number_input(label, key, value=0.0, **kwargs):
-    """Speichert Input in Session State und behält ihn zwischen Seitenwechseln."""
     st.session_state.setdefault(key, value)
     st.session_state[key] = st.number_input(label, value=st.session_state[key], key=f"ui_{key}", **kwargs)
     return st.session_state[key]
@@ -128,7 +126,6 @@ if page == "Platform":
     st.header("🏁 Platform Kalkulation")
     col1, col2 = st.columns([2, 1.5])
 
-    # Inputs
     with col1:
         st.subheader("Eingaben")
         revenue = persistent_number_input("Revenue on platform (€)", "revenue", 0.0, step=250.0)
@@ -167,7 +164,6 @@ elif page == "Cardpayment":
     st.header("💳 Cardpayment Vergleich")
     col1, col2 = st.columns(2)
 
-    # Inputs
     with col1:
         st.subheader("Actual")
         rev_a = persistent_number_input("Revenue (€)", "rev_a", 0.0, step=250.0)
@@ -203,7 +199,6 @@ elif page == "Cardpayment":
 elif page == "Pricing":
     st.header("💰 Pricing Kalkulation")
 
-    # --- Software inkl Connect ---
     df_sw = pd.DataFrame({
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW"],
         "Min_OTF": [365, 15, 365, 35, 0, 0],
@@ -212,7 +207,6 @@ elif page == "Pricing":
         "List_MRR": [119, 49, 89, 25, 15, 0]
     })
 
-    # --- Hardware ---
     df_hw = pd.DataFrame({
         "Produkt":["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX"],
         "Min_OTF":[135,350,50,99,100,225],
@@ -221,11 +215,110 @@ elif page == "Pricing":
         "List_MRR":[0]*6
     })
 
-    # --- Session State Mengen ---
     for i in range(len(df_sw)):
         persistent_number_input(df_sw["Produkt"][i], f"sw_{i}", 0)
     for i in range(len(df_hw)):
         persistent_number_input(df_hw["Produkt"][i], f"hw_{i}", 0)
 
     df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
-    df_hw["Menge"] = [st.session_state[f"]()_]()_
+    df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
+
+    list_otf = (df_sw["Menge"]*df_sw["List_OTF"]).sum() + (df_hw["Menge"]*df_hw["List_OTF"]).sum()
+    min_otf = (df_sw["Menge"]*df_sw["Min_OTF"]).sum() + (df_hw["Menge"]*df_hw["Min_OTF"]).sum()
+    list_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum()
+    min_mrr = (df_sw["Menge"]*df_sw["Min_MRR"]).sum()
+
+    st.markdown("### 🧾 LIST PREISE")
+    st.markdown(f"**OTF LIST gesamt:** {list_otf:,.2f} €")
+    st.markdown(f"**MRR LIST gesamt:** {list_mrr:,.2f} €")
+    st.markdown("---")
+
+    discount_otf = persistent_selectbox("OTF Rabatt (%)", "discount_otf", list(range(0,51,5)))
+    reason_otf = persistent_text_input("Grund OTF Rabatt", "reason_otf")
+    discount_mrr = persistent_selectbox("MRR Rabatt (%)", "discount_mrr", list(range(0,51,5)))
+    reason_mrr = persistent_text_input("Grund MRR Rabatt", "reason_mrr")
+
+    otf_discounted = list_otf * (1 - discount_otf/100) if discount_otf > 0 and len(reason_otf) >= 10 else list_otf
+    mrr_discounted = list_mrr * (1 - discount_mrr/100) if discount_mrr > 0 and len(reason_mrr) >= 10 else list_mrr
+
+    st.info(f"OTF nach Rabatt: {otf_discounted:,.2f} €")
+    st.info(f"MRR nach Rabatt: {mrr_discounted:,.2f} €")
+
+    st.markdown("---")
+    st.markdown("### 🔻 MIN PREISE")
+    st.markdown(f"**OTF MIN gesamt:** {min_otf:,.2f} €")
+    st.markdown(f"**MRR MIN gesamt:** {min_mrr:,.2f} €")
+
+# =====================================================
+# 🗺️ Radien
+# =====================================================
+elif page == "Radien":
+    import folium
+    from geopy.geocoders import Nominatim
+    from streamlit_folium import st_folium
+
+    st.header("🗺️ Radien um eine Adresse")
+
+    adresse = persistent_text_input("Adresse eingeben", "adresse")
+    radien_input = persistent_text_input("Radien eingeben (km, durch Komma getrennt)", "radien_input", "5,10")
+
+    if st.button("Karte anzeigen"):
+        st.session_state['show_map'] = True
+
+    if st.session_state.get('show_map', False):
+        if adresse.strip() and radien_input.strip():
+            try:
+                radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
+            except ValueError:
+                st.warning("Bitte nur Zahlen für Radien eingeben, getrennt durch Komma.")
+                radien = []
+
+            if radien:
+                geolocator = Nominatim(user_agent="streamlit-free-radius-map", timeout=10)
+                try:
+                    location = geolocator.geocode(adresse)
+                    if location:
+                        lat, lon = location.latitude, location.longitude
+
+                        m = folium.Map(location=[lat, lon], zoom_start=12)
+                        folium.Marker(
+                            [lat, lon],
+                            popup=adresse,
+                            tooltip="Zentrum",
+                            icon=folium.Icon(color="red", icon="info-sign")
+                        ).add_to(m)
+
+                        bounds = []
+                        for r in radien:
+                            folium.Circle(
+                                location=[lat, lon],
+                                radius=r*1000,
+                                color="blue",
+                                weight=2,
+                                fill=True,
+                                fill_opacity=0.15
+                            ).add_to(m)
+
+                            bounds.append([lat + r/111, lon + r/111])
+                            bounds.append([lat - r/111, lon - r/111])
+
+                        m.fit_bounds(bounds)
+                        st_folium(m, width=1000, height=600)
+                    else:
+                        st.warning("Adresse nicht gefunden.")
+                except Exception as e:
+                    st.error(f"Fehler bei Geocoding: {e}")
+            else:
+                st.warning("Bitte gültige Radien eingeben.")
+        else:
+            st.warning("Bitte Adresse eingeben und mindestens einen Radius angeben.")
+
+# =====================================================
+# Footer
+# =====================================================
+st.markdown("""
+<hr>
+<p style='text-align:center; font-size:0.8rem; color:gray;'>
+😉 Traue niemals Zahlen, die du nicht selbst gefälscht hast 😉
+</p>
+""", unsafe_allow_html=True)
