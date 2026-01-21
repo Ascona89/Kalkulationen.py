@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from supabase import create_client
+import folium
+from streamlit_folium import st_folium
 
 # =====================================================
 # 🔐 Passwörter
@@ -62,7 +64,6 @@ if not st.session_state.logged_in:
 # =====================================================
 if st.session_state.is_admin:
     st.header("👑 Admin Dashboard")
-
     data = supabase.table("login_events").select("*").order("created_at", desc=True).execute()
     df = pd.DataFrame(data.data)
     if not df.empty:
@@ -188,7 +189,7 @@ elif page == "Cardpayment":
 elif page == "Pricing":
     st.header("💰 Pricing Kalkulation")
 
-    # --- Software ---
+    # --- Software inkl Connect ---
     df_sw = pd.DataFrame({
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW"],
         "Min_OTF": [365, 15, 365, 35, 0, 0],
@@ -208,14 +209,14 @@ elif page == "Pricing":
 
     # --- Hardware Leasing ---
     df_hw_lease = pd.DataFrame({
-        "Produkt":["Ordermanager","POS inkl 1 Printer","PAX","Cash Drawer"],
+        "Produkt":["Ordermanager","POS","PAX","Cash Drawer"],
         "Min_OTF":[9.00,23.33,15.00,3.33],
         "List_OTF":[19.93,113.27,19.93,9.93],
         "Min_MRR":[9.00,23.33,15.00,3.33],
         "List_MRR":[19.93,113.27,19.93,9.93]
     })
 
-    # --- Session State ---
+    # --- Session State Mengen ---
     for i in range(len(df_sw)):
         st.session_state.setdefault(f"sw_{i}",0)
     for i in range(len(df_hw_kauf)):
@@ -223,7 +224,7 @@ elif page == "Pricing":
     for i in range(len(df_hw_lease)):
         st.session_state.setdefault(f"hwl_{i}",0)
 
-    # --- Drei Spalten für die Auswahl ---
+    # --- Drei Spalten für die Eingaben ---
     col_sw, col_hwk, col_hwl = st.columns(3)
     
     with col_sw:
@@ -241,50 +242,49 @@ elif page == "Pricing":
         for i, produkt in enumerate(df_hw_lease["Produkt"]):
             st.number_input(produkt, min_value=0, step=1, key=f"hwl_{i}")
 
-    # --- Ergebnisse berechnen ---
+    # --- Berechnung ---
     sw_mrr = sum(st.session_state[f"sw_{i}"]*df_sw.loc[i,"List_MRR"] for i in range(len(df_sw)))
     hwk_otf = sum(st.session_state[f"hwk_{i}"]*df_hw_kauf.loc[i,"List_OTF"] for i in range(len(df_hw_kauf)))
     hwl_mrr = sum(st.session_state[f"hwl_{i}"]*df_hw_lease.loc[i,"List_MRR"] for i in range(len(df_hw_lease)))
-    hwl_otf = sum(st.session_state[f"hwl_{i}"]*df_hw_lease.loc[i,"List_OTF"] for i in range(len(df_hw_lease)))
 
-    # --- Ratenzahlung ---
-    raten = st.selectbox("Ratenzahlung Hardware Leasing (Monate)", list(range(1,13)), index=0)
-    hwl_rate = hwl_otf / raten if raten else hwl_otf
+    # --- Ratenzahlung für Hardware Kauf OTF ---
+    raten = st.selectbox("Ratenzahlung Hardware Kauf (Monate)", list(range(1,13)), index=0)
+    hwk_rate = hwk_otf / raten if raten else hwk_otf
 
-    # --- Ergebnisse nebeneinander anzeigen ---
-    res_col1, res_col2, res_col3 = st.columns(3)
+    # --- Ergebnisse nebeneinander ---
+    res_col1, res_col2, res_col3, res_col4 = st.columns(4)
     res_col1.metric("MRR Software", f"{sw_mrr:,.2f} €")
     res_col2.metric("OTF Hardware Kauf", f"{hwk_otf:,.2f} €")
-    res_col3.metric(f"MRR Leasing + Rate ({raten} Monate)", f"{hwl_mrr + hwl_rate:,.2f} €")
+    res_col3.metric(f"Monatliche Rate Kauf ({raten} Monate)", f"{hwk_rate:,.2f} €")
+    res_col4.metric("MRR Hardware Leasing", f"{hwl_mrr:,.2f} €")
 
 # =====================================================
 # 🌐 Radien
 # =====================================================
 elif page == "Radien":
-    st.header("📍 Radien auf Karte")
-
-    adresse = st.text_input("Adresse eingeben (z.B. Krokusweg 2, Kirchheim am Neckar)")
-    radii_input = st.text_input("Radien in km, durch Komma getrennt (z.B. 1,3,5)")
+    st.header("🌐 Radien Karte")
+    adresse = st.text_input("Adresse eingeben")
+    radien = st.text_input("Radien in Metern, Komma getrennt z.B. 100,200,300")
     
-    if st.button("Karte anzeigen") and adresse and radii_input:
-        import folium
-        from streamlit_folium import st_folium
-        from geopy.geocoders import Nominatim
-
+    if st.button("Karte anzeigen") and adresse and radien:
         try:
+            from geopy.geocoders import Nominatim
             geolocator = Nominatim(user_agent="kalk_app")
-            location = geolocator.geocode(adresse)
+            location = geolocator.geocode(adresse, timeout=10)
             if location:
-                m = folium.Map(location=[location.latitude, location.longitude], zoom_start=13)
-                folium.Marker([location.latitude, location.longitude], tooltip=adresse).add_to(m)
-                for r in map(float, radii_input.split(",")):
-                    folium.Circle([location.latitude, location.longitude], radius=r*1000,
-                                  color="blue", fill=True, fill_opacity=0.2).add_to(m)
+                lat, lon = location.latitude, location.longitude
+                m = folium.Map(location=[lat, lon], zoom_start=15)
+                for r in radien.split(","):
+                    try:
+                        r_val = float(r.strip())
+                        folium.Circle(location=[lat, lon], radius=r_val, color="blue", fill=True, fill_opacity=0.2).add_to(m)
+                    except:
+                        pass
                 st_folium(m, width=700, height=500)
             else:
-                st.error("Adresse konnte nicht gefunden werden.")
+                st.error("Adresse nicht gefunden.")
         except Exception as e:
-            st.error(f"Fehler: {e}")
+            st.error(f"Fehler bei Geocoding: {e}")
 
 # =====================================================
 # Footer
@@ -294,4 +294,4 @@ st.markdown("""
 <p style='text-align:center; font-size:0.8rem; color:gray;'>
 😉 Traue niemals Zahlen, die du nicht selbst gefälscht hast 😉
 </p>
-""", unsafe_allow_html=True)
+""", unsafe_allow_html=True) 
