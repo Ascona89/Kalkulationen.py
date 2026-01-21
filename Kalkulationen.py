@@ -199,6 +199,7 @@ elif page == "Cardpayment":
 elif page == "Pricing":
     st.header("💰 Pricing Kalkulation")
 
+    # --- Software inkl Connect ---
     df_sw = pd.DataFrame({
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW"],
         "Min_OTF": [365, 15, 365, 35, 0, 0],
@@ -207,6 +208,7 @@ elif page == "Pricing":
         "List_MRR": [119, 49, 89, 25, 15, 0]
     })
 
+    # --- Hardware ---
     df_hw = pd.DataFrame({
         "Produkt":["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX"],
         "Min_OTF":[135,350,50,99,100,225],
@@ -215,11 +217,24 @@ elif page == "Pricing":
         "List_MRR":[0]*6
     })
 
+    # --- Session State Mengen ---
     for i in range(len(df_sw)):
-        persistent_number_input(df_sw["Produkt"][i], f"sw_{i}", 0)
+        st.session_state.setdefault(f"sw_{i}", 0)
     for i in range(len(df_hw)):
-        persistent_number_input(df_hw["Produkt"][i], f"hw_{i}", 0)
+        st.session_state.setdefault(f"hw_{i}", 0)
 
+    # --- Eingaben Software/Hardware ---
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("Software")
+        for i, p in enumerate(df_sw["Produkt"]):
+            st.session_state[f"sw_{i}"] = st.number_input(p, min_value=0, step=1, key=f"sw_ui_{i}")
+    with col2:
+        st.subheader("Hardware")
+        for i, p in enumerate(df_hw["Produkt"]):
+            st.session_state[f"hw_{i}"] = st.number_input(p, min_value=0, step=1, key=f"hw_ui_{i}")
+
+    # --- Berechnung Gesamtpreise ---
     df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
     df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
 
@@ -228,22 +243,40 @@ elif page == "Pricing":
     list_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum()
     min_mrr = (df_sw["Menge"]*df_sw["Min_MRR"]).sum()
 
+    # --- LIST PREISE oben ---
     st.markdown("### 🧾 LIST PREISE")
     st.markdown(f"**OTF LIST gesamt:** {list_otf:,.2f} €")
     st.markdown(f"**MRR LIST gesamt:** {list_mrr:,.2f} €")
     st.markdown("---")
 
-    discount_otf = persistent_selectbox("OTF Rabatt (%)", "discount_otf", list(range(0,51,5)))
-    reason_otf = persistent_text_input("Grund OTF Rabatt", "reason_otf")
-    discount_mrr = persistent_selectbox("MRR Rabatt (%)", "discount_mrr", list(range(0,51,5)))
-    reason_mrr = persistent_text_input("Grund MRR Rabatt", "reason_mrr")
+    # --- Rabattfunktion ---
+    st.subheader("💸 Rabattfunktion")
+    col_otf, col_otf_reason = st.columns([1,3])
+    with col_otf:
+        st.session_state['discount_otf'] = st.selectbox("OTF Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], 
+                                                       index=[0,5,10,15,20,25,30,35,40,45,50].index(st.session_state.get('discount_otf',0)))
+    with col_otf_reason:
+        st.session_state['reason_otf'] = st.text_input("Grund OTF Rabatt", value=st.session_state.get('reason_otf',''))
+        if st.session_state['discount_otf'] > 0 and len(st.session_state['reason_otf']) < 10:
+            st.warning("Bitte Begründung eintragen (mindestens 10 Zeichen).")
 
-    otf_discounted = list_otf * (1 - discount_otf/100) if discount_otf > 0 and len(reason_otf) >= 10 else list_otf
-    mrr_discounted = list_mrr * (1 - discount_mrr/100) if discount_mrr > 0 and len(reason_mrr) >= 10 else list_mrr
+    col_mrr, col_mrr_reason = st.columns([1,3])
+    with col_mrr:
+        st.session_state['discount_mrr'] = st.selectbox("MRR Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], 
+                                                       index=[0,5,10,15,20,25,30,35,40,45,50].index(st.session_state.get('discount_mrr',0)))
+    with col_mrr_reason:
+        st.session_state['reason_mrr'] = st.text_input("Grund MRR Rabatt", value=st.session_state.get('reason_mrr',''))
+        if st.session_state['discount_mrr'] > 0 and len(st.session_state['reason_mrr']) < 10:
+            st.warning("Bitte Begründung eintragen (mindestens 10 Zeichen).")
+
+    # --- Berechnete Preise nach Rabatt ---
+    otf_discounted = list_otf * (1 - st.session_state['discount_otf']/100) if st.session_state['discount_otf'] > 0 and len(st.session_state['reason_otf']) >= 10 else list_otf
+    mrr_discounted = list_mrr * (1 - st.session_state['discount_mrr']/100) if st.session_state['discount_mrr'] > 0 and len(st.session_state['reason_mrr']) >= 10 else list_mrr
 
     st.info(f"OTF nach Rabatt: {otf_discounted:,.2f} €")
     st.info(f"MRR nach Rabatt: {mrr_discounted:,.2f} €")
 
+    # --- MIN PREISE unten ---
     st.markdown("---")
     st.markdown("### 🔻 MIN PREISE")
     st.markdown(f"**OTF MIN gesamt:** {min_otf:,.2f} €")
