@@ -30,7 +30,6 @@ def log_login(role, success):
 st.session_state.setdefault("logged_in", False)
 st.session_state.setdefault("is_admin", False)
 st.session_state.setdefault("USER_PASSWORD", USER_PASSWORD)
-st.session_state.setdefault("show_map", False)  # Für Radien-Seite
 
 # =====================================================
 # 🔐 Login
@@ -95,11 +94,7 @@ if st.session_state.is_admin:
 st.set_page_config(page_title="Kalkulations-App", layout="wide")
 st.title("📊 Kalkulations-App")
 
-# 🗂 Seitenauswahl (Sidebar)
-page = st.sidebar.radio(
-    "Wähle eine Kalkulation:",
-    ["Platform", "Cardpayment", "Pricing", "Radien"]
-)
+page = st.sidebar.radio("Wähle eine Kalkulation:", ["Platform", "Cardpayment", "Pricing"])
 
 # =====================================================
 # 🏁 Platform
@@ -202,8 +197,8 @@ elif page == "Pricing":
         "List_MRR": [119, 49, 89, 25, 15, 0]
     })
 
-    # --- Hardware ---
-    df_hw = pd.DataFrame({
+    # --- Hardware Kauf ---
+    df_hw_kauf = pd.DataFrame({
         "Produkt":["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX"],
         "Min_OTF":[135,350,50,99,100,225],
         "List_OTF":[299,1699,149,199,100,299],
@@ -211,39 +206,69 @@ elif page == "Pricing":
         "List_MRR":[0]*6
     })
 
-    # --- Session State Mengen ---
+    # --- Hardware Leasing ---
+    df_hw_lease = pd.DataFrame({
+        "Produkt":["Ordermanager","POS inkl 1 Printer","PAX","Cash Drawer"],
+        "Min_OTF":[9.00,23.33,15.00,3.33],
+        "List_OTF":[19.93,113.27,19.93,9.93],
+        "Min_MRR":[9.00,23.33,15.00,3.33],
+        "List_MRR":[19.93,113.27,19.93,9.93]
+    })
+
+    # --- Session State Mengen Software/Hardware Kauf/Leasing ---
     for i in range(len(df_sw)):
         st.session_state.setdefault(f"sw_{i}",0)
-    for i in range(len(df_hw)):
-        st.session_state.setdefault(f"hw_{i}",0)
+    for i in range(len(df_hw_kauf)):
+        st.session_state.setdefault(f"hwk_{i}",0)
+    for i in range(len(df_hw_lease)):
+        st.session_state.setdefault(f"hwl_{i}",0)
 
-    # --- Eingaben Software/Hardware ---
-    col1, col2 = st.columns(2)
+    # --- Eingaben Software / Hardware Kauf / Hardware Leasing ---
+    col1, col2, col3 = st.columns(3)
     with col1:
         st.subheader("Software")
         for i, p in enumerate(df_sw["Produkt"]):
             st.number_input(p, min_value=0, step=1, key=f"sw_{i}")
     with col2:
-        st.subheader("Hardware")
-        for i, p in enumerate(df_hw["Produkt"]):
-            st.number_input(p, min_value=0, step=1, key=f"hw_{i}")
+        st.subheader("Hardware Kauf")
+        for i, p in enumerate(df_hw_kauf["Produkt"]):
+            st.number_input(p, min_value=0, step=1, key=f"hwk_{i}")
+    with col3:
+        st.subheader("Hardware Leasing")
+        for i, p in enumerate(df_hw_lease["Produkt"]):
+            st.number_input(p, min_value=0, step=1, key=f"hwl_{i}")
 
     # --- Berechnung Gesamtpreise ---
     df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
-    df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
+    df_hw_kauf["Menge"] = [st.session_state[f"hwk_{i}"] for i in range(len(df_hw_kauf))]
+    df_hw_lease["Menge"] = [st.session_state[f"hwl_{i}"] for i in range(len(df_hw_lease))]
 
-    list_otf = (df_sw["Menge"]*df_sw["List_OTF"]).sum() + (df_hw["Menge"]*df_hw["List_OTF"]).sum()
-    min_otf = (df_sw["Menge"]*df_sw["Min_OTF"]).sum() + (df_hw["Menge"]*df_hw["Min_OTF"]).sum()
-    list_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum()
-    min_mrr = (df_sw["Menge"]*df_sw["Min_MRR"]).sum()
+    list_otf = (df_sw["Menge"]*df_sw["List_OTF"]).sum() + \
+               (df_hw_kauf["Menge"]*df_hw_kauf["List_OTF"]).sum() + \
+               (df_hw_lease["Menge"]*df_hw_lease["List_OTF"]).sum()
+    min_otf = (df_sw["Menge"]*df_sw["Min_OTF"]).sum() + \
+              (df_hw_kauf["Menge"]*df_hw_kauf["Min_OTF"]).sum() + \
+              (df_hw_lease["Menge"]*df_hw_lease["Min_OTF"]).sum()
+    list_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum() + \
+               (df_hw_lease["Menge"]*df_hw_lease["List_MRR"]).sum()
+    min_mrr = (df_sw["Menge"]*df_sw["Min_MRR"]).sum() + \
+              (df_hw_lease["Menge"]*df_hw_lease["Min_MRR"]).sum()
 
     # --- LIST PREISE oben ---
     st.markdown("### 🧾 LIST PREISE")
     st.markdown(f"**OTF LIST gesamt:** {list_otf:,.2f} €")
     st.markdown(f"**MRR LIST gesamt:** {list_mrr:,.2f} €")
+
+    # --- Ratenzahlung Dropdown ---
+    col_raten, col_raten_otf = st.columns([2,1])
+    with col_raten:
+        raten = st.selectbox("Ratenzahlung (Monate)", list(range(1,13)), index=0)
+    with col_raten_otf:
+        st.markdown(f"OTF pro Rate: {list_otf/raten:,.2f} €")
+
     st.markdown("---")
 
-    # --- Rabattfunktion unter den Eingaben ---
+    # --- Rabattfunktion ---
     st.subheader("💸 Rabattfunktion")
     col_otf, col_otf_reason = st.columns([1,3])
     with col_otf:
@@ -274,70 +299,6 @@ elif page == "Pricing":
     st.markdown(f"**MRR MIN gesamt:** {min_mrr:,.2f} €")
 
 # =====================================================
-# 🗺️ Radien – Neue Seite
-# =====================================================
-elif page == "Radien":
-    import folium
-    from geopy.geocoders import Nominatim
-    from streamlit_folium import st_folium
-
-    st.header("🗺️ Radien um eine Adresse")
-
-    adresse = st.text_input("Adresse eingeben", key="adresse")
-    radien_input = st.text_input("Radien eingeben (km, durch Komma getrennt)", value="5,10", key="radien_input")
-
-    if st.button("Karte anzeigen"):
-        st.session_state['show_map'] = True
-
-    if st.session_state.get('show_map', False):
-        if adresse.strip() and radien_input.strip():
-            try:
-                radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
-            except ValueError:
-                st.warning("Bitte nur Zahlen für Radien eingeben, getrennt durch Komma.")
-                radien = []
-
-            if radien:
-                geolocator = Nominatim(user_agent="streamlit-free-radius-map", timeout=10)
-                try:
-                    location = geolocator.geocode(adresse)
-                    if location:
-                        lat, lon = location.latitude, location.longitude
-
-                        m = folium.Map(location=[lat, lon], zoom_start=12)
-                        folium.Marker(
-                            [lat, lon],
-                            popup=adresse,
-                            tooltip="Zentrum",
-                            icon=folium.Icon(color="red", icon="info-sign")
-                        ).add_to(m)
-
-                        bounds = []
-                        for r in radien:
-                            folium.Circle(
-                                location=[lat, lon],
-                                radius=r*1000,
-                                color="blue",
-                                weight=2,
-                                fill=True,
-                                fill_opacity=0.15
-                            ).add_to(m)
-
-                            bounds.append([lat + r/111, lon + r/111])
-                            bounds.append([lat - r/111, lon - r/111])
-
-                        m.fit_bounds(bounds)
-                        st_folium(m, width=1000, height=600)
-                    else:
-                        st.warning("Adresse nicht gefunden.")
-                except Exception as e:
-                    st.error(f"Fehler bei Geocoding: {e}\nVersuche es in ein paar Sekunden erneut.")
-            else:
-                st.warning("Bitte gültige Radien eingeben.")
-        else:
-            st.warning("Bitte Adresse eingeben und mindestens einen Radius angeben.")
-
-# =====================================================
 # Footer
 # =====================================================
 st.markdown("""
@@ -345,4 +306,4 @@ st.markdown("""
 <p style='text-align:center; font-size:0.8rem; color:gray;'>
 😉 Traue niemals Zahlen, die du nicht selbst gefälscht hast 😉
 </p>
-""", unsafe_allow_html=True)
+""", unsafe_allow_html=True) 
