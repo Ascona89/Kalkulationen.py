@@ -27,15 +27,10 @@ def log_login(role, success):
 # =====================================================
 # 🧠 Session State Initialisierung
 # =====================================================
-def set_default(key, value):
-    if key not in st.session_state:
-        st.session_state[key] = value
-
-# Login & Admin Flags
-set_default("logged_in", False)
-set_default("is_admin", False)
-set_default("USER_PASSWORD", USER_PASSWORD)
-set_default("show_map", False)
+st.session_state.setdefault("logged_in", False)
+st.session_state.setdefault("is_admin", False)
+st.session_state.setdefault("USER_PASSWORD", USER_PASSWORD)
+st.session_state.setdefault("show_map", False)
 
 # =====================================================
 # 🔐 Login
@@ -46,12 +41,12 @@ def login(password):
         st.session_state.logged_in = True
         st.session_state.is_admin = False
         log_login("User", True)
-        st.experimental_rerun()
+        st.rerun()
     elif password == ADMIN_PASSWORD:
         st.session_state.logged_in = True
         st.session_state.is_admin = True
         log_login("Admin", True)
-        st.experimental_rerun()
+        st.rerun()
     else:
         log_login("Unknown", False)
         st.error("❌ Falsches Passwort")
@@ -106,6 +101,24 @@ page = st.sidebar.radio(
     ["Platform", "Cardpayment", "Pricing", "Radien"]
 )
 
+# ==========================
+# Hilfsfunktionen für persistente Inputs
+# ==========================
+def persistent_number_input(label, key, value=0.0, **kwargs):
+    st.session_state.setdefault(key, value)
+    st.session_state[key] = st.number_input(label, value=st.session_state[key], key=f"ui_{key}", **kwargs)
+    return st.session_state[key]
+
+def persistent_text_input(label, key, value="", **kwargs):
+    st.session_state.setdefault(key, value)
+    st.session_state[key] = st.text_input(label, value=st.session_state[key], key=f"ui_{key}", **kwargs)
+    return st.session_state[key]
+
+def persistent_selectbox(label, key, options, index=0, **kwargs):
+    st.session_state.setdefault(key, options[index])
+    st.session_state[key] = st.selectbox(label, options, index=options.index(st.session_state[key]), **kwargs)
+    return st.session_state[key]
+
 # =====================================================
 # 🏁 Platform
 # =====================================================
@@ -113,36 +126,29 @@ if page == "Platform":
     st.header("🏁 Platform Kalkulation")
     col1, col2 = st.columns([2, 1.5])
 
-    keys_defaults = {
-        "revenue": 0.0,
-        "commission_pct": 14.0,
-        "avg_order_value": 25.0,
-        "service_fee": 0.69,
-        "OTF": 0.0,
-        "MRR": 0.0,
-        "contract_length": 24
-    }
-    for k, v in keys_defaults.items():
-        set_default(k, v)
-
     with col1:
         st.subheader("Eingaben")
-        st.number_input("Revenue on platform (€)", step=250.0, key="revenue")
-        st.number_input("Commission (%)", step=1.0, key="commission_pct")
-        st.number_input("Average order value (€)", step=5.0, key="avg_order_value")
-        st.number_input("Service Fee (€)", step=0.1, key="service_fee")
+        revenue = persistent_number_input("Revenue on platform (€)", "revenue", 0.0, step=250.0)
+        commission_pct = persistent_number_input("Commission (%)", "commission_pct", 14.0, step=1.0)
+        avg_order_value = persistent_number_input("Average order value (€)", "avg_order_value", 25.0, step=5.0)
+        service_fee = persistent_number_input("Service Fee (€)", "service_fee", 0.69, step=0.1)
+
+        total_cost = revenue*(commission_pct/100) + \
+                     (0.7*revenue/avg_order_value if avg_order_value else 0)*service_fee
+
+        st.markdown("### 💶 Cost on Platform")
+        st.markdown(f"<div style='color:red; font-size:28px;'>{total_cost:,.2f} €</div>", unsafe_allow_html=True)
+
         st.markdown("---")
         st.subheader("Vertragsdetails")
-        st.number_input("One Time Fee (OTF) (€)", step=100.0, key="OTF")
-        st.number_input("Monthly Recurring Revenue (MRR) (€)", step=10.0, key="MRR")
-        st.number_input("Contract length (Monate)", step=12, key="contract_length")
+        OTF = persistent_number_input("One Time Fee (OTF) (€)", "OTF", 0.0, step=100.0)
+        MRR = persistent_number_input("Monthly Recurring Revenue (MRR) (€)", "MRR", 0.0, step=10.0)
+        contract_length = persistent_number_input("Contract length (Monate)", "contract_length", 24, step=12)
 
-    total_cost = st.session_state.revenue*(st.session_state.commission_pct/100) + \
-                 (0.7*st.session_state.revenue/st.session_state.avg_order_value if st.session_state.avg_order_value else 0)*st.session_state.service_fee
-    transaction = 0.7*st.session_state.revenue/5*0.35
-    cost_monthly = st.session_state.MRR + transaction
+    transaction = 0.7*revenue/5*0.35
+    cost_monthly = MRR + transaction
     saving_monthly = total_cost - cost_monthly
-    saving_over_contract = saving_monthly*st.session_state.contract_length
+    saving_over_contract = saving_monthly*contract_length
 
     st.subheader("📊 Kennzahlen")
     st.info(
@@ -158,30 +164,24 @@ elif page == "Cardpayment":
     st.header("💳 Cardpayment Vergleich")
     col1, col2 = st.columns(2)
 
-    keys_defaults = {
-        "rev_a":0.0, "sum_a":0.0, "mrr_a":0.0, "comm_a":1.39, "auth_a":0.0,
-        "rev_o":0.0, "sum_o":0.0, "mrr_o":0.0, "comm_o":1.19, "auth_o":0.06
-    }
-    for k, v in keys_defaults.items():
-        set_default(k, v)
-
     with col1:
         st.subheader("Actual")
-        st.number_input("Revenue (€)", step=250.0, key="rev_a")
-        st.number_input("Sum of payments", step=20, key="sum_a")
-        st.number_input("Monthly Fee (€)", step=5.0, key="mrr_a")
-        st.number_input("Commission (%)", step=0.01, key="comm_a")
-        st.number_input("Authentification Fee (€)", key="auth_a")
+        rev_a = persistent_number_input("Revenue (€)", "rev_a", 0.0, step=250.0)
+        sum_a = persistent_number_input("Sum of payments", "sum_a", 0.0, step=20.0)
+        mrr_a = persistent_number_input("Monthly Fee (€)", "mrr_a", 0.0, step=5.0)
+        comm_a = persistent_number_input("Commission (%)", "comm_a", 1.39, step=0.01)
+        auth_a = persistent_number_input("Authentification Fee (€)", "auth_a", 0.0)
+
     with col2:
         st.subheader("Offer")
-        st.number_input("Revenue (€)", step=250.0, key="rev_o")
-        st.number_input("Sum of payments", step=20, key="sum_o")
-        st.number_input("Monthly Fee (€)", step=5.0, key="mrr_o")
-        st.number_input("Commission (%)", step=0.01, key="comm_o")
-        st.number_input("Authentification Fee (€)", key="auth_o")
+        rev_o = persistent_number_input("Revenue (€)", "rev_o", rev_a, step=250.0)
+        sum_o = persistent_number_input("Sum of payments", "sum_o", sum_a, step=20.0)
+        mrr_o = persistent_number_input("Monthly Fee (€)", "mrr_o", 0.0, step=5.0)
+        comm_o = persistent_number_input("Commission (%)", "comm_o", 1.19, step=0.01)
+        auth_o = persistent_number_input("Authentification Fee (€)", "auth_o", 0.06)
 
-    total_actual = st.session_state.rev_a*(st.session_state.comm_a/100) + st.session_state.sum_a*st.session_state.auth_a + st.session_state.mrr_a
-    total_offer  = st.session_state.rev_o*(st.session_state.comm_o/100) + st.session_state.sum_o*st.session_state.auth_o + st.session_state.mrr_o
+    total_actual = rev_a*(comm_a/100) + sum_a*auth_a + mrr_a
+    total_offer  = rev_o*(comm_o/100) + sum_o*auth_o + mrr_o
     saving = total_offer - total_actual
 
     st.markdown("---")
@@ -206,6 +206,7 @@ elif page == "Pricing":
         "Min_MRR": [50, 15, 49, 5, 15, 0],
         "List_MRR": [119, 49, 89, 25, 15, 0]
     })
+
     df_hw = pd.DataFrame({
         "Produkt":["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX"],
         "Min_OTF":[135,350,50,99,100,225],
@@ -215,19 +216,9 @@ elif page == "Pricing":
     })
 
     for i in range(len(df_sw)):
-        set_default(f"sw_{i}",0)
+        persistent_number_input(df_sw["Produkt"][i], f"sw_{i}", 0)
     for i in range(len(df_hw)):
-        set_default(f"hw_{i}",0)
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("Software")
-        for i, p in enumerate(df_sw["Produkt"]):
-            st.number_input(p, min_value=0, step=1, key=f"sw_{i}")
-    with col2:
-        st.subheader("Hardware")
-        for i, p in enumerate(df_hw["Produkt"]):
-            st.number_input(p, min_value=0, step=1, key=f"hw_{i}")
+        persistent_number_input(df_hw["Produkt"][i], f"hw_{i}", 0)
 
     df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
     df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
@@ -242,6 +233,22 @@ elif page == "Pricing":
     st.markdown(f"**MRR LIST gesamt:** {list_mrr:,.2f} €")
     st.markdown("---")
 
+    discount_otf = persistent_selectbox("OTF Rabatt (%)", "discount_otf", list(range(0,51,5)))
+    reason_otf = persistent_text_input("Grund OTF Rabatt", "reason_otf")
+    discount_mrr = persistent_selectbox("MRR Rabatt (%)", "discount_mrr", list(range(0,51,5)))
+    reason_mrr = persistent_text_input("Grund MRR Rabatt", "reason_mrr")
+
+    otf_discounted = list_otf * (1 - discount_otf/100) if discount_otf > 0 and len(reason_otf) >= 10 else list_otf
+    mrr_discounted = list_mrr * (1 - discount_mrr/100) if discount_mrr > 0 and len(reason_mrr) >= 10 else list_mrr
+
+    st.info(f"OTF nach Rabatt: {otf_discounted:,.2f} €")
+    st.info(f"MRR nach Rabatt: {mrr_discounted:,.2f} €")
+
+    st.markdown("---")
+    st.markdown("### 🔻 MIN PREISE")
+    st.markdown(f"**OTF MIN gesamt:** {min_otf:,.2f} €")
+    st.markdown(f"**MRR MIN gesamt:** {min_mrr:,.2f} €")
+
 # =====================================================
 # 🗺️ Radien
 # =====================================================
@@ -250,31 +257,61 @@ elif page == "Radien":
     from geopy.geocoders import Nominatim
     from streamlit_folium import st_folium
 
-    set_default("adresse","")
-    set_default("radien_input","5,10")
-
     st.header("🗺️ Radien um eine Adresse")
-    st.text_input("Adresse eingeben", key="adresse")
-    st.text_input("Radien eingeben (km, durch Komma getrennt)", key="radien_input")
-    if st.button("Karte anzeigen"):
-        st.session_state.show_map = True
 
-    if st.session_state.show_map:
-        try:
-            radien = [float(r.strip()) for r in st.session_state.radien_input.split(",") if r.strip()]
-            geolocator = Nominatim(user_agent="streamlit-free-radius-map", timeout=10)
-            location = geolocator.geocode(st.session_state.adresse)
-            if location:
-                lat, lon = location.latitude, location.longitude
-                m = folium.Map(location=[lat, lon], zoom_start=12)
-                folium.Marker([lat, lon], popup=st.session_state.adresse, icon=folium.Icon(color="red")).add_to(m)
-                for r in radien:
-                    folium.Circle([lat, lon], radius=r*1000, color="blue", fill=True, fill_opacity=0.15).add_to(m)
-                st_folium(m, width=1000, height=600)
+    adresse = persistent_text_input("Adresse eingeben", "adresse")
+    radien_input = persistent_text_input("Radien eingeben (km, durch Komma getrennt)", "radien_input", "5,10")
+
+    if st.button("Karte anzeigen"):
+        st.session_state['show_map'] = True
+
+    if st.session_state.get('show_map', False):
+        if adresse.strip() and radien_input.strip():
+            try:
+                radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
+            except ValueError:
+                st.warning("Bitte nur Zahlen für Radien eingeben, getrennt durch Komma.")
+                radien = []
+
+            if radien:
+                geolocator = Nominatim(user_agent="streamlit-free-radius-map", timeout=10)
+                try:
+                    location = geolocator.geocode(adresse)
+                    if location:
+                        lat, lon = location.latitude, location.longitude
+
+                        m = folium.Map(location=[lat, lon], zoom_start=12)
+                        folium.Marker(
+                            [lat, lon],
+                            popup=adresse,
+                            tooltip="Zentrum",
+                            icon=folium.Icon(color="red", icon="info-sign")
+                        ).add_to(m)
+
+                        bounds = []
+                        for r in radien:
+                            folium.Circle(
+                                location=[lat, lon],
+                                radius=r*1000,
+                                color="blue",
+                                weight=2,
+                                fill=True,
+                                fill_opacity=0.15
+                            ).add_to(m)
+
+                            bounds.append([lat + r/111, lon + r/111])
+                            bounds.append([lat - r/111, lon - r/111])
+
+                        m.fit_bounds(bounds)
+                        st_folium(m, width=1000, height=600)
+                    else:
+                        st.warning("Adresse nicht gefunden.")
+                except Exception as e:
+                    st.error(f"Fehler bei Geocoding: {e}")
             else:
-                st.warning("Adresse nicht gefunden.")
-        except Exception as e:
-            st.error(f"Fehler: {e}")
+                st.warning("Bitte gültige Radien eingeben.")
+        else:
+            st.warning("Bitte Adresse eingeben und mindestens einen Radius angeben.")
 
 # =====================================================
 # Footer
