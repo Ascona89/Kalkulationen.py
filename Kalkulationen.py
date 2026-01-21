@@ -2,8 +2,6 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from supabase import create_client
-import folium
-from streamlit_folium import st_folium
 
 # =====================================================
 # 🔐 Passwörter
@@ -64,6 +62,7 @@ if not st.session_state.logged_in:
 # =====================================================
 if st.session_state.is_admin:
     st.header("👑 Admin Dashboard")
+
     data = supabase.table("login_events").select("*").order("created_at", desc=True).execute()
     df = pd.DataFrame(data.data)
     if not df.empty:
@@ -95,7 +94,7 @@ if st.session_state.is_admin:
 st.set_page_config(page_title="Kalkulations-App", layout="wide")
 st.title("📊 Kalkulations-App")
 
-page = st.sidebar.radio("Wähle eine Kalkulation:", ["Platform", "Cardpayment", "Pricing", "Radien"])
+page = st.sidebar.radio("Wähle eine Kalkulation:", ["Platform", "Cardpayment", "Pricing"])
 
 # =====================================================
 # 🏁 Platform
@@ -200,91 +199,100 @@ elif page == "Pricing":
 
     # --- Hardware Kauf ---
     df_hw_kauf = pd.DataFrame({
-        "Produkt":["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX"],
-        "Min_OTF":[135,350,50,99,100,225],
-        "List_OTF":[299,1699,149,199,100,299],
-        "Min_MRR":[0]*6,
-        "List_MRR":[0]*6
+        "Produkt":["Ordermanager","POS inkl 1 Printer","Cash Drawer","PAX"],
+        "Min_OTF":[9.0,23.33,3.33,15.0],
+        "List_OTF":[19.93,113.27,9.93,19.93],
+        "Min_MRR":[0]*4,
+        "List_MRR":[0]*4
     })
 
     # --- Hardware Leasing ---
-    df_hw_lease = pd.DataFrame({
-        "Produkt":["Ordermanager","POS","PAX","Cash Drawer"],
-        "Min_OTF":[9.00,23.33,15.00,3.33],
-        "List_OTF":[19.93,113.27,19.93,9.93],
-        "Min_MRR":[9.00,23.33,15.00,3.33],
-        "List_MRR":[19.93,113.27,19.93,9.93]
-    })
+    df_hw_lease = df_hw_kauf.copy()
+    df_hw_lease["Min_MRR"] = df_hw_lease["Min_OTF"]
+    df_hw_lease["List_MRR"] = df_hw_lease["List_OTF"]
 
     # --- Session State Mengen ---
     for i in range(len(df_sw)):
         st.session_state.setdefault(f"sw_{i}",0)
     for i in range(len(df_hw_kauf)):
         st.session_state.setdefault(f"hwk_{i}",0)
-    for i in range(len(df_hw_lease)):
         st.session_state.setdefault(f"hwl_{i}",0)
 
-    # --- Drei Spalten für die Eingaben ---
-    col_sw, col_hwk, col_hwl = st.columns(3)
-    
-    with col_sw:
+    # --- Eingaben in drei Spalten ---
+    col1, col2, col3 = st.columns(3)
+    with col1:
         st.subheader("Software")
-        for i, produkt in enumerate(df_sw["Produkt"]):
-            st.number_input(produkt, min_value=0, step=1, key=f"sw_{i}")
-            
-    with col_hwk:
+        for i, p in enumerate(df_sw["Produkt"]):
+            st.number_input(p, min_value=0, step=1, key=f"sw_{i}")
+    with col2:
         st.subheader("Hardware Kauf")
-        for i, produkt in enumerate(df_hw_kauf["Produkt"]):
-            st.number_input(produkt, min_value=0, step=1, key=f"hwk_{i}")
-            
-    with col_hwl:
+        for i, p in enumerate(df_hw_kauf["Produkt"]):
+            st.number_input(p, min_value=0, step=1, key=f"hwk_{i}")
+    with col3:
         st.subheader("Hardware Leasing")
-        for i, produkt in enumerate(df_hw_lease["Produkt"]):
-            st.number_input(produkt, min_value=0, step=1, key=f"hwl_{i}")
+        for i, p in enumerate(df_hw_lease["Produkt"]):
+            st.number_input(p, min_value=0, step=1, key=f"hwl_{i}")
 
-    # --- Berechnung ---
-    sw_mrr = sum(st.session_state[f"sw_{i}"]*df_sw.loc[i,"List_MRR"] for i in range(len(df_sw)))
-    hwk_otf = sum(st.session_state[f"hwk_{i}"]*df_hw_kauf.loc[i,"List_OTF"] for i in range(len(df_hw_kauf)))
-    hwl_mrr = sum(st.session_state[f"hwl_{i}"]*df_hw_lease.loc[i,"List_MRR"] for i in range(len(df_hw_lease)))
+    # --- Berechnung Mengen ---
+    df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
+    df_hw_kauf["Menge"] = [st.session_state[f"hwk_{i}"] for i in range(len(df_hw_kauf))]
+    df_hw_lease["Menge"] = [st.session_state[f"hwl_{i}"] for i in range(len(df_hw_lease))]
 
-    # --- Ratenzahlung für Hardware Kauf OTF ---
-    raten = st.selectbox("Ratenzahlung Hardware Kauf (Monate)", list(range(1,13)), index=0)
-    hwk_rate = hwk_otf / raten if raten else hwk_otf
+    # --- Berechnung Preise ---
+    list_otf_sw = (df_sw["Menge"]*df_sw["List_OTF"]).sum()
+    list_otf_hwk = (df_hw_kauf["Menge"]*df_hw_kauf["List_OTF"]).sum()
+    list_mrr_sw = (df_sw["Menge"]*df_sw["List_MRR"]).sum()
+    list_mrr_hwl = (df_hw_lease["Menge"]*df_hw_lease["List_MRR"]).sum()
 
-    # --- Ergebnisse nebeneinander ---
-    res_col1, res_col2, res_col3, res_col4 = st.columns(4)
-    res_col1.metric("MRR Software", f"{sw_mrr:,.2f} €")
-    res_col2.metric("OTF Hardware Kauf", f"{hwk_otf:,.2f} €")
-    res_col3.metric(f"Monatliche Rate Kauf ({raten} Monate)", f"{hwk_rate:,.2f} €")
-    res_col4.metric("MRR Hardware Leasing", f"{hwl_mrr:,.2f} €")
+    # --- LIST Preise und Rabattrechner unverändert ---
+    st.markdown("### 🧾 LIST PREISE")
+    st.markdown(f"**OTF LIST gesamt Software:** {list_otf_sw:,.2f} €")
+    st.markdown(f"**OTF LIST gesamt Hardware Kauf:** {list_otf_hwk:,.2f} €")
+    st.markdown(f"**MRR LIST gesamt Software:** {list_mrr_sw:,.2f} €")
+    st.markdown(f"**MRR LIST gesamt Hardware Leasing:** {list_mrr_hwl:,.2f} €")
+    st.markdown("---")
 
-# =====================================================
-# 🌐 Radien
-# =====================================================
-elif page == "Radien":
-    st.header("🌐 Radien Karte")
-    adresse = st.text_input("Adresse eingeben")
-    radien = st.text_input("Radien in Metern, Komma getrennt z.B. 100,200,300")
-    
-    if st.button("Karte anzeigen") and adresse and radien:
-        try:
-            from geopy.geocoders import Nominatim
-            geolocator = Nominatim(user_agent="kalk_app")
-            location = geolocator.geocode(adresse, timeout=10)
-            if location:
-                lat, lon = location.latitude, location.longitude
-                m = folium.Map(location=[lat, lon], zoom_start=15)
-                for r in radien.split(","):
-                    try:
-                        r_val = float(r.strip())
-                        folium.Circle(location=[lat, lon], radius=r_val, color="blue", fill=True, fill_opacity=0.2).add_to(m)
-                    except:
-                        pass
-                st_folium(m, width=700, height=500)
-            else:
-                st.error("Adresse nicht gefunden.")
-        except Exception as e:
-            st.error(f"Fehler bei Geocoding: {e}")
+    st.subheader("💸 Rabattfunktion")
+    col_otf, col_otf_reason = st.columns([1,3])
+    with col_otf:
+        discount_otf = st.selectbox("OTF Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], index=0)
+    with col_otf_reason:
+        reason_otf = st.text_input("Grund OTF Rabatt")
+        if discount_otf > 0 and len(reason_otf) < 10:
+            st.warning("Bitte Begründung eintragen (mindestens 10 Zeichen).")
+
+    col_mrr, col_mrr_reason = st.columns([1,3])
+    with col_mrr:
+        discount_mrr = st.selectbox("MRR Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], index=0)
+    with col_mrr_reason:
+        reason_mrr = st.text_input("Grund MRR Rabatt")
+        if discount_mrr > 0 and len(reason_mrr) < 10:
+            st.warning("Bitte Begründung eintragen (mindestens 10 Zeichen).")
+
+    otf_discounted_sw = list_otf_sw * (1 - discount_otf/100) if discount_otf > 0 and len(reason_otf) >= 10 else list_otf_sw
+    otf_discounted_hwk = list_otf_hwk * (1 - discount_otf/100) if discount_otf > 0 and len(reason_otf) >= 10 else list_otf_hwk
+    mrr_discounted_sw = list_mrr_sw * (1 - discount_mrr/100) if discount_mrr > 0 and len(reason_mrr) >= 10 else list_mrr_sw
+    mrr_discounted_hwl = list_mrr_hwl * (1 - discount_mrr/100) if discount_mrr > 0 and len(reason_mrr) >= 10 else list_mrr_hwl
+
+    st.info(f"OTF nach Rabatt Software: {otf_discounted_sw:,.2f} €")
+    st.info(f"OTF nach Rabatt Hardware Kauf: {otf_discounted_hwk:,.2f} €")
+    st.info(f"MRR nach Rabatt Software: {mrr_discounted_sw:,.2f} €")
+    st.info(f"MRR nach Rabatt Hardware Leasing: {mrr_discounted_hwl:,.2f} €")
+
+    # --- Ergebnisse unter den Auswahlfeldern ---
+    st.markdown("---")
+    col_res1, col_res2, col_res3 = st.columns(3)
+    col_res1.metric("MRR Software", f"{mrr_discounted_sw:,.2f} €")
+    col_res2.metric("OTF Hardware Kauf", f"{otf_discounted_hwk:,.2f} €")
+    col_res3.metric("MRR Hardware Leasing", f"{mrr_discounted_hwl:,.2f} €")
+
+    # --- Ratenzahlung separat ---
+    st.markdown("---")
+    st.subheader("💳 Ratenzahlung Hardware Kauf")
+    months = st.selectbox("Monate Ratenzahlung", list(range(1,13)), index=11)
+    if months > 0:
+        monthly_rate = otf_discounted_hwk / months
+        st.info(f"Monatliche Rate: {monthly_rate:,.2f} € für {months} Monate")
 
 # =====================================================
 # Footer
@@ -294,4 +302,4 @@ st.markdown("""
 <p style='text-align:center; font-size:0.8rem; color:gray;'>
 😉 Traue niemals Zahlen, die du nicht selbst gefälscht hast 😉
 </p>
-""", unsafe_allow_html=True) 
+""", unsafe_allow_html=True)
