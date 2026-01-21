@@ -284,54 +284,58 @@ elif page == "Radien":
     st.header("🗺️ Radien um eine Adresse")
 
     adresse = st.text_input("Adresse eingeben", key="adresse")
-    radien = st.multiselect(
-        "Radien auswählen (km)",
-        [1,3,5,10,15,20,25,50],
-        default=[5,10],
-        key="radien"
-    )
+    radien_input = st.text_input("Radien eingeben (km, durch Komma getrennt)", value="5,10", key="radien_input")
 
     if st.button("Karte anzeigen"):
         st.session_state['show_map'] = True
 
     if st.session_state.get('show_map', False):
-        if adresse.strip() and radien:
-            geolocator = Nominatim(user_agent="streamlit-single-address-radius", timeout=10)
+        if adresse.strip() and radien_input.strip():
             try:
-                location = geolocator.geocode(adresse)
-                if location:
-                    lat, lon = location.latitude, location.longitude
+                radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
+            except ValueError:
+                st.warning("Bitte nur Zahlen für Radien eingeben, getrennt durch Komma.")
+                radien = []
 
-                    m = folium.Map(location=[lat, lon], zoom_start=12)
-                    folium.Marker(
-                        [lat, lon],
-                        popup=adresse,
-                        tooltip="Zentrum",
-                        icon=folium.Icon(color="red", icon="info-sign")
-                    ).add_to(m)
+            if radien:
+                geolocator = Nominatim(user_agent="streamlit-free-radius-map", timeout=10)
+                try:
+                    location = geolocator.geocode(adresse)
+                    if location:
+                        lat, lon = location.latitude, location.longitude
 
-                    bounds = []
-                    for r in radien:
-                        folium.Circle(
-                            location=[lat, lon],
-                            radius=r*1000,
-                            color="blue",
-                            weight=2,
-                            fill=True,
-                            fill_opacity=0.15
+                        m = folium.Map(location=[lat, lon], zoom_start=12)
+                        folium.Marker(
+                            [lat, lon],
+                            popup=adresse,
+                            tooltip="Zentrum",
+                            icon=folium.Icon(color="red", icon="info-sign")
                         ).add_to(m)
 
-                        bounds.append([lat + r/111, lon + r/111])
-                        bounds.append([lat - r/111, lon - r/111])
+                        bounds = []
+                        for r in radien:
+                            folium.Circle(
+                                location=[lat, lon],
+                                radius=r*1000,
+                                color="blue",
+                                weight=2,
+                                fill=True,
+                                fill_opacity=0.15
+                            ).add_to(m)
 
-                    m.fit_bounds(bounds)
-                    st_folium(m, width=1000, height=600)
-                else:
-                    st.warning("Adresse nicht gefunden.")
-            except Exception as e:
-                st.error(f"Fehler bei Geocoding: {e}\nVersuche es in ein paar Sekunden erneut.")
+                            bounds.append([lat + r/111, lon + r/111])
+                            bounds.append([lat - r/111, lon - r/111])
+
+                        m.fit_bounds(bounds)
+                        st_folium(m, width=1000, height=600)
+                    else:
+                        st.warning("Adresse nicht gefunden.")
+                except Exception as e:
+                    st.error(f"Fehler bei Geocoding: {e}\nVersuche es in ein paar Sekunden erneut.")
+            else:
+                st.warning("Bitte gültige Radien eingeben.")
         else:
-            st.warning("Bitte Adresse eingeben und mindestens einen Radius auswählen.")
+            st.warning("Bitte Adresse eingeben und mindestens einen Radius angeben.")
 
 # =====================================================
 # Footer
@@ -341,4 +345,4 @@ st.markdown("""
 <p style='text-align:center; font-size:0.8rem; color:gray;'>
 😉 Traue niemals Zahlen, die du nicht selbst gefälscht hast 😉
 </p>
-""", unsafe_allow_html=True) 
+""", unsafe_allow_html=True)
