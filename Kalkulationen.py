@@ -30,6 +30,7 @@ def log_login(role, success):
 st.session_state.setdefault("logged_in", False)
 st.session_state.setdefault("is_admin", False)
 st.session_state.setdefault("USER_PASSWORD", USER_PASSWORD)
+st.session_state.setdefault("show_map", False)  # Für Radien-Seite
 
 # =====================================================
 # 🔐 Login
@@ -94,7 +95,11 @@ if st.session_state.is_admin:
 st.set_page_config(page_title="Kalkulations-App", layout="wide")
 st.title("📊 Kalkulations-App")
 
-page = st.sidebar.radio("Wähle eine Kalkulation:", ["Platform", "Cardpayment", "Pricing"])
+# 🗂 Seitenauswahl (Sidebar)
+page = st.sidebar.radio(
+    "Wähle eine Kalkulation:",
+    ["Platform", "Cardpayment", "Pricing", "Radien"]
+)
 
 # =====================================================
 # 🏁 Platform
@@ -267,6 +272,70 @@ elif page == "Pricing":
     st.markdown("### 🔻 MIN PREISE")
     st.markdown(f"**OTF MIN gesamt:** {min_otf:,.2f} €")
     st.markdown(f"**MRR MIN gesamt:** {min_mrr:,.2f} €")
+
+# =====================================================
+# 🗺️ Radien – Neue Seite
+# =====================================================
+elif page == "Radien":
+    import folium
+    from geopy.geocoders import Nominatim
+    from streamlit_folium import st_folium
+
+    st.header("🗺️ Radien um eine Adresse")
+
+    adresse = st.text_input("Adresse eingeben", key="adresse")
+    radien_input = st.text_input("Radien eingeben (km, durch Komma getrennt)", value="5,10", key="radien_input")
+
+    if st.button("Karte anzeigen"):
+        st.session_state['show_map'] = True
+
+    if st.session_state.get('show_map', False):
+        if adresse.strip() and radien_input.strip():
+            try:
+                radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
+            except ValueError:
+                st.warning("Bitte nur Zahlen für Radien eingeben, getrennt durch Komma.")
+                radien = []
+
+            if radien:
+                geolocator = Nominatim(user_agent="streamlit-free-radius-map", timeout=10)
+                try:
+                    location = geolocator.geocode(adresse)
+                    if location:
+                        lat, lon = location.latitude, location.longitude
+
+                        m = folium.Map(location=[lat, lon], zoom_start=12)
+                        folium.Marker(
+                            [lat, lon],
+                            popup=adresse,
+                            tooltip="Zentrum",
+                            icon=folium.Icon(color="red", icon="info-sign")
+                        ).add_to(m)
+
+                        bounds = []
+                        for r in radien:
+                            folium.Circle(
+                                location=[lat, lon],
+                                radius=r*1000,
+                                color="blue",
+                                weight=2,
+                                fill=True,
+                                fill_opacity=0.15
+                            ).add_to(m)
+
+                            bounds.append([lat + r/111, lon + r/111])
+                            bounds.append([lat - r/111, lon - r/111])
+
+                        m.fit_bounds(bounds)
+                        st_folium(m, width=1000, height=600)
+                    else:
+                        st.warning("Adresse nicht gefunden.")
+                except Exception as e:
+                    st.error(f"Fehler bei Geocoding: {e}\nVersuche es in ein paar Sekunden erneut.")
+            else:
+                st.warning("Bitte gültige Radien eingeben.")
+        else:
+            st.warning("Bitte Adresse eingeben und mindestens einen Radius angeben.")
 
 # =====================================================
 # Footer
