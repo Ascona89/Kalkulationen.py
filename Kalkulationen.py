@@ -347,7 +347,7 @@ elif page == "Radien":
             st.warning("Bitte Adresse eingeben und mindestens einen Radius angeben.")
 
 # =====================================================
-# 📞 Telesales (Neue Seite)
+# 📞 Telesales (Neue Seite, ohne Upload)
 # =====================================================
 elif page == "Telesales":
     import folium
@@ -357,20 +357,18 @@ elif page == "Telesales":
 
     st.header("📞 Telesales PLZ Suche")
 
-    # Upload CSV
-    uploaded_file = st.file_uploader("Lade die PLZ-Datei hoch (CSV, Spalten: plz,ort,lat,lon)", type="csv")
-    if uploaded_file:
-        try:
-            df_plz = pd.read_csv(uploaded_file)
-        except Exception as e:
-            st.error(f"Fehler beim Lesen der Datei: {e}")
-            st.stop()
-    else:
-        st.warning("Bitte lade die PLZ-Datei hoch, um die Funktion zu nutzen.")
+    # PLZ-Datei aus dem Repo laden (lokaler Pfad im Repo)
+    try:
+        df_plz = pd.read_csv("data/plz.csv")  # <-- Pfad zu deiner CSV im Repo
+    except FileNotFoundError:
+        st.error("PLZ-Datei nicht gefunden. Bitte sicherstellen, dass 'data/plz.csv' im Repo liegt.")
+        st.stop()
+    except Exception as e:
+        st.error(f"Fehler beim Lesen der Datei: {e}")
         st.stop()
 
     # Adresse und Radius
-    center_input = st.text_input("Stadt/Adresse für Zentrum")
+    center_input = st.text_input("Stadt/Adresse für Zentrum", value="Berlin")
     radius_input = st.number_input("Radius (km)", min_value=1, max_value=1000, value=10)
 
     if st.button("Suche starten"):
@@ -379,7 +377,10 @@ elif page == "Telesales":
             loc = geolocator.geocode(center_input)
             if loc:
                 center_coords = (loc.latitude, loc.longitude)
-                df_plz['distance_km'] = df_plz.apply(lambda row: haversine(center_coords, (row['lat'], row['lon'])), axis=1)
+                df_plz['distance_km'] = df_plz.apply(
+                    lambda row: haversine(center_coords, (row['lat'], row['lon'])),
+                    axis=1
+                )
                 df_result = df_plz[df_plz['distance_km'] <= radius_input].sort_values('distance_km')
 
                 st.subheader("📋 PLZ Ergebnisse")
