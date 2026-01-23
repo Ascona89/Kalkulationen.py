@@ -337,7 +337,9 @@ elif page == "Radien":
         else:
             st.warning("Bitte Adresse eingeben und mindestens einen Radius angeben.")
 
+# =====================================================
 # =================== TELESSALES ======================
+# =====================================================
 if page == "Telesales":
 
     import math
@@ -347,26 +349,21 @@ if page == "Telesales":
 
     st.header("📞 Telesales – PLZ im Radius")
 
-    # CSV mit PLZ-Daten (lokal oder GitHub)
-    CSV_URL = "data/plz_geocoord.csv"
+    # CSV mit PLZ-Daten von deinem Repo
+    CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
 
     @st.cache_data
     def load_plz_data():
         df = pd.read_csv(CSV_URL, dtype=str)
 
-        # Nur die wichtigen Spalten umbenennen
+        # Nur die relevanten Spalten nehmen und in float konvertieren
         df = df.rename(columns={
             "plz": "plz",
             "lat": "lat",
             "lon": "lon"
         })
-
-        # Sicherstellen, dass lat/lon floats sind
-        df["lat"] = pd.to_numeric(df["lat"], errors="coerce")
-        df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
-
-        # Fehlende Werte entfernen
-        df = df.dropna(subset=["lat", "lon"])
+        df["lat"] = df["lat"].astype(float)
+        df["lon"] = df["lon"].astype(float)
         return df
 
     df_plz = load_plz_data()
@@ -378,8 +375,10 @@ if page == "Telesales":
 
     # ---------------- Inputs ----------------
     col1, col2 = st.columns(2)
+
     with col1:
         center_input = st.text_input("📍 Stadt oder PLZ", placeholder="z.B. Berlin oder 10115")
+
     with col2:
         radius_km = st.number_input("📏 Radius (km)", min_value=1, max_value=300, value=25)
 
@@ -394,21 +393,21 @@ if page == "Telesales":
 
         lat_c, lon_c = center.latitude, center.longitude
 
+        # Haversine-Funktion zur Berechnung der Distanz
         def haversine(lat1, lon1, lat2, lon2):
-            R = 6371
+            R = 6371  # Erdradius in km
             phi1, phi2 = math.radians(lat1), math.radians(lat2)
             dphi = math.radians(lat2 - lat1)
             dlambda = math.radians(lon2 - lon1)
             a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
             return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-        # Berechne Entfernung
+        # Filter nur PLZ im Radius
         df_plz["distance_km"] = df_plz.apply(
-            lambda r: haversine(lat_c, lon_c, float(r["lat"]), float(r["lon"])),
+            lambda r: haversine(lat_c, lon_c, r["lat"], r["lon"]),
             axis=1
         )
 
-        # Nur PLZ im Radius
         df_result = df_plz[df_plz["distance_km"] <= radius_km].sort_values("distance_km")
 
         st.session_state["df_result"] = df_result
@@ -417,6 +416,7 @@ if page == "Telesales":
 
     # ---------------- RESULTS (persisted) ----------------
     if st.session_state["show_result"] and st.session_state["df_result"] is not None:
+
         df_result = st.session_state["df_result"]
         lat_c, lon_c = st.session_state["center"]
 
@@ -446,4 +446,5 @@ if page == "Telesales":
             ).add_to(m)
 
         st_folium(m, width=1200, height=600)
+
 
