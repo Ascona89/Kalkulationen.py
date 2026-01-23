@@ -337,74 +337,113 @@ elif page == "Radien":
         else:
             st.warning("Bitte Adresse eingeben und mindestens einen Radius angeben.")
 
-# =====================================================
 # =================== TELESSALES ======================
-# =====================================================
-elif page == "Telesales":
+if page == "Telesales":
+
+    import math
+    import folium
+    from geopy.geocoders import Nominatim
+    from streamlit_folium import st_folium
 
     st.header("📞 Telesales – PLZ im Radius")
 
-    CSV_FILE = "plz_geocoord.csv"
+    # CSV mit PLZ-Daten (lokal oder GitHub)
+    CSV_URL = "data/plz_geocoord.csv"
 
     @st.cache_data
     def load_plz_data():
-        df = pd.read_csv(CSV_FILE, dtype=str)
+        df = pd.read_csv(CSV_URL, dtype=str)
 
-        # Varianten umbenennen
-        rename_map = {}
-        if "plz" in df.columns:
-            rename_map["plz"] = "plz"
-        elif "postcode" in df.columns:
-            rename_map["postcode"] = "plz"
+        # Nur die wichtigen Spalten umbenennen
+        df = df.rename(columns={
+            "plz": "plz",
+            "lat": "lat",
+            "lon": "lon"
+        })
 
-        if "lat" in df.columns:
-            rename_map["lat"] = "lat"
-        elif "latitude" in df.columns:
-            rename_map["latitude"] = "lat"
+        # Sicherstellen, dass lat/lon floats sind
+        df["lat"] = pd.to_numeric(df["lat"], errors="coerce")
+        df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
 
-        if "lon" in df.columns:
-            rename_map["lon"] = "lon"
-        elif "longitude" in df.columns:
-            rename_map["longitude"] = "lon"
-        elif "lng" in df.columns:
-            rename_map["lng"] = "lon"
-
-        df = df.rename(columns=rename_map)
-
-        required_cols = ["plz", "lat", "lon"]
-        for col in required_cols:
-            if col not in df.columns:
-                raise ValueError(f"Spalte '{col}' fehlt in der CSV!")
-
-        df["lat"] = df["lat"].astype(float)
-        df["lon"] = df["lon"].astype(float)
-
+        # Fehlende Werte entfernen
+        df = df.dropna(subset=["lat", "lon"])
         return df
 
     df_plz = load_plz_data()
 
+    # ---------------- Session State ----------------
+    st.session_state.setdefault("show_result", False)
+    st.session_state.setdefault("df_result", None)
+    st.session_state.setdefault("center", None)
+
+    # ---------------- Inputs ----------------
     col1, col2 = st.columns(2)
     with col1:
-        center_plz = persistent_text_input("Zentrale PLZ", "center_plz", "10115")
-        radius_km = persistent_number_input("Radius (km)", "radius_km", 10, step=1)
-
+        center_input = st.text_input("📍 Stadt oder PLZ", placeholder="z.B. Berlin oder 10115")
     with col2:
-        st.write("")
+        radius_km = st.number_input("📏 Radius (km)", min_value=1, max_value=300, value=25)
 
-    # Berechnung Distanz
-    def haversine(lat1, lon1, lat2, lon2):
-        R = 6371  # km
-        phi1, phi2 = math.radians(lat1), math.radians(lat2)
-        d_phi = math.radians(lat2-lat1)
-        d_lambda = math.radians(lon2-lon1)
-        a = math.sin(d_phi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(d_lambda/2)**2
-        return 2*R*math.asin(math.sqrt(a))
+    # ---------------- Button ----------------
+    if st.button("🔍 PLZ berechnen"):
+        geolocator = Nominatim(user_agent="telesales-app")
+        center = geolocator.geocode(center_input + ", Deutschland")
 
-    if st.button("PLZs anzeigen"):
-        if center_plz in df_plz["plz"].values:
-            center = df_plz[df_plz["plz"]==center_plz].iloc[0]
-            df_plz["dist_km"] = df_plz.apply(lambda row: haversine(center.lat, center.lon, row.lat, row.lon), axis=1)
-            df_in_radius = df_plz[df_plz["dist_km"] <= radius_km].sort_values("dist_km")
-            st.dataframe(df_in_radius.reset_index(drop=True))
-        else:
-            st.warning("Zentrale PLZ nicht gefunden.")
+        if not center:
+            st.error("Ort oder PLZ nicht gefunden.")
+            st.stop()
+
+        lat_c, lon_c = center.latitude, center.longitude
+
+        def haversine(lat1, lon1, lat2, lon2):
+            R = 6371
+            phi1, phi2 = math.radians(lat1), math.radians(lat2)
+            dphi = math.radians(lat2 - lat1)
+            dlambda = math.radians(lon2 - lon1)
+            a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+            return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+        # Berechne Entfernung
+        df_plz["distance_km"] = df_plz.apply(
+            lambda r: haversine(lat_c, lon_c, float(r["lat"]), float(r["lon"])),
+            axis=1
+        )
+
+        # Nur PLZ im Radius
+        df_result = df_plz[df_plz["distance_km"] <= radius_km].sort_values("distance_km")
+
+        st.session_state["df_result"] = df_result
+        st.session_state["center"] = (lat_c, lon_c)
+        st.session_state["show_result"] = True
+
+    # ---------------- RESULTS (persisted) ----------------
+    if st.session_state["show_result"] and st.session_state["df_result"] is not None:
+        df_result = st.session_state["df_result"]
+        lat_c, lon_c = st.session_state["center"]
+
+        st.success(f"✅ {len(df_result)} PLZ im Umkreis")
+
+        st.dataframe(
+            df_result[["plz", "lat", "lon", "distance_km"]].round(2),
+            use_container_width=True
+        )
+
+        # ---------------- MAP ----------------
+        m = folium.Map(location=[lat_c, lon_c], zoom_start=9)
+
+        folium.Marker(
+            [lat_c, lon_c],
+            popup="Zentrum",
+            icon=folium.Icon(color="red")
+        ).add_to(m)
+
+        for _, row in df_result.iterrows():
+            folium.CircleMarker(
+                location=[row["lat"], row["lon"]],
+                radius=4,
+                fill=True,
+                fill_opacity=0.6,
+                popup=f"{row['plz']}"
+            ).add_to(m)
+
+        st_folium(m, width=1200, height=600)
+
