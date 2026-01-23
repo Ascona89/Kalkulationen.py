@@ -349,21 +349,23 @@ if page == "Telesales":
 
     st.header("📞 Telesales – PLZ im Radius")
 
-    # CSV mit PLZ-Daten von deinem Repo
+    # CSV mit PLZ-Daten lokal oder vom GitHub Repo
     CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
 
     @st.cache_data
     def load_plz_data():
         df = pd.read_csv(CSV_URL, dtype=str)
 
-        # Nur die relevanten Spalten nehmen und in float konvertieren
-        df = df.rename(columns={
-            "plz": "plz",
-            "lat": "lat",
-            "lon": "lon"
-        })
+        # Prüfen, dass die Spalten existieren
+        for col in ["plz", "lat", "lon"]:
+            if col not in df.columns:
+                st.error(f"Spalte '{col}' fehlt in der CSV!")
+                st.stop()
+
+        # Konvertiere lat/lon zu float
         df["lat"] = df["lat"].astype(float)
         df["lon"] = df["lon"].astype(float)
+
         return df
 
     df_plz = load_plz_data()
@@ -393,16 +395,15 @@ if page == "Telesales":
 
         lat_c, lon_c = center.latitude, center.longitude
 
-        # Haversine-Funktion zur Berechnung der Distanz
         def haversine(lat1, lon1, lat2, lon2):
-            R = 6371  # Erdradius in km
+            R = 6371
             phi1, phi2 = math.radians(lat1), math.radians(lat2)
             dphi = math.radians(lat2 - lat1)
             dlambda = math.radians(lon2 - lon1)
             a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
             return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-        # Filter nur PLZ im Radius
+        # Filter PLZ im Radius
         df_plz["distance_km"] = df_plz.apply(
             lambda r: haversine(lat_c, lon_c, r["lat"], r["lon"]),
             axis=1
@@ -446,5 +447,3 @@ if page == "Telesales":
             ).add_to(m)
 
         st_folium(m, width=1200, height=600)
-
-
