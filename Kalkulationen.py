@@ -2,6 +2,10 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from supabase import create_client
+import folium
+from geopy.geocoders import Nominatim
+from streamlit_folium import st_folium
+import math
 
 # =====================================================
 # 🔐 Passwörter
@@ -286,10 +290,6 @@ elif page == "Pricing":
 # 🗺️ Radien
 # =====================================================
 elif page == "Radien":
-    import folium
-    from geopy.geocoders import Nominatim
-    from streamlit_folium import st_folium
-
     st.header("🗺️ Radien um eine Adresse")
 
     adresse = persistent_text_input("Adresse eingeben", "adresse")
@@ -347,52 +347,61 @@ elif page == "Radien":
             st.warning("Bitte Adresse eingeben und mindestens einen Radius angeben.")
 
 # =====================================================
-# 📞 Telesales (Neue Seite, ohne Upload)
+# 📞 Telesales (Neue Seite)
 # =====================================================
 elif page == "Telesales":
-    import folium
-    from geopy.geocoders import Nominatim
-    from streamlit_folium import st_folium
-    from haversine import haversine
-
     st.header("📞 Telesales PLZ Suche")
 
-    # PLZ-Datei aus dem Repo laden (lokaler Pfad im Repo)
-    try:
-        df_plz = pd.read_csv("data/plz.csv")  # <-- Pfad zu deiner CSV im Repo
-    except FileNotFoundError:
-        st.error("PLZ-Datei nicht gefunden. Bitte sicherstellen, dass 'data/plz.csv' im Repo liegt.")
-        st.stop()
-    except Exception as e:
-        st.error(f"Fehler beim Lesen der Datei: {e}")
-        st.stop()
+    # --- GitHub CSV mit allen PLZ in Deutschland ---
+    CSV_URL = "https://raw.githubusercontent.com/WZBSocialScienceCenter/plz_geocoord/master/plz_geocoord.csv"
 
-    # Adresse und Radius
-    center_input = st.text_input("Stadt/Adresse für Zentrum", value="Berlin")
-    radius_input = st.number_input("Radius (km)", min_value=1, max_value=1000, value=10)
+    @st.cache_data
+    def load_plz_data():
+        df = pd.read_csv(CSV_URL, dtype={"plz": str})
+        return df
 
-    if st.button("Suche starten"):
+    df_plz = load_plz_data()
+
+    center_input = st.text_input("Stadt oder PLZ eingeben")
+    radius_input = st.number_input("Radius in km", min_value=1, value=10)
+
+    if st.button("PLZs in der Umgebung anzeigen"):
         if center_input.strip():
-            geolocator = Nominatim(user_agent="streamlit-telesales", timeout=10)
-            loc = geolocator.geocode(center_input)
-            if loc:
-                center_coords = (loc.latitude, loc.longitude)
-                df_plz['distance_km'] = df_plz.apply(
-                    lambda row: haversine(center_coords, (row['lat'], row['lon'])),
-                    axis=1
-                )
-                df_result = df_plz[df_plz['distance_km'] <= radius_input].sort_values('distance_km')
+            geolocator = Nominatim(user_agent="telesales-plz-map", timeout=10)
+            location = geolocator.geocode(center_input)
+            if location:
+                lat_c, lon_c = location.latitude, location.longitude
 
-                st.subheader("📋 PLZ Ergebnisse")
-                st.dataframe(df_result[["plz","ort","distance_km"]].reset_index(drop=True))
+                # Haversine-Funktion
+                def haversine(lat1, lon1, lat2, lon2):
+                    R = 6371
+                    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+                    dphi = math.radians(lat2-lat1)
+                    dlambda = math.radians(lon2-lon1)
+                    a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
+                    c = 2*math.atan2(math.sqrt(a), math.sqrt(1-a))
+                    return R * c
 
-                st.subheader("🗺 Karte")
-                m = folium.Map(location=center_coords, zoom_start=10)
-                folium.Marker(center_coords, popup="Zentrum", icon=folium.Icon(color="red")).add_to(m)
+                df_plz["distance_km"] = df_plz.apply(lambda row: haversine(lat_c, lon_c, row["lat"], row["lon"]), axis=1)
+                df_result = df_plz[df_plz["distance_km"] <= radius_input].sort_values("distance_km")
+
+                st.success(f"{len(df_result)} PLZs innerhalb von {radius_input} km gefunden:")
+                st.dataframe(df_result[["plz", "ort", "distance_km"]].reset_index(drop=True))
+
+                # Karte
+                m = folium.Map(location=[lat_c, lon_c], zoom_start=10)
+                folium.Marker([lat_c, lon_c], popup="Zentrum", icon=folium.Icon(color="red")).add_to(m)
                 for _, row in df_result.iterrows():
-                    folium.Marker([row['lat'], row['lon']], popup=f"{row['plz']} {row['ort']}").add_to(m)
+                    folium.CircleMarker(
+                        location=[row["lat"], row["lon"]],
+                        radius=5,
+                        color="blue",
+                        fill=True,
+                        fill_opacity=0.6,
+                        popup=f"{row['plz']} {row['ort']}"
+                    ).add_to(m)
                 st_folium(m, width=1000, height=600)
             else:
-                st.error("Adresse konnte nicht gefunden werden.")
+                st.warning("Adresse oder PLZ nicht gefunden.")
         else:
-            st.warning("Bitte Zentrum eingeben.")
+            st.warning("Bitte Stadt oder PLZ eingeben.")
