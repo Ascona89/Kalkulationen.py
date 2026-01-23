@@ -2,6 +2,10 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from supabase import create_client
+import math
+import folium
+from geopy.geocoders import Nominatim
+from streamlit_folium import st_folium
 
 # =====================================================
 # 🔐 Passwörter
@@ -98,7 +102,7 @@ st.title("📊 Kalkulations-App")
 # 🗂 Seitenauswahl (Sidebar)
 page = st.sidebar.radio(
     "Wähle eine Kalkulation:",
-    ["Platform", "Cardpayment", "Pricing", "Radien"]
+    ["Platform", "Cardpayment", "Pricing", "Radien", "Telesales"]  # <-- Telesales hinzugefügt
 )
 
 # ==========================
@@ -277,10 +281,6 @@ elif page == "Pricing":
 # 🗺️ Radien
 # =====================================================
 elif page == "Radien":
-    import folium
-    from geopy.geocoders import Nominatim
-    from streamlit_folium import st_folium
-
     st.header("🗺️ Radien um eine Adresse")
 
     adresse = persistent_text_input("Adresse eingeben", "adresse")
@@ -338,18 +338,9 @@ elif page == "Radien":
             st.warning("Bitte Adresse eingeben und mindestens einen Radius angeben.")
 
 # =====================================================
-# Footer
-# =====================================================
-st.markdown("""
-<hr>
-<p style='text-align:center; font-size:0.8rem; color:gray;'>
-😉 Traue niemals Zahlen, die du nicht selbst gefälscht hast 😉
-</p>
-""", unsafe_allow_html=True)
-# =====================================================
 # =================== TELESSALES ======================
 # =====================================================
-if page == "Telesales":
+elif page == "Telesales":
 
     st.header("📞 Telesales – PLZ im Radius")
 
@@ -387,67 +378,34 @@ if page == "Telesales":
         center_input = st.text_input("📍 Stadt oder PLZ", placeholder="z.B. Berlin oder 10115")
 
     with col2:
-        radius_km = st.number_input("📏 Radius (km)", min_value=1, max_value=300, value=25)
+        radius_input = st.number_input("🛑 Radius (km)", min_value=1, max_value=500, value=50)
 
-    # ---------------- Button ----------------
-    if st.button("🔍 PLZ berechnen"):
-        geolocator = Nominatim(user_agent="telesales-app")
-        center = geolocator.geocode(center_input + ", Deutschland")
+    if st.button("PLZ im Radius anzeigen"):
+        geolocator = Nominatim(user_agent="telesales-app", timeout=10)
+        location = geolocator.geocode(center_input)
 
-        if not center:
-            st.error("Ort oder PLZ nicht gefunden.")
-            st.stop()
+        if location:
+            center_lat, center_lon = location.latitude, location.longitude
+            st.session_state['center'] = (center_lat, center_lon)
 
-        lat_c, lon_c = center.latitude, center.longitude
+            # Berechne Distanz Haversine
+            def haversine(lat1, lon1, lat2, lon2):
+                R = 6371
+                phi1 = math.radians(lat1)
+                phi2 = math.radians(lat2)
+                dphi = math.radians(lat2 - lat1)
+                dlambda = math.radians(lon2 - lon1)
+                a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
+                return 2*R*math.asin(math.sqrt(a))
 
-        def haversine(lat1, lon1, lat2, lon2):
-            R = 6371
-            phi1, phi2 = math.radians(lat1), math.radians(lat2)
-            dphi = math.radians(lat2 - lat1)
-            dlambda = math.radians(lon2 - lon1)
-            a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
-            return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+            df_plz["dist"] = df_plz.apply(lambda row: haversine(center_lat, center_lon, row["lat"], row["lon"]), axis=1)
+            df_result = df_plz[df_plz["dist"] <= radius_input].copy()
+            st.session_state['df_result'] = df_result
+            st.session_state['show_result'] = True
+        else:
+            st.warning("Adresse/PLZ nicht gefunden.")
 
-        df_plz["distance_km"] = df_plz.apply(
-            lambda r: haversine(lat_c, lon_c, r["lat"], r["lon"]),
-            axis=1
-        )
+    if st.session_state['show_result'] and st.session_state['df_result'] is not None:
+        st.subheader(f"PLZ im {radius_input} km Radius um {center_input}")
+        st.dataframe(st.session_state['df_result'][["plz","ort","dist"]].sort_values("dist"), use_container_width=True)
 
-        df_result = df_plz[df_plz["distance_km"] <= radius_km].sort_values("distance_km")
-
-        st.session_state["df_result"] = df_result
-        st.session_state["center"] = (lat_c, lon_c)
-        st.session_state["show_result"] = True
-
-    # ---------------- RESULTS (persisted) ----------------
-    if st.session_state["show_result"] and st.session_state["df_result"] is not None:
-
-        df_result = st.session_state["df_result"]
-        lat_c, lon_c = st.session_state["center"]
-
-        st.success(f"✅ {len(df_result)} PLZ im Umkreis")
-
-        st.dataframe(
-            df_result[["plz", "ort", "distance_km"]].round(2),
-            use_container_width=True
-        )
-
-        # ---------------- MAP ----------------
-        m = folium.Map(location=[lat_c, lon_c], zoom_start=9)
-
-        folium.Marker(
-            [lat_c, lon_c],
-            popup="Zentrum",
-            icon=folium.Icon(color="red")
-        ).add_to(m)
-
-        for _, row in df_result.iterrows():
-            folium.CircleMarker(
-                location=[row["lat"], row["lon"]],
-                radius=4,
-                fill=True,
-                fill_opacity=0.6,
-                popup=f"{row['plz']} {row['ort']}"
-            ).add_to(m)
-
-        st_folium(m, width=1200, height=600)
