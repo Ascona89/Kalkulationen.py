@@ -98,7 +98,7 @@ st.title("📊 Kalkulations-App")
 # 🗂 Seitenauswahl (Sidebar)
 page = st.sidebar.radio(
     "Wähle eine Kalkulation:",
-    ["Platform", "Cardpayment", "Pricing", "Radien"]
+    ["Platform", "Cardpayment", "Pricing", "Radien", "Telesales"]
 )
 
 # ==========================
@@ -345,6 +345,60 @@ elif page == "Radien":
                 st.warning("Bitte gültige Radien eingeben.")
         else:
             st.warning("Bitte Adresse eingeben und mindestens einen Radius angeben.")
+
+# =====================================================
+# 📞 Telesales – PLZ im Radius
+# =====================================================
+elif page == "Telesales":
+    from geopy.geocoders import Nominatim
+    from haversine import haversine
+
+    st.header("📞 Telesales – PLZ im Umkreis")
+
+    center_input = persistent_text_input(
+        "Stadt oder PLZ eingeben",
+        "telesales_center"
+    )
+
+    radius_km = persistent_number_input(
+        "Radius (km)",
+        "telesales_radius",
+        10.0,
+        step=5.0
+    )
+
+    @st.cache_data
+    def load_plz_data():
+        return pd.read_csv("plz_de.csv")
+
+    df_plz = load_plz_data()
+
+    if st.button("PLZ anzeigen"):
+        geolocator = Nominatim(
+            user_agent="telesales-plz-radius",
+            timeout=10
+        )
+
+        location = geolocator.geocode(center_input)
+        if location:
+            center_coords = (location.latitude, location.longitude)
+
+            df_plz["distance"] = df_plz.apply(
+                lambda row: haversine(
+                    center_coords, (row["lat"], row["lon"])
+                ),
+                axis=1
+            )
+
+            df_result = df_plz[df_plz["distance"] <= radius_km].sort_values("distance")
+
+            if not df_result.empty:
+                st.success(f"{len(df_result)} PLZ gefunden")
+                st.dataframe(df_result[["plz","ort","distance"]])
+            else:
+                st.info("Keine PLZ im angegebenen Radius gefunden")
+        else:
+            st.warning("Adresse oder PLZ nicht gefunden")
 
 # =====================================================
 # Footer
