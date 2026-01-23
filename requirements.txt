@@ -4,3 +4,5 @@ supabase
 folium
 geopy
 streamlit-folium
+haversine
+
