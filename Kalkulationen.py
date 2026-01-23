@@ -2,6 +2,10 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from supabase import create_client
+import folium
+from geopy.geocoders import Nominatim
+from streamlit_folium import st_folium
+from haversine import haversine
 
 # =====================================================
 # 🔐 Passwörter
@@ -286,10 +290,6 @@ elif page == "Pricing":
 # 🗺️ Radien
 # =====================================================
 elif page == "Radien":
-    import folium
-    from geopy.geocoders import Nominatim
-    from streamlit_folium import st_folium
-
     st.header("🗺️ Radien um eine Adresse")
 
     adresse = persistent_text_input("Adresse eingeben", "adresse")
@@ -347,58 +347,52 @@ elif page == "Radien":
             st.warning("Bitte Adresse eingeben und mindestens einen Radius angeben.")
 
 # =====================================================
-# 📞 Telesales – PLZ im Radius
+# 📞 Telesales
 # =====================================================
 elif page == "Telesales":
-    from geopy.geocoders import Nominatim
-    from haversine import haversine
+    st.header("📞 Telesales PLZ-Suche")
 
-    st.header("📞 Telesales – PLZ im Umkreis")
+    center_input = persistent_text_input("PLZ oder Stadt eingeben", "telesales_center")
+    radius_km = persistent_number_input("Radius (km)", "telesales_radius", 10.0, step=1.0)
 
-    center_input = persistent_text_input(
-        "Stadt oder PLZ eingeben",
-        "telesales_center"
-    )
+    if st.button("PLZ in Region anzeigen"):
+        try:
+            df_plz = pd.read_csv("plz_geocoord.csv")  # CSV-Datei mit plz, ort, lat, lon
+            geolocator = Nominatim(user_agent="telesales-app", timeout=10)
+            location = geolocator.geocode(center_input)
+            if location:
+                center_lat, center_lon = location.latitude, location.longitude
 
-    radius_km = persistent_number_input(
-        "Radius (km)",
-        "telesales_radius",
-        10.0,
-        step=5.0
-    )
+                def dist(row):
+                    return haversine((center_lat, center_lon), (row["lat"], row["lon"]))
 
-    @st.cache_data
-    def load_plz_data():
-        return pd.read_csv("plz_de.csv")
-
-    df_plz = load_plz_data()
-
-    if st.button("PLZ anzeigen"):
-        geolocator = Nominatim(
-            user_agent="telesales-plz-radius",
-            timeout=10
-        )
-
-        location = geolocator.geocode(center_input)
-        if location:
-            center_coords = (location.latitude, location.longitude)
-
-            df_plz["distance"] = df_plz.apply(
-                lambda row: haversine(
-                    center_coords, (row["lat"], row["lon"])
-                ),
-                axis=1
-            )
-
-            df_result = df_plz[df_plz["distance"] <= radius_km].sort_values("distance")
-
-            if not df_result.empty:
+                df_plz["distance_km"] = df_plz.apply(dist, axis=1)
+                df_result = df_plz[df_plz["distance_km"] <= radius_km].sort_values("distance_km")
                 st.success(f"{len(df_result)} PLZ gefunden")
-                st.dataframe(df_result[["plz","ort","distance"]])
+                st.dataframe(df_result[["plz","ort","distance_km"]].reset_index(drop=True))
+
+                # Karte
+                m = folium.Map(location=[center_lat, center_lon], zoom_start=10)
+                folium.Marker([center_lat, center_lon], tooltip="Zentrum", icon=folium.Icon(color="red")).add_to(m)
+                for _, row in df_result.iterrows():
+                    folium.CircleMarker([row["lat"], row["lon"]],
+                                        radius=5,
+                                        color="blue",
+                                        fill=True,
+                                        fill_opacity=0.6,
+                                        tooltip=f'{row["plz"]} {row["ort"]}').add_to(m)
+                st_folium(m, width=1000, height=600)
+
+                # CSV Download
+                csv_data = df_result.to_csv(index=False).encode("utf-8")
+                st.download_button("Download CSV", csv_data, "plz_region.csv", "text/csv")
+
             else:
-                st.info("Keine PLZ im angegebenen Radius gefunden")
-        else:
-            st.warning("Adresse oder PLZ nicht gefunden")
+                st.warning("Adresse oder PLZ nicht gefunden.")
+        except FileNotFoundError:
+            st.error("❌ Datei 'plz_geocoord.csv' nicht gefunden! Bitte hochladen.")
+        except Exception as e:
+            st.error(f"Fehler: {e}")
 
 # =====================================================
 # Footer
