@@ -419,15 +419,11 @@ elif page == "Contract Numbers":
     # Produkte
     df_sw = pd.DataFrame({
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW"],
-        "List_OTF": [999, 49, 999, 49, 0, 0],
-        "List_MRR": [119, 49, 89, 25, 15, 0],
         "Typ": ["Software"]*6
     })
 
     df_hw = pd.DataFrame({
         "Produkt":["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX"],
-        "List_OTF":[299,1699,149,199,100,299],
-        "List_MRR":[0]*6,
         "Typ": ["Hardware"]*6
     })
 
@@ -452,18 +448,18 @@ elif page == "Contract Numbers":
         qty_key = f"cn_qty_{row['Produkt']}"
         qty = st.session_state[qty_key]
 
-        # Berechnung OTF
-        type_qty_list = [st.session_state[f"cn_qty_{r}"] for r in df_type_selected["Produkt"]]
-        total_list_otf = (df_type_selected["List_OTF"] * type_qty_list).sum()
-        otf_val = (row["List_OTF"] * qty / total_list_otf * total_otf) if total_list_otf>0 else 0
+        # Anzahl aller ausgewählten Produkte dieses Typs
+        total_qty_type = df_type_selected["Produkt"].map(lambda p: st.session_state[f"cn_qty_{p}"]).sum()
 
-        # Berechnung MRR (nur Software)
-        if row["Typ"]=="Software":
-            total_list_mrr = (df_type_selected["List_MRR"] * type_qty_list).sum()
-            mrr_mon = (row["List_MRR"] * qty / total_list_mrr * total_mrr) if total_list_mrr>0 else 0
+        # OTF: direkt proportional zur Menge verteilt
+        otf_val = (qty / total_qty_type * total_otf) if total_qty_type > 0 else 0
+
+        # MRR nur für Software, direkt proportional zur Menge verteilt
+        if row["Typ"] == "Software":
+            mrr_val = (qty / total_qty_type * total_mrr) if total_qty_type > 0 else 0
         else:
-            mrr_mon = 0
-        mrr_week = mrr_mon / 4
+            mrr_val = 0
+        mrr_week = mrr_val / 4
 
         # Anzeige in einer Reihe
         cols = st.columns([2, 1, 1, 1])
@@ -472,7 +468,7 @@ elif page == "Contract Numbers":
         with cols[1]:
             st.markdown(f"<span style='font-size:18px;'>OTF: {otf_val:,.2f} €</span>", unsafe_allow_html=True)
         with cols[2]:
-            st.markdown(f"<span style='font-size:18px;'>MRR/Monat: {mrr_mon:,.2f} €</span>", unsafe_allow_html=True)
+            st.markdown(f"<span style='font-size:18px;'>MRR/Monat: {mrr_val:,.2f} €</span>", unsafe_allow_html=True)
         with cols[3]:
             st.markdown(f"<span style='font-size:18px;'>MRR/Woche: {mrr_week:,.2f} €</span>", unsafe_allow_html=True)
 
