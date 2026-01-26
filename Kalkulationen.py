@@ -448,22 +448,16 @@ elif page == "Contract Numbers":
         st.session_state.setdefault(f"cn_qty_{i}", 0)
 
     # Berechnung der OTF- und MRR-Anteile
-    results = []
+    df_products["Menge"] = 0
     for i, row in df_products.iterrows():
-        qty = st.number_input(row["Produkt"], min_value=0, step=1, key=f"cn_qty_{i}")
-        results.append({
-            "Produkt": row["Produkt"],
-            "Typ": row["Typ"],
-            "Menge": qty,
-            "List_OTF": row["List_OTF"],
-            "List_MRR": row["List_MRR"]
-        })
-
-    df_result = pd.DataFrame(results)
+        col_qty, col_otf, col_mrr_mon, col_mrr_week = st.columns([2,1,1,1])
+        with col_qty:
+            qty = st.number_input(row["Produkt"], min_value=0, step=1, key=f"cn_qty_{i}")
+            df_products.at[i, "Menge"] = qty
 
     # OTF-Verteilung nach Software / Hardware
-    df_sw_sel = df_result[(df_result["Typ"]=="Software") & (df_result["Menge"]>0)]
-    df_hw_sel = df_result[(df_result["Typ"]=="Hardware") & (df_result["Menge"]>0)]
+    df_sw_sel = df_products[(df_products["Typ"]=="Software") & (df_products["Menge"]>0)]
+    df_hw_sel = df_products[(df_products["Typ"]=="Hardware") & (df_products["Menge"]>0)]
 
     sw_total_list_otf = (df_sw_sel["List_OTF"] * df_sw_sel["Menge"]).sum()
     hw_total_list_otf = (df_hw_sel["List_OTF"] * df_hw_sel["Menge"]).sum()
@@ -472,49 +466,47 @@ elif page == "Contract Numbers":
     sw_otf_total = total_otf * (sw_total_list_otf / total_list_otf) if total_list_otf>0 else 0
     hw_otf_total = total_otf * (hw_total_list_otf / total_list_otf) if total_list_otf>0 else 0
 
-    df_result["OTF_Anteil"] = 0.0
+    df_products["OTF_Anteil"] = 0.0
     if sw_total_list_otf > 0:
-        df_result.loc[df_sw_sel.index, "OTF_Anteil"] = (
-            df_result.loc[df_sw_sel.index, "List_OTF"] * df_result.loc[df_sw_sel.index, "Menge"]
+        df_products.loc[df_sw_sel.index, "OTF_Anteil"] = (
+            df_products.loc[df_sw_sel.index, "List_OTF"] * df_products.loc[df_sw_sel.index, "Menge"]
             / sw_total_list_otf * sw_otf_total
         )
     if hw_total_list_otf > 0:
-        df_result.loc[df_hw_sel.index, "OTF_Anteil"] = (
-            df_result.loc[df_hw_sel.index, "List_OTF"] * df_result.loc[df_hw_sel.index, "Menge"]
+        df_products.loc[df_hw_sel.index, "OTF_Anteil"] = (
+            df_products.loc[df_hw_sel.index, "List_OTF"] * df_products.loc[df_hw_sel.index, "Menge"]
             / hw_total_list_otf * hw_otf_total
         )
 
     # MRR-Verteilung nur Software
-    df_result["MRR_Monat"] = 0.0
-    df_result["MRR_Woche"] = 0.0
+    df_products["MRR_Monat"] = 0.0
+    df_products["MRR_Woche"] = 0.0
     sw_total_list_mrr = (df_sw_sel["List_MRR"] * df_sw_sel["Menge"]).sum()
     if sw_total_list_mrr > 0 and total_mrr > 0:
-        df_result.loc[df_sw_sel.index, "MRR_Monat"] = (
-            df_result.loc[df_sw_sel.index, "List_MRR"] * df_result.loc[df_sw_sel.index, "Menge"]
+        df_products.loc[df_sw_sel.index, "MRR_Monat"] = (
+            df_products.loc[df_sw_sel.index, "List_MRR"] * df_products.loc[df_sw_sel.index, "Menge"]
             / sw_total_list_mrr * total_mrr
         )
-        df_result.loc[df_sw_sel.index, "MRR_Woche"] = df_result.loc[df_sw_sel.index, "MRR_Monat"] / 4
+        df_products.loc[df_sw_sel.index, "MRR_Woche"] = df_products.loc[df_sw_sel.index, "MRR_Monat"] / 4
 
-    # Direktanzeige neben jedem Produkt
-    for i, row in df_result.iterrows():
-        col1, col2, col3, col4 = st.columns([2,1,1,1])
-        with col1:
-            st.text(f"{row['Produkt']} ({row['Typ']}) - Menge: {row['Menge']}")
-        with col2:
-            st.text(f"OTF: {row['OTF_Anteil']:.2f} €")
-        with col3:
-            st.text(f"MRR/Monat: {row['MRR_Monat']:.2f} €")
-        with col4:
-            st.text(f"MRR/Woche: {row['MRR_Woche']:.2f} €")
+    # Ergebnisse direkt neben jedem Number Input anzeigen
+    for i, row in df_products.iterrows():
+        col_qty, col_otf, col_mrr_mon, col_mrr_week = st.columns([2,1,1,1])
+        with col_otf:
+            st.write(f"OTF: {row['OTF_Anteil']:.2f} €")
+        with col_mrr_mon:
+            st.write(f"MRR/Monat: {row['MRR_Monat']:.2f} €")
+        with col_mrr_week:
+            st.write(f"MRR/Woche: {row['MRR_Woche']:.2f} €")
 
     # Zusammenfassende Kontrolle
     st.markdown("---")
     st.subheader("✅ Kontrollübersicht")
     col1, col2, col3 = st.columns(3)
-    otf_software = df_result[df_result["Typ"]=="Software"]["OTF_Anteil"].sum()
-    otf_hardware = df_result[df_result["Typ"]=="Hardware"]["OTF_Anteil"].sum()
-    total_mrr_calc = df_result["MRR_Monat"].sum()
-    total_otf_calc = df_result["OTF_Anteil"].sum()
+    otf_software = df_products[df_products["Typ"]=="Software"]["OTF_Anteil"].sum()
+    otf_hardware = df_products[df_products["Typ"]=="Hardware"]["OTF_Anteil"].sum()
+    total_mrr_calc = df_products["MRR_Monat"].sum()
+    total_otf_calc = df_products["OTF_Anteil"].sum()
     with col1:
         st.metric("💻 Software OTF", f"{otf_software:,.2f} €")
         st.metric("🖨️ Hardware OTF", f"{otf_hardware:,.2f} €")
