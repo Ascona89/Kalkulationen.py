@@ -415,14 +415,12 @@ if st.session_state["show_result"] and st.session_state["df_result"] is not None
 # =====================================================
 # =================== TELESSALES ======================
 # =====================================================
+# =====================================================
+# =================== TELESSALES ======================
+# =====================================================
 if page == "Telesales":
 
     st.header("📞 Telesales – PLZ im Radius")
-
-    import pandas as pd
-    import math
-    import folium
-    from streamlit_folium import st_folium
 
     # CSV mit PLZ-Daten
     CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
@@ -441,23 +439,23 @@ if page == "Telesales":
     df_plz = load_plz_data()
 
     # ------------------ Session State ------------------
-    st.session_state.setdefault("show_result", False)
-    st.session_state.setdefault("df_result", None)
-    st.session_state.setdefault("center", None)
+    st.session_state.setdefault("telesales_show_result", False)
+    st.session_state.setdefault("telesales_df_result", None)
+    st.session_state.setdefault("telesales_center_coords", None)
 
     # ------------------ User Inputs --------------------
     col1, col2 = st.columns(2)
     with col1:
         center_input = st.text_input(
-            "📍 PLZ eingeben", placeholder="z.B. 10115", key="center_input"
+            "📍 PLZ eingeben", placeholder="z.B. 10115", key="telesales_center_input"
         )
     with col2:
         radius_km = st.number_input(
-            "📏 Radius (km)", min_value=1, max_value=300, value=25, key="radius_km"
+            "📏 Radius (km)", min_value=1, max_value=300, value=25, key="telesales_radius_km"
         )
 
     # ------------------ Berechnung --------------------
-    if st.button("🔍 PLZ berechnen", key="calculate_button"):
+    if st.button("🔍 PLZ berechnen", key="telesales_calculate_button"):
 
         # Prüfen, ob PLZ in CSV vorhanden
         if center_input.strip() not in df_plz["plz"].values:
@@ -486,14 +484,14 @@ if page == "Telesales":
         df_result = df_plz[df_plz["distance_km"] <= radius_km].sort_values("distance_km")
 
         # Session State speichern
-        st.session_state["df_result"] = df_result
-        st.session_state["center"] = (lat_c, lon_c)
-        st.session_state["show_result"] = True
+        st.session_state["telesales_df_result"] = df_result
+        st.session_state["telesales_center_coords"] = (lat_c, lon_c)
+        st.session_state["telesales_show_result"] = True
 
     # ------------------ Ergebnisse anzeigen -------------
-    if st.session_state["show_result"] and st.session_state["df_result"] is not None:
-        df_result = st.session_state["df_result"]
-        lat_c, lon_c = st.session_state["center"]
+    if st.session_state["telesales_show_result"] and st.session_state["telesales_df_result"] is not None:
+        df_result = st.session_state["telesales_df_result"]
+        lat_c, lon_c = st.session_state["telesales_center_coords"]
 
         st.success(f"✅ {len(df_result)} PLZ im Umkreis")
         st.dataframe(
@@ -519,6 +517,7 @@ if page == "Telesales":
             ).add_to(m)
 
         st_folium(m, width=1200, height=600)
+
 
 # =====================================================
 # =================== Contract Numbers ======================
