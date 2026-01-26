@@ -368,14 +368,14 @@ def show_contractnumbers():
         total_otf = st.number_input("💶 Gesamt OTF (€)", min_value=0.0, step=100.0)
 
     st.markdown("---")
-    st.subheader("📦 Produkteingabe")
+    st.subheader("📦 Produkteingabe (Mengen mit + / -)")
 
     # ====================== Eingaben nebeneinander ======================
     qty_dict_sw = {}
     qty_dict_hw = {}
 
-    st.markdown("**Software & Hardware**")
-    for idx in range(max(len(df_sw), len(df_hw))):
+    max_len = max(len(df_sw), len(df_hw))
+    for idx in range(max_len):
         cols = st.columns([2,1,2,2,2,1,2,2])  # Software: Produkt,Menge | Hardware: Produkt,Menge
 
         # ---------------- Software ----------------
