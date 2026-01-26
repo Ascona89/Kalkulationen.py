@@ -29,7 +29,7 @@ def log_login(role, success):
     }).execute()
 
 # =====================================================
-# 🧠 Session State Initialisierung
+# 🧠 Session State
 # =====================================================
 st.session_state.setdefault("logged_in", False)
 st.session_state.setdefault("is_admin", False)
@@ -40,8 +40,7 @@ st.session_state.setdefault("show_map", False)
 # 🔐 Login
 # =====================================================
 def login(password):
-    user_pw = st.session_state.get("USER_PASSWORD", USER_PASSWORD)
-    if password == user_pw:
+    if password == st.session_state["USER_PASSWORD"]:
         st.session_state.logged_in = True
         st.session_state.is_admin = False
         log_login("User", True)
@@ -63,34 +62,13 @@ if not st.session_state.logged_in:
     st.stop()
 
 # =====================================================
-# 👑 Admin Backend
+# 👑 Admin
 # =====================================================
 if st.session_state.is_admin:
     st.header("👑 Admin Dashboard")
-
     data = supabase.table("login_events").select("*").order("created_at", desc=True).execute()
     df = pd.DataFrame(data.data)
-    if not df.empty:
-        df["Datum"] = pd.to_datetime(df["created_at"]).dt.date
-        st.subheader("📄 Login-Historie")
-        st.dataframe(df, use_container_width=True)
-        st.subheader("📊 Logins pro Tag")
-        logins_per_day = df[df["success"]==True].groupby("Datum").size().reset_index(name="Logins")
-        st.dataframe(logins_per_day, use_container_width=True)
-        st.bar_chart(logins_per_day.set_index("Datum"))
-        csv = df.to_csv(index=False).encode("utf-8")
-        st.download_button("CSV Export", csv, "login_history.csv", "text/csv")
-    else:
-        st.info("Noch keine Login-Daten vorhanden.")
-
-    st.subheader("🔑 User Passwort ändern")
-    new_password = st.text_input("Neues User-Passwort", type="password")
-    if st.button("Update User Passwort"):
-        if new_password:
-            st.session_state['USER_PASSWORD'] = new_password
-            st.success("✅ Passwort erfolgreich geändert!")
-        else:
-            st.warning("Bitte ein gültiges Passwort eingeben.")
+    st.dataframe(df, use_container_width=True)
     st.stop()
 
 # =====================================================
@@ -99,351 +77,134 @@ if st.session_state.is_admin:
 st.set_page_config(page_title="Kalkulations-App", layout="wide")
 st.title("📊 Kalkulations-App")
 
-# 🗂 Seitenauswahl (Sidebar)
+# =====================================================
+# 📂 Sidebar
+# =====================================================
 page = st.sidebar.radio(
     "Wähle eine Kalkulation:",
-    ["Platform", "Cardpayment", "Pricing", "Radien", "Telesales"]
+    [
+        "Platform",
+        "Cardpayment",
+        "Pricing",
+        "Radien",
+        "Telesales",
+        "Contract Numbers"  # 🆕
+    ]
 )
 
-# ==========================
-# Hilfsfunktionen für persistente Inputs
-# ==========================
-def persistent_number_input(label, key, value=0.0, **kwargs):
-    st.session_state.setdefault(key, value)
-    st.session_state[key] = st.number_input(label, value=st.session_state[key], key=f"ui_{key}", **kwargs)
-    return st.session_state[key]
-
-def persistent_text_input(label, key, value="", **kwargs):
-    st.session_state.setdefault(key, value)
-    st.session_state[key] = st.text_input(label, value=st.session_state[key], key=f"ui_{key}", **kwargs)
-    return st.session_state[key]
-
-def persistent_selectbox(label, key, options, index=0, **kwargs):
-    st.session_state.setdefault(key, options[index])
-    st.session_state[key] = st.selectbox(label, options, index=options.index(st.session_state[key]), **kwargs)
-    return st.session_state[key]
-
 # =====================================================
-# 🏁 Platform
+# 📑 CONTRACT NUMBERS
 # =====================================================
-if page == "Platform":
-    st.header("🏁 Platform Kalkulation")
-    col1, col2 = st.columns([2, 1.5])
+if page == "Contract Numbers":
 
-    with col1:
-        st.subheader("Eingaben")
-        revenue = persistent_number_input("Revenue on platform (€)", "revenue", 0.0, step=250.0)
-        commission_pct = persistent_number_input("Commission (%)", "commission_pct", 14.0, step=1.0)
-        avg_order_value = persistent_number_input("Average order value (€)", "avg_order_value", 25.0, step=5.0)
-        service_fee = persistent_number_input("Service Fee (€)", "service_fee", 0.69, step=0.1)
+    st.header("📑 Contract Numbers")
 
-        total_cost = revenue*(commission_pct/100) + \
-                     (0.7*revenue/avg_order_value if avg_order_value else 0)*service_fee
-
-        st.markdown("### 💶 Cost on Platform")
-        st.markdown(f"<div style='color:red; font-size:28px;'>{total_cost:,.2f} €</div>", unsafe_allow_html=True)
-
-        st.markdown("---")
-        st.subheader("Vertragsdetails")
-        OTF = persistent_number_input("One Time Fee (OTF) (€)", "OTF", 0.0, step=100.0)
-        MRR = persistent_number_input("Monthly Recurring Revenue (MRR) (€)", "MRR", 0.0, step=10.0)
-        contract_length = persistent_number_input("Contract length (Monate)", "contract_length", 24, step=12)
-
-    transaction = 0.7*revenue/5*0.35
-    cost_monthly = MRR + transaction
-    saving_monthly = total_cost - cost_monthly
-    saving_over_contract = saving_monthly*contract_length
-
-    st.subheader("📊 Kennzahlen")
-    st.info(
-        f"- Cost monthly: {cost_monthly:,.2f} €\n"
-        f"- Saving monthly: {saving_monthly:,.2f} €\n"
-        f"- Saving over contract length: {saving_over_contract:,.2f} €"
-    )
-
-# =====================================================
-# 💳 Cardpayment
-# =====================================================
-elif page == "Cardpayment":
-    st.header("💳 Cardpayment Vergleich")
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.subheader("Actual")
-        rev_a = persistent_number_input("Revenue (€)", "rev_a", 0.0, step=250.0)
-        sum_a = persistent_number_input("Sum of payments", "sum_a", 0.0, step=20.0)
-        mrr_a = persistent_number_input("Monthly Fee (€)", "mrr_a", 0.0, step=5.0)
-        comm_a = persistent_number_input("Commission (%)", "comm_a", 1.39, step=0.01)
-        auth_a = persistent_number_input("Authentification Fee (€)", "auth_a", 0.0)
-
-    with col2:
-        st.subheader("Offer")
-        rev_o = persistent_number_input("Revenue (€)", "rev_o", rev_a, step=250.0)
-        sum_o = persistent_number_input("Sum of payments", "sum_o", sum_a, step=20.0)
-        mrr_o = persistent_number_input("Monthly Fee (€)", "mrr_o", 0.0, step=5.0)
-        comm_o = persistent_number_input("Commission (%)", "comm_o", 1.19, step=0.01)
-        auth_o = persistent_number_input("Authentification Fee (€)", "auth_o", 0.06)
-
-    total_actual = rev_a*(comm_a/100) + sum_a*auth_a + mrr_a
-    total_offer  = rev_o*(comm_o/100) + sum_o*auth_o + mrr_o
-    saving = total_offer - total_actual
-
-    st.markdown("---")
-    col3, col4, col5 = st.columns(3)
-    col3.markdown(f"<div style='color:red; font-size:28px;'>💳 {total_actual:,.2f} €</div>", unsafe_allow_html=True)
-    col3.caption("Total Actual")
-    col4.markdown(f"<div style='color:blue; font-size:28px;'>💳 {total_offer:,.2f} €</div>", unsafe_allow_html=True)
-    col4.caption("Total Offer")
-    col5.markdown(f"<div style='color:green; font-size:28px;'>💰 {saving:,.2f} €</div>", unsafe_allow_html=True)
-    col5.caption("Ersparnis (Offer - Actual)")
-
-# =====================================================
-# 💰 Pricing
-# =====================================================
-elif page == "Pricing":
-    st.header("💰 Pricing Kalkulation")
-
+    # Produkte aus Pricing
     df_sw = pd.DataFrame({
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW"],
-        "Min_OTF": [365, 15, 365, 35, 0, 0],
-        "List_OTF": [999, 49, 999, 49, 0, 0],
-        "Min_MRR": [50, 15, 49, 5, 15, 0],
-        "List_MRR": [119, 49, 89, 25, 15, 0]
+        "Typ": ["Software"] * 6
     })
 
     df_hw = pd.DataFrame({
-        "Produkt":["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX"],
-        "Min_OTF":[135,350,50,99,100,225],
-        "List_OTF":[299,1699,149,199,100,299],
-        "Min_MRR":[0]*6,
-        "List_MRR":[0]*6
+        "Produkt": [
+            "Ordermanager",
+            "POS inkl 1 Printer",
+            "Cash Drawer",
+            "Extra Printer",
+            "Additional Display",
+            "PAX"
+        ],
+        "Typ": ["Hardware"] * 6
     })
 
-    for i in range(len(df_sw)):
-        st.session_state.setdefault(f"sw_{i}", 0)
-    for i in range(len(df_hw)):
-        st.session_state.setdefault(f"hw_{i}", 0)
+    df_products = pd.concat([df_sw, df_hw], ignore_index=True)
 
+    # -------------------------
+    # Eingaben Gesamtwerte
+    # -------------------------
     col1, col2 = st.columns(2)
     with col1:
-        st.subheader("Software")
-        for i, p in enumerate(df_sw["Produkt"]):
-            st.session_state[f"sw_{i}"] = st.number_input(p, min_value=0, step=1, key=f"sw_ui_{i}")
+        total_mrr = st.number_input("💶 Gesamt MRR (€)", min_value=0.0, step=50.0)
     with col2:
-        st.subheader("Hardware")
-        for i, p in enumerate(df_hw["Produkt"]):
-            st.session_state[f"hw_{i}"] = st.number_input(p, min_value=0, step=1, key=f"hw_ui_{i}")
-
-    df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
-    df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
-
-    list_otf = (df_sw["Menge"]*df_sw["List_OTF"]).sum() + (df_hw["Menge"]*df_hw["List_OTF"]).sum()
-    min_otf = (df_sw["Menge"]*df_sw["Min_OTF"]).sum() + (df_hw["Menge"]*df_hw["Min_OTF"]).sum()
-    list_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum()
-    min_mrr = (df_sw["Menge"]*df_sw["Min_MRR"]).sum()
-
-    st.markdown("### 🧾 LIST PREISE")
-    st.markdown(f"**OTF LIST gesamt:** {list_otf:,.2f} €")
-    st.markdown(f"**MRR LIST gesamt:** {list_mrr:,.2f} €")
-    st.markdown("---")
-
-    st.subheader("💸 Rabattfunktion")
-    col_otf, col_otf_reason = st.columns([1,3])
-    with col_otf:
-        st.session_state['discount_otf'] = st.selectbox("OTF Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], 
-                                                       index=[0,5,10,15,20,25,30,35,40,45,50].index(st.session_state.get('discount_otf',0)))
-    with col_otf_reason:
-        st.session_state['reason_otf'] = st.text_input("Grund OTF Rabatt", value=st.session_state.get('reason_otf',''))
-        if st.session_state['discount_otf'] > 0 and len(st.session_state['reason_otf']) < 10:
-            st.warning("Bitte Begründung eintragen (mindestens 10 Zeichen).")
-
-    col_mrr, col_mrr_reason = st.columns([1,3])
-    with col_mrr:
-        st.session_state['discount_mrr'] = st.selectbox("MRR Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], 
-                                                       index=[0,5,10,15,20,25,30,35,40,45,50].index(st.session_state.get('discount_mrr',0)))
-    with col_mrr_reason:
-        st.session_state['reason_mrr'] = st.text_input("Grund MRR Rabatt", value=st.session_state.get('reason_mrr',''))
-        if st.session_state['discount_mrr'] > 0 and len(st.session_state['reason_mrr']) < 10:
-            st.warning("Bitte Begründung eintragen (mindestens 10 Zeichen).")
-
-    otf_discounted = list_otf * (1 - st.session_state['discount_otf']/100) if st.session_state['discount_otf'] > 0 and len(st.session_state['reason_otf']) >= 10 else list_otf
-    mrr_discounted = list_mrr * (1 - st.session_state['discount_mrr']/100) if st.session_state['discount_mrr'] > 0 and len(st.session_state['reason_mrr']) >= 10 else list_mrr
-
-    st.info(f"OTF nach Rabatt: {otf_discounted:,.2f} €")
-    st.info(f"MRR nach Rabatt: {mrr_discounted:,.2f} €")
+        total_otf = st.number_input("💶 Gesamt OTF (€)", min_value=0.0, step=100.0)
 
     st.markdown("---")
-    st.markdown("### 🔻 MIN PREISE")
-    st.markdown(f"**OTF MIN gesamt:** {min_otf:,.2f} €")
-    st.markdown(f"**MRR MIN gesamt:** {min_mrr:,.2f} €")
+    st.subheader("📦 Verkäufe pro Produkt")
 
-# =====================================================
-# 🗺️ Radien
-# =====================================================
-elif page == "Radien":
-    st.header("🗺️ Radien um eine Adresse")
+    for i in df_products.index:
+        st.session_state.setdefault(f"cn_qty_{i}", 0)
 
-    adresse = persistent_text_input("Adresse eingeben", "adresse")
-    radien_input = persistent_text_input("Radien eingeben (km, durch Komma getrennt)", "radien_input", "5,10")
+    total_units = sum(st.session_state[f"cn_qty_{i}"] for i in df_products.index)
 
-    if st.button("Karte anzeigen"):
-        st.session_state['show_map'] = True
+    results = []
 
-    if st.session_state.get('show_map', False):
-        if adresse.strip() and radien_input.strip():
-            try:
-                radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
-            except ValueError:
-                st.warning("Bitte nur Zahlen für Radien eingeben, getrennt durch Komma.")
-                radien = []
+    for i, row in df_products.iterrows():
+        col1, col2, col3, col4 = st.columns([3, 2, 2, 2])
 
-            if radien:
-                geolocator = Nominatim(user_agent="streamlit-free-radius-map", timeout=10)
-                try:
-                    location = geolocator.geocode(adresse)
-                    if location:
-                        lat, lon = location.latitude, location.longitude
+        qty = col2.number_input(
+            row["Produkt"],
+            min_value=0,
+            step=1,
+            key=f"cn_qty_{i}"
+        )
 
-                        m = folium.Map(location=[lat, lon], zoom_start=12)
-                        folium.Marker(
-                            [lat, lon],
-                            popup=adresse,
-                            tooltip="Zentrum",
-                            icon=folium.Icon(color="red", icon="info-sign")
-                        ).add_to(m)
+        mrr_month = (total_mrr / total_units) * qty if total_units > 0 else 0
+        mrr_week = mrr_month / 4
 
-                        bounds = []
-                        for r in radien:
-                            folium.Circle(
-                                location=[lat, lon],
-                                radius=r*1000,
-                                color="blue",
-                                weight=2,
-                                fill=True,
-                                fill_opacity=0.15
-                            ).add_to(m)
+        col1.write(row["Produkt"])
+        col3.write(f"{mrr_month:,.2f} €")
+        col4.write(f"{mrr_week:,.2f} €")
 
-                            bounds.append([lat + r/111, lon + r/111])
-                            bounds.append([lat - r/111, lon - r/111])
+        results.append({
+            "Produkt": row["Produkt"],
+            "Typ": row["Typ"],
+            "Menge": qty,
+            "MRR_Monat": mrr_month
+        })
 
-                        m.fit_bounds(bounds)
-                        st_folium(m, width=1000, height=600)
-                    else:
-                        st.warning("Adresse nicht gefunden.")
-                except Exception as e:
-                    st.error(f"Fehler bei Geocoding: {e}")
-            else:
-                st.warning("Bitte gültige Radien eingeben.")
-        else:
-            st.warning("Bitte Adresse eingeben und mindestens einen Radius angeben.")
+    df_result = pd.DataFrame(results)
 
-# =====================================================
-# =================== TELESSALES ======================
-# =====================================================
-if page == "Telesales":
+    # -------------------------
+    # OTF Verteilung
+    # -------------------------
+    st.markdown("---")
+    st.subheader("🧾 OTF Aufteilung")
 
-    import math
-    import folium
-    from geopy.geocoders import Nominatim
-    from streamlit_folium import st_folium
+    total_qty = df_result["Menge"].sum()
 
-    st.header("📞 Telesales – PLZ im Radius")
+    df_result["OTF_Anteil"] = (
+        total_otf * df_result["Menge"] / total_qty
+        if total_qty > 0 else 0
+    )
 
-    # CSV mit PLZ-Daten lokal oder vom GitHub Repo
-    CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
+    otf_software = df_result[df_result["Typ"] == "Software"]["OTF_Anteil"].sum()
+    otf_hardware = df_result[df_result["Typ"] == "Hardware"]["OTF_Anteil"].sum()
 
-    @st.cache_data
-    def load_plz_data():
-        df = pd.read_csv(CSV_URL, dtype=str)
-
-        # Prüfen, dass die Spalten existieren
-        for col in ["plz", "lat", "lon"]:
-            if col not in df.columns:
-                st.error(f"Spalte '{col}' fehlt in der CSV!")
-                st.stop()
-
-        # Konvertiere lat/lon zu float
-        df["lat"] = df["lat"].astype(float)
-        df["lon"] = df["lon"].astype(float)
-
-        return df
-
-    df_plz = load_plz_data()
-
-    # ---------------- Session State ----------------
-    st.session_state.setdefault("show_result", False)
-    st.session_state.setdefault("df_result", None)
-    st.session_state.setdefault("center", None)
-
-    # ---------------- Inputs ----------------
     col1, col2 = st.columns(2)
+    col1.metric("💻 SUF (Software OTF)", f"{otf_software:,.2f} €")
+    col2.metric("🖨️ Hardware OTF", f"{otf_hardware:,.2f} €")
 
+    # -------------------------
+    # Kontrollübersicht
+    # -------------------------
+    st.markdown("---")
+    st.subheader("✅ Kontrollübersicht")
+
+    total_mrr_calc = df_result["MRR_Monat"].sum()
+    total_otf_calc = df_result["OTF_Anteil"].sum()
+
+    col1, col2, col3 = st.columns(3)
     with col1:
-        center_input = st.text_input("📍 Stadt oder PLZ", placeholder="z.B. Berlin oder 10115")
+        st.metric("💻 SUF (Software)", f"{otf_software:,.2f} €")
+        st.metric("🖨️ Hardware", f"{otf_hardware:,.2f} €")
 
     with col2:
-        radius_km = st.number_input("📏 Radius (km)", min_value=1, max_value=300, value=25)
+        st.metric("🧾 OTF berechnet", f"{total_otf_calc:,.2f} €")
+        st.metric("🧾 OTF Eingabe", f"{total_otf:,.2f} €")
 
-    # ---------------- Button ----------------
-    if st.button("🔍 PLZ berechnen"):
-        geolocator = Nominatim(user_agent="telesales-app")
-        center = geolocator.geocode(center_input + ", Deutschland")
+    with col3:
+        st.metric("💰 MRR / Monat", f"{total_mrr_calc:,.2f} €")
+        st.metric("📆 MRR / Woche", f"{total_mrr_calc/4:,.2f} €")
 
-        if not center:
-            st.error("Ort oder PLZ nicht gefunden.")
-            st.stop()
-
-        lat_c, lon_c = center.latitude, center.longitude
-
-        def haversine(lat1, lon1, lat2, lon2):
-            R = 6371
-            phi1, phi2 = math.radians(lat1), math.radians(lat2)
-            dphi = math.radians(lat2 - lat1)
-            dlambda = math.radians(lon2 - lon1)
-            a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
-            return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-        # Filter PLZ im Radius
-        df_plz["distance_km"] = df_plz.apply(
-            lambda r: haversine(lat_c, lon_c, r["lat"], r["lon"]),
-            axis=1
-        )
-
-        df_result = df_plz[df_plz["distance_km"] <= radius_km].sort_values("distance_km")
-
-        st.session_state["df_result"] = df_result
-        st.session_state["center"] = (lat_c, lon_c)
-        st.session_state["show_result"] = True
-
-    # ---------------- RESULTS (persisted) ----------------
-    if st.session_state["show_result"] and st.session_state["df_result"] is not None:
-
-        df_result = st.session_state["df_result"]
-        lat_c, lon_c = st.session_state["center"]
-
-        st.success(f"✅ {len(df_result)} PLZ im Umkreis")
-
-        st.dataframe(
-            df_result[["plz", "lat", "lon", "distance_km"]].round(2),
-            use_container_width=True
-        )
-
-        # ---------------- MAP ----------------
-        m = folium.Map(location=[lat_c, lon_c], zoom_start=9)
-
-        folium.Marker(
-            [lat_c, lon_c],
-            popup="Zentrum",
-            icon=folium.Icon(color="red")
-        ).add_to(m)
-
-        for _, row in df_result.iterrows():
-            folium.CircleMarker(
-                location=[row["lat"], row["lon"]],
-                radius=4,
-                fill=True,
-                fill_opacity=0.6,
-                popup=f"{row['plz']}"
-            ).add_to(m)
-
-        st_folium(m, width=1200, height=600)
+    st.markdown("---")
+    st.dataframe(df_result.round(2), use_container_width=True)
