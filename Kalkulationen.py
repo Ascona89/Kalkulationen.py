@@ -442,19 +442,24 @@ elif page == "Contract Numbers":
 
     st.markdown("---")
 
+    # ====== Session State Keys initialisieren ======
+    for p in df_products["Produkt"]:
+        key = f"cn_qty_{p}"
+        st.session_state.setdefault(key, 0)
+
     # ================= Funktion für Zeilenanzeige =================
     def display_product_row(row, total_otf, total_mrr, df_type_selected):
         qty_key = f"cn_qty_{row['Produkt']}"
-        st.session_state.setdefault(qty_key, 0)
         qty = st.session_state[qty_key]
 
         # Berechnung OTF
-        total_list_otf = (df_type_selected["List_OTF"] * [st.session_state[f"cn_qty_{r}"] for r in df_type_selected["Produkt"]]).sum()
+        type_qty_list = [st.session_state[f"cn_qty_{r}"] for r in df_type_selected["Produkt"]]
+        total_list_otf = (df_type_selected["List_OTF"] * type_qty_list).sum()
         otf_val = (row["List_OTF"] * qty / total_list_otf * total_otf) if total_list_otf>0 else 0
 
         # Berechnung MRR (nur Software)
         if row["Typ"]=="Software":
-            total_list_mrr = (df_type_selected["List_MRR"] * [st.session_state[f"cn_qty_{r}"] for r in df_type_selected["Produkt"]]).sum()
+            total_list_mrr = (df_type_selected["List_MRR"] * type_qty_list).sum()
             mrr_mon = (row["List_MRR"] * qty / total_list_mrr * total_mrr) if total_list_mrr>0 else 0
         else:
             mrr_mon = 0
@@ -484,5 +489,3 @@ elif page == "Contract Numbers":
     df_hw_selected = df_hw.copy()
     for i, row in df_hw.iterrows():
         display_product_row(row, total_otf, total_mrr, df_hw_selected)
-
-
