@@ -280,62 +280,124 @@ elif page == "Pricing":
 # =====================================================
 # 🗺️ Radien
 # =====================================================
-elif page == "Radien":
-    st.header("🗺️ Radien um eine Adresse")
+# =====================================================
+# 🗺️ Radien
+# =====================================================
+import folium
+from geopy.geocoders import Nominatim
+from streamlit_folium import st_folium
+import tempfile
+from fpdf import FPDF
+from PIL import Image
+import io
+import base64
 
-    adresse = persistent_text_input("Adresse eingeben", "adresse")
-    radien_input = persistent_text_input("Radien eingeben (km, durch Komma getrennt)", "radien_input", "5,10")
+st.header("🗺️ Radien um eine Adresse")
 
-    if st.button("Karte anzeigen"):
-        st.session_state['show_map'] = True
+# --- Inputs ---
+adresse = st.text_input("Adresse eingeben", value=st.session_state.get('adresse', ''))
+radien_input = st.text_input("Radien eingeben (km, durch Komma getrennt)", value=st.session_state.get('radien_input', '5,10'))
+st.session_state['adresse'] = adresse
+st.session_state['radien_input'] = radien_input
 
-    if st.session_state.get('show_map', False):
-        if adresse.strip() and radien_input.strip():
-            try:
-                radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
-            except ValueError:
-                st.warning("Bitte nur Zahlen für Radien eingeben, getrennt durch Komma.")
-                radien = []
+if st.button("Karte anzeigen"):
+    st.session_state['show_map'] = True
 
-            if radien:
-                geolocator = Nominatim(user_agent="streamlit-free-radius-map", timeout=10)
-                try:
-                    location = geolocator.geocode(adresse)
-                    if location:
-                        lat, lon = location.latitude, location.longitude
+# --- Karte anzeigen ---
+if st.session_state.get('show_map', False):
+    if adresse.strip() and radien_input.strip():
+        try:
+            radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
+        except ValueError:
+            st.warning("Bitte nur Zahlen für Radien eingeben, getrennt durch Komma.")
+            radien = []
 
-                        m = folium.Map(location=[lat, lon], zoom_start=12)
-                        folium.Marker(
-                            [lat, lon],
-                            popup=adresse,
-                            tooltip="Zentrum",
-                            icon=folium.Icon(color="red", icon="info-sign")
-                        ).add_to(m)
+        if radien:
+            geolocator = Nominatim(user_agent="streamlit-free-radius-map", timeout=10)
+            location = geolocator.geocode(adresse)
+            if location:
+                lat, lon = location.latitude, location.longitude
 
-                        bounds = []
-                        for r in radien:
-                            folium.Circle(
-                                location=[lat, lon],
-                                radius=r*1000,
-                                color="blue",
-                                weight=2,
-                                fill=True,
-                                fill_opacity=0.15
-                            ).add_to(m)
+                # Karte erstellen
+                m = folium.Map(location=[lat, lon], zoom_start=12)
+                folium.Marker(
+                    [lat, lon],
+                    popup=adresse,
+                    tooltip="Zentrum",
+                    icon=folium.Icon(color="red", icon="info-sign")
+                ).add_to(m)
 
-                            bounds.append([lat + r/111, lon + r/111])
-                            bounds.append([lat - r/111, lon - r/111])
+                bounds = []
+                for r in radien:
+                    folium.Circle(
+                        location=[lat, lon],
+                        radius=r*1000,
+                        color="blue",
+                        weight=2,
+                        fill=True,
+                        fill_opacity=0.15
+                    ).add_to(m)
+                    bounds.append([lat + r/111, lon + r/111])
+                    bounds.append([lat - r/111, lon - r/111])
 
-                        m.fit_bounds(bounds)
-                        st_folium(m, width=1000, height=600)
-                    else:
-                        st.warning("Adresse nicht gefunden.")
-                except Exception as e:
-                    st.error(f"Fehler bei Geocoding: {e}")
+                m.fit_bounds(bounds)
+                st_folium(m, width=1000, height=600)
+
+                st.session_state['map_object'] = m  # Karte zwischenspeichern
             else:
-                st.warning("Bitte gültige Radien eingeben.")
+                st.warning("Adresse nicht gefunden.")
         else:
-            st.warning("Bitte Adresse eingeben und mindestens einen Radius angeben.")
+            st.warning("Bitte gültige Radien eingeben.")
+    else:
+        st.warning("Bitte Adresse eingeben und mindestens einen Radius angeben.")
+
+# --- PDF Download ---
+st.subheader("📥 Karte als PDF speichern")
+
+pdf_filename = st.text_input("Dateiname für PDF", value="Radien_Karte")
+
+if st.button("PDF herunterladen"):
+    if st.session_state.get('map_object', None):
+        m = st.session_state['map_object']
+
+        # Temporäre HTML-Datei speichern
+        tmp_file = tempfile.NamedTemporaryFile(suffix=".html", delete=False)
+        m.save(tmp_file.name)
+
+        # Screenshot der HTML-Karte als PNG
+        from pyppeteer import launch
+        import asyncio
+
+        async def capture_map():
+            browser = await launch()
+            page = await browser.newPage()
+            await page.goto(f'file://{tmp_file.name}')
+            await asyncio.sleep(2)  # Warte, bis alles geladen ist
+            screenshot = await page.screenshot()
+            await browser.close()
+            return screenshot
+
+        screenshot = asyncio.run(capture_map())
+
+        # PNG in PDF konvertieren
+        image = Image.open(io.BytesIO(screenshot))
+        pdf = FPDF()
+        pdf.add_page()
+        pdf_w, pdf_h = pdf.w - 2*pdf.l_margin, pdf.h - 2*pdf.t_margin
+        image.thumbnail((pdf_w*4, pdf_h*4))  # Größenanpassung
+        tmp_img = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        image.save(tmp_img.name, format="PNG")
+        pdf.image(tmp_img.name, x=pdf.l_margin, y=pdf.t_margin, w=pdf_w)
+        pdf_output = f"{pdf_filename}.pdf"
+        pdf.output(pdf_output)
+
+        # Download Button
+        with open(pdf_output, "rb") as f:
+            st.download_button("⬇️ PDF herunterladen", f, file_name=pdf_output, mime="application/pdf")
+
+    else:
+        st.warning("Bitte zuerst die Karte erstellen.")
+
 # =====================================================
 # =================== TELESSALES ======================
 # =====================================================
