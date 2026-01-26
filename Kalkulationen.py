@@ -349,7 +349,7 @@ def show_contractnumbers():
     df_sw = pd.DataFrame({
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW", "TSE"],
         "List_OTF": [999, 49, 999, 49, 0, 0, 0],
-        "List_MRR": [119, 49, 89, 25, 15, 0, 12],  # TSE = 12€
+        "List_MRR": [119, 49, 89, 25, 15, 0, 12],
         "Typ": ["Software"]*7
     })
 
@@ -376,7 +376,7 @@ def show_contractnumbers():
 
     st.markdown("**Software & Hardware**")
     for idx in range(max(len(df_sw), len(df_hw))):
-        cols = st.columns([2,1,1,1,2,1,1])  # Software: Produkt,Menge,OTF,MRR | Hardware: Produkt,Menge,OTF
+        cols = st.columns([2,1,2,2,2,1,2,2])  # Software: Produkt,Menge | Hardware: Produkt,Menge
         # ---------------- Software ----------------
         if idx < len(df_sw):
             row_sw = df_sw.iloc[idx]
@@ -402,18 +402,19 @@ def show_contractnumbers():
             qty_dict_hw[idx] = qty_hw
 
     # ====================== Berechnungen ======================
-    # Basiswerte
-    total_sw_otf_base = sum(df_sw["List_OTF"] * [qty_dict_sw.get(i,0) for i in df_sw.index])
-    total_sw_mrr_base = sum(df_sw["List_MRR"] * [qty_dict_sw.get(i,0) for i in df_sw.index])
-    total_hw_otf_base = sum(df_hw["List_OTF"] * [qty_dict_hw.get(i,0) for i in df_hw.index])
+    # Basiswerte für Proportionen
+    sw_otf_base = sum(df_sw["List_OTF"] * [qty_dict_sw.get(i,0) for i in df_sw.index])
+    sw_mrr_base = sum(df_sw["List_MRR"] * [qty_dict_sw.get(i,0) for i in df_sw.index])
+    hw_otf_base = sum(df_hw["List_OTF"] * [qty_dict_hw.get(i,0) for i in df_hw.index])
+    total_otf_base = sw_otf_base + hw_otf_base
 
     results = []
 
-    # Software
+    # ---------------- Software ----------------
     for idx, row in df_sw.iterrows():
         qty = qty_dict_sw.get(idx,0)
-        otf_val = round(total_otf * (row["List_OTF"]*qty) / max(1,total_sw_otf_base + total_hw_otf_base))
-        mrr_val = round(total_mrr * (row["List_MRR"]*qty) / max(1,total_sw_mrr_base)) if total_sw_mrr_base>0 else 0
+        otf_val = round(total_otf * (row["List_OTF"]*qty) / max(1,total_otf_base))
+        mrr_val = round(total_mrr * (row["List_MRR"]*qty) / max(1,sw_mrr_base)) if sw_mrr_base>0 else 0
         results.append({
             "Produkt": row["Produkt"],
             "Typ": "Software",
@@ -423,10 +424,10 @@ def show_contractnumbers():
             "MRR_Woche": round(mrr_val/4)
         })
 
-    # Hardware
+    # ---------------- Hardware ----------------
     for idx, row in df_hw.iterrows():
         qty = qty_dict_hw.get(idx,0)
-        otf_val = round(total_otf * (row["List_OTF"]*qty) / max(1,total_sw_otf_base + total_hw_otf_base))
+        otf_val = round(total_otf * (row["List_OTF"]*qty) / max(1,total_otf_base))
         results.append({
             "Produkt": row["Produkt"],
             "Typ": "Hardware",
@@ -436,11 +437,23 @@ def show_contractnumbers():
             "MRR_Woche": 0
         })
 
+    # ====================== Korrektur Rundungsdifferenzen ======================
+    # Sicherstellen, dass Summe OTF und MRR exakt den Gesamtwert ergibt
+    df_results = pd.DataFrame(results)
+    otf_diff = total_otf - df_results["OTF"].sum()
+    mrr_diff = total_mrr - df_results[df_results["Typ"]=="Software"]["MRR_Monat"].sum()
+
+    # Differenz auf das erste Produkt aufschlagen (wenn >0)
+    if not df_results.empty:
+        df_results.loc[df_results.index[0], "OTF"] += otf_diff
+        df_results.loc[df_results[df_results["Typ"]=="Software"].index[0], "MRR_Monat"] += mrr_diff
+        df_results["MRR_Woche"] = (df_results["MRR_Monat"]/4).round(2)
+
     # ====================== Darstellung Ergebnisse ======================
     st.markdown("---")
     st.subheader("✅ Übersicht OTF / MRR")
 
-    for res in results:
+    for res in df_results.to_dict(orient="records"):
         if res["Typ"]=="Software":
             cols = st.columns([2,1,1,1])
             cols[0].markdown(f"**{res['Produkt']}**")
@@ -456,11 +469,10 @@ def show_contractnumbers():
     # ====================== Kontrollübersicht ======================
     st.markdown("---")
     st.subheader("📊 Kontrollübersicht")
-    df_result = pd.DataFrame(results)
-    otf_software = df_result[df_result["Typ"]=="Software"]["OTF"].sum()
-    otf_hardware = df_result[df_result["Typ"]=="Hardware"]["OTF"].sum()
-    total_otf_calc = df_result["OTF"].sum()
-    total_mrr_calc = df_result["MRR_Monat"].sum()
+    otf_software = df_results[df_results["Typ"]=="Software"]["OTF"].sum()
+    otf_hardware = df_results[df_results["Typ"]=="Hardware"]["OTF"].sum()
+    total_otf_calc = df_results["OTF"].sum()
+    total_mrr_calc = df_results["MRR_Monat"].sum()
 
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -472,6 +484,7 @@ def show_contractnumbers():
     with col3:
         st.metric("💰 MRR / Monat", f"{total_mrr_calc} €")
         st.metric("📆 MRR / Woche", f"{round(total_mrr_calc/4)} €")
+
 
 # =====================================================
 # 🏗 Seitenlogik
