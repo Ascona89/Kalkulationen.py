@@ -360,6 +360,8 @@ def show_contractnumbers():
         "Typ": ["Hardware"]*7
     })
 
+    df_all = pd.concat([df_sw, df_hw], ignore_index=True)
+
     # ====================== Eingaben ======================
     col1, col2 = st.columns(2)
     with col1:
@@ -370,71 +372,59 @@ def show_contractnumbers():
     st.markdown("---")
     st.subheader("📦 Verkäufe pro Produkt")
 
-    results = []
-
-    # Software
-    st.markdown("**Software**")
-    for idx, row in df_sw.iterrows():
-        cols = st.columns([2,1,1,1])  # Produkt, Menge, OTF, MRR
-        with cols[0]:
-            st.markdown(f"**{row['Produkt']}**")
-        # Eindeutiger Key
-        qty = cols[1].number_input(
-            "", min_value=0, step=1,
-            key=f"sw_qty_{idx}",
-            value=st.session_state.get(f"sw_qty_{idx}", 0)
+    # ====================== Mengen abfragen ======================
+    qty_dict = {}
+    for idx, row in df_all.iterrows():
+        prefix = "sw" if row["Typ"]=="Software" else "hw"
+        qty = st.number_input(
+            f"{row['Produkt']}", 
+            min_value=0, step=1,
+            key=f"{prefix}_qty_{idx}",
+            value=st.session_state.get(f"{prefix}_qty_{idx}", 0)
         )
+        qty_dict[idx] = qty
 
         # Automatik: POS → TSE + Hardware POS
         if row["Produkt"] == "POS" and qty > 0:
             idx_tse = df_sw[df_sw["Produkt"]=="TSE"].index[0]
             idx_pos_hw = df_hw[df_hw["Produkt"]=="POS inkl 1 Printer"].index[0]
-            st.session_state[f"sw_qty_{idx_tse}"] = max(1, st.session_state.get(f"sw_qty_{idx_tse}", 0))
-            st.session_state[f"hw_qty_{idx_pos_hw}"] = max(1, st.session_state.get(f"hw_qty_{idx_pos_hw}", 0))
+            qty_dict[idx_tse] = max(1, qty_dict.get(idx_tse, 0))
+            qty_dict[idx_pos_hw] = max(1, qty_dict.get(idx_pos_hw, 0))
+            st.session_state[f"sw_qty_{idx_tse}"] = qty_dict[idx_tse]
+            st.session_state[f"hw_qty_{idx_pos_hw}"] = qty_dict[idx_pos_hw]
 
-        otf_val = round(total_otf * (row["List_OTF"] * qty) / max(1, sum(df_sw["List_OTF"] * [st.session_state.get(f'sw_qty_{i}',0) for i in df_sw.index])))
-        mrr_val = round(total_mrr * (row["List_MRR"] * qty) / max(1, sum(df_sw["List_MRR"] * [st.session_state.get(f'sw_qty_{i}',0) for i in df_sw.index])))
+    # ====================== OTF / MRR Berechnung ======================
+    total_list_otf = sum(df_all["List_OTF"] * [qty_dict.get(i,0) for i in df_all.index])
+    total_list_mrr = sum(df_all["List_MRR"] * [qty_dict.get(i,0) for i in df_all.index])
 
-        with cols[2]:
-            st.markdown(f"**OTF: {otf_val} €**")
-        with cols[3]:
-            st.markdown(f"**MRR: {mrr_val} €**")
+    results = []
+    for idx, row in df_all.iterrows():
+        qty = qty_dict.get(idx, 0)
+        otf_val = round(total_otf * (row["List_OTF"] * qty) / max(1, total_list_otf))
+        mrr_val = round(total_mrr * (row["List_MRR"] * qty) / max(1, total_list_mrr)) if total_list_mrr > 0 else 0
 
         results.append({
             "Produkt": row["Produkt"],
-            "Typ": "Software",
+            "Typ": row["Typ"],
             "Menge": qty,
             "OTF": otf_val,
             "MRR_Monat": mrr_val,
             "MRR_Woche": round(mrr_val/4)
         })
 
-    # Hardware
-    st.markdown("**Hardware**")
-    for idx, row in df_hw.iterrows():
-        cols = st.columns([2,1,1])  # Produkt, Menge, OTF
-        with cols[0]:
-            st.markdown(f"**{row['Produkt']}**")
-        # Eindeutiger Key
-        qty = cols[1].number_input(
-            "", min_value=0, step=1,
-            key=f"hw_qty_{idx}",
-            value=st.session_state.get(f"hw_qty_{idx}", 0)
-        )
-
-        otf_val = round(total_otf * (row["List_OTF"] * qty) / max(1, sum(df_hw["List_OTF"] * [st.session_state.get(f'hw_qty_{i}',0) for i in df_hw.index])))
-
-        with cols[2]:
-            st.markdown(f"**OTF: {otf_val} €**")
-
-        results.append({
-            "Produkt": row["Produkt"],
-            "Typ": "Hardware",
-            "Menge": qty,
-            "OTF": otf_val,
-            "MRR_Monat": 0,
-            "MRR_Woche": 0
-        })
+    # ====================== Darstellung ======================
+    for res in results:
+        if res["Typ"]=="Software":
+            cols = st.columns([2,1,1,1])
+            cols[0].markdown(f"**{res['Produkt']}**")
+            cols[1].markdown(f"{res['Menge']}")
+            cols[2].markdown(f"**OTF: {res['OTF']} €**")
+            cols[3].markdown(f"**MRR: {res['MRR_Monat']} €**")
+        else:  # Hardware
+            cols = st.columns([2,1,1])
+            cols[0].markdown(f"**{res['Produkt']}**")
+            cols[1].markdown(f"{res['Menge']}")
+            cols[2].markdown(f"**OTF: {res['OTF']} €**")
 
     # ====================== Kontrolle ======================
     st.markdown("---")
@@ -455,6 +445,7 @@ def show_contractnumbers():
     with col3:
         st.metric("💰 MRR / Monat", f"{total_mrr_calc} €")
         st.metric("📆 MRR / Woche", f"{round(total_mrr_calc/4)} €")
+
 
 # =====================================================
 # 🏗 Seitenlogik
