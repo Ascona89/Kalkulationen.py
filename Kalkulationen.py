@@ -470,6 +470,7 @@ def show_contractnumbers():
 # =====================================================
 # 🏗 Seitenlogik
 # =====================================================
+# 🌐 Seiten-Dispatcher
 if page == "Platform":
     show_platform()
 elif page == "Cardpayment":
@@ -479,4 +480,4 @@ elif page == "Pricing":
 elif page == "Radien":
     show_radien()
 elif page == "Contractnumbers":
-    show_contract_numbers()
+    show_contractnumbers()  # <-- Korrekt
