@@ -337,97 +337,114 @@ elif page == "Radien":
         else:
             st.warning("Bitte Adresse eingeben und mindestens einen Radius angeben.")
 
-elif page == "Contract Numbers":
-    st.header("📑 Contract Numbers")
 
-    # ---------------- Produkte ----------------
-    df_sw = pd.DataFrame({
-        "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW", "TSE"],
-        "Typ": ["Software"]*7,
-        "MRR": [0,0,0,0,15,0,12],  # TSE=12€, Connect=15€
-    })
+import streamlit as st
+import pandas as pd
 
-    df_hw = pd.DataFrame({
-        "Produkt":["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX","POS"], 
-        "Typ": ["Hardware"]*7,
-        "MRR": [0]*7
-    })
+st.set_page_config(page_title="Contract Numbers", layout="wide")
 
-    df_products = pd.concat([df_sw, df_hw], ignore_index=True)
+# =====================================================
+# =================== Contract Numbers ======================
+# =====================================================
+st.header("📑 Contract Numbers")
 
-    # ---------------- Gesamt OTF / MRR ----------------
-    col1, col2 = st.columns(2)
-    with col1:
-        total_otf = st.number_input("💶 Gesamt OTF (€)", min_value=0, step=100)
-    with col2:
-        total_mrr = st.number_input("💶 Gesamt MRR (€)", min_value=0, step=50)
+# --- Produkte ---
+df_sw = pd.DataFrame({
+    "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW", "TSE"],
+    "Typ": ["Software"]*7,
+    "MRR": [0, 0, 0, 0, 15, 0, 12],  # TSE=12€, Connect=15€
+})
 
-    st.markdown("---")
+df_hw = pd.DataFrame({
+    "Produkt":["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX","POS"],
+    "Typ": ["Hardware"]*7,
+    "MRR": [0]*7
+})
 
-    # ---------------- Eingabe pro Produkt ----------------
-    st.subheader("📦 Verkäufe pro Produkt")
+df_products = pd.concat([df_sw, df_hw], ignore_index=True)
 
-    # --- Software ---
-    st.markdown("### 💻 Software")
-    for idx, row in df_sw.iterrows():
-        col_label, col_input, col_mrr_month, col_mrr_week = st.columns([2,1,1,1])
-        with col_label:
-            st.markdown(f"**{row['Produkt']}**")
-        with col_input:
-            val = st.number_input("", min_value=0, step=1, key=f"qty_{idx}", format="%d")
-        with col_mrr_month:
-            mrr_val = val * row["MRR"]
-            st.markdown(f"{mrr_val:,} €")
-        with col_mrr_week:
-            st.markdown(f"{round(mrr_val/4):,} €")
+# --- Gesamtwerte ---
+col1, col2 = st.columns(2)
+with col1:
+    total_otf = st.number_input("💶 Gesamt OTF (€)", min_value=0, step=100)
+with col2:
+    total_mrr = st.number_input("💶 Gesamt MRR (€)", min_value=0, step=50)
 
-    # --- Hardware ---
-    st.markdown("### 🖨️ Hardware")
-    for idx, row in df_hw.iterrows():
-        col_label, col_input = st.columns([2,1])
-        with col_label:
-            st.markdown(f"**{row['Produkt']}**")
-        with col_input:
-            st.number_input("", min_value=0, step=1, key=f"qty_{idx}", format="%d")
+st.markdown("---")
+st.subheader("📦 Verkäufe pro Produkt")
 
-    # ---------------- Sonderlogik POS/TSE/Connect ----------------
-    pos_sw_idx = df_sw.index[df_sw["Produkt"]=="POS"][0]
-    tse_idx = df_sw.index[df_sw["Produkt"]=="TSE"][0]
-    connect_idx = df_sw.index[df_sw["Produkt"]=="Connect"][0]
-    pos_hw_idx = df_hw.index[df_hw["Produkt"]=="POS"][0]
+# --- Initialisierung Session State ---
+for idx, row in df_products.iterrows():
+    if f"qty_{idx}" not in st.session_state:
+        st.session_state[f"qty_{idx}"] = 0
 
-    if st.session_state[f"qty_{pos_sw_idx}"] > 0:
-        # Auto-Set TSE und POS Hardware
-        st.session_state[f"qty_{tse_idx}"] = 1
-        st.session_state[f"qty_{pos_hw_idx}"] = 1
+# --- Software Eingabefelder ---
+st.markdown("### 💻 Software")
+for idx, row in df_sw.iterrows():
+    col_label, col_input, col_mrr_month, col_mrr_week = st.columns([2,1,1,1])
+    with col_label:
+        st.markdown(f"**{row['Produkt']}**")
+    with col_input:
+        st.session_state[f"qty_{idx}"] = st.number_input(
+            "", min_value=0, step=1, key=f"qty_{idx}", format="%d"
+        )
+    # Berechnung MRR pro Produkt
+    mrr_val = st.session_state[f"qty_{idx}"] * row["MRR"]
+    with col_mrr_month:
+        st.markdown(f"{mrr_val:,} €")
+    with col_mrr_week:
+        st.markdown(f"{round(mrr_val/4):,} €")
 
-    # ---------------- Berechnung OTF ----------------
-    df_products["OTF"] = 0
-    total_qty_otf = sum([st.session_state[f"qty_{i}"] for i in df_products.index])
-    if total_qty_otf > 0 and total_otf > 0:
-        for i in df_products.index:
-            qty = st.session_state[f"qty_{i}"]
-            df_products.at[i,"OTF"] = total_otf * (qty / total_qty_otf)
+# --- Hardware Eingabefelder ---
+st.markdown("### 🖨️ Hardware")
+for idx, row in df_hw.iterrows():
+    col_label, col_input = st.columns([2,1])
+    with col_label:
+        st.markdown(f"**{row['Produkt']}**")
+    with col_input:
+        st.session_state[f"qty_{idx}"] = st.number_input(
+            "", min_value=0, step=1, key=f"qty_{idx}", format="%d"
+        )
 
-    # ---------------- Berechnung MRR ----------------
-    df_products["MRR Monat"] = 0
-    for i, row in df_sw.iterrows():
+# --- Automatik: POS → TSE + POS Hardware ---
+# Software POS Index
+pos_sw_idx = df_sw[df_sw["Produkt"]=="POS"].index[0]
+# Hardware POS Index
+pos_hw_idx = df_hw[df_hw["Produkt"]=="POS"].index[0]
+# TSE Index
+tse_idx = df_sw[df_sw["Produkt"]=="TSE"].index[0]
+
+if st.session_state[f"qty_{pos_sw_idx}"] > 0:
+    # TSE immer auf 1 setzen, POS Hardware auf 1 setzen
+    st.session_state[f"qty_{tse_idx}"] = max(1, st.session_state[f"qty_{tse_idx}"])
+    st.session_state[f"qty_{pos_hw_idx+len(df_sw)}"] = max(1, st.session_state[f"qty_{pos_hw_idx+len(df_sw)}"])
+
+# --- Berechnung OTF ---
+df_products["OTF"] = 0
+total_qty = sum(st.session_state[f"qty_{i}"] for i in df_products.index)
+if total_qty > 0 and total_otf > 0:
+    for i in df_products.index:
         qty = st.session_state[f"qty_{i}"]
-        df_products.at[i,"MRR Monat"] = row["MRR"] * qty
-    df_products["MRR Woche"] = df_products["MRR Monat"] / 4
+        df_products.at[i, "OTF"] = round(total_otf * (qty / total_qty))
 
-    # ---------------- Kontrollübersicht ----------------
-    st.markdown("---")
-    st.subheader("✅ Kontrollübersicht")
-    df_result = df_products.copy()
-    otf_total = df_result["OTF"].sum()
-    mrr_total = df_result["MRR Monat"].sum()
-    mrr_week_total = df_result["MRR Woche"].sum()
+# --- Berechnung MRR ---
+df_products["MRR Monat"] = 0
+for i, row in df_sw.iterrows():
+    qty = st.session_state[f"qty_{i}"]
+    df_products.at[i,"MRR Monat"] = row["MRR"] * qty
+df_products["MRR Woche"] = df_products["MRR Monat"] / 4
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("💶 Gesamt OTF", f"{otf_total:,.0f} €")
-    with col2:
-        st.metric("💰 Gesamt MRR / Monat", f"{mrr_total:,.0f} €")
-    with col3:
-        st.metric("📆 Gesamt MRR / Woche", f"{mrr_week_total:,.0f} €")
+# --- Kontrollübersicht ---
+st.markdown("---")
+st.subheader("✅ Kontrollübersicht")
+otf_total = df_products["OTF"].sum()
+mrr_total = df_products["MRR Monat"].sum()
+mrr_week_total = df_products["MRR Woche"].sum()
+
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.metric("💶 Gesamt OTF", f"{otf_total:,.0f} €")
+with col2:
+    st.metric("💰 Gesamt MRR / Monat", f"{mrr_total:,.0f} €")
+with col3:
+    st.metric("📆 Gesamt MRR / Woche", f"{mrr_week_total:,.0f} €")
