@@ -201,9 +201,85 @@ elif page == "Cardpayment":
 # =====================================================
 # 💰 Pricing
 # =====================================================
+# =====================================================
+# 💰 Pricing
+# =====================================================
 elif page == "Pricing":
-    # (Pricing Code unverändert, wie vorher)
-    pass  # für Kürze, hier kommt dein Pricing-Block hin
+    st.header("💰 Pricing Kalkulation")
+
+    df_sw = pd.DataFrame({
+        "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW"],
+        "Min_OTF": [365, 15, 365, 35, 0, 0],
+        "List_OTF": [999, 49, 999, 49, 0, 0],
+        "Min_MRR": [50, 15, 49, 5, 15, 0],
+        "List_MRR": [119, 49, 89, 25, 15, 0]
+    })
+
+    df_hw = pd.DataFrame({
+        "Produkt":["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX"],
+        "Min_OTF":[135,350,50,99,100,225],
+        "List_OTF":[299,1699,149,199,100,299],
+        "Min_MRR":[0]*6,
+        "List_MRR":[0]*6
+    })
+
+    for i in range(len(df_sw)):
+        st.session_state.setdefault(f"sw_{i}", 0)
+    for i in range(len(df_hw)):
+        st.session_state.setdefault(f"hw_{i}", 0)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("Software")
+        for i, p in enumerate(df_sw["Produkt"]):
+            st.session_state[f"sw_{i}"] = st.number_input(p, min_value=0, step=1, key=f"sw_ui_{i}")
+    with col2:
+        st.subheader("Hardware")
+        for i, p in enumerate(df_hw["Produkt"]):
+            st.session_state[f"hw_{i}"] = st.number_input(p, min_value=0, step=1, key=f"hw_ui_{i}")
+
+    df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
+    df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
+
+    list_otf = (df_sw["Menge"]*df_sw["List_OTF"]).sum() + (df_hw["Menge"]*df_hw["List_OTF"]).sum()
+    min_otf = (df_sw["Menge"]*df_sw["Min_OTF"]).sum() + (df_hw["Menge"]*df_hw["Min_OTF"]).sum()
+    list_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum()
+    min_mrr = (df_sw["Menge"]*df_sw["Min_MRR"]).sum()
+
+    st.markdown("### 🧾 LIST PREISE")
+    st.markdown(f"**OTF LIST gesamt:** {list_otf:,.2f} €")
+    st.markdown(f"**MRR LIST gesamt:** {list_mrr:,.2f} €")
+    st.markdown("---")
+
+    st.subheader("💸 Rabattfunktion")
+    col_otf, col_otf_reason = st.columns([1,3])
+    with col_otf:
+        st.session_state['discount_otf'] = st.selectbox("OTF Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], 
+                                                       index=[0,5,10,15,20,25,30,35,40,45,50].index(st.session_state.get('discount_otf',0)))
+    with col_otf_reason:
+        st.session_state['reason_otf'] = st.text_input("Grund OTF Rabatt", value=st.session_state.get('reason_otf',''))
+        if st.session_state['discount_otf'] > 0 and len(st.session_state['reason_otf']) < 10:
+            st.warning("Bitte Begründung eintragen (mindestens 10 Zeichen).")
+
+    col_mrr, col_mrr_reason = st.columns([1,3])
+    with col_mrr:
+        st.session_state['discount_mrr'] = st.selectbox("MRR Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], 
+                                                       index=[0,5,10,15,20,25,30,35,40,45,50].index(st.session_state.get('discount_mrr',0)))
+    with col_mrr_reason:
+        st.session_state['reason_mrr'] = st.text_input("Grund MRR Rabatt", value=st.session_state.get('reason_mrr',''))
+        if st.session_state['discount_mrr'] > 0 and len(st.session_state['reason_mrr']) < 10:
+            st.warning("Bitte Begründung eintragen (mindestens 10 Zeichen).")
+
+    otf_discounted = list_otf * (1 - st.session_state['discount_otf']/100) if st.session_state['discount_otf'] > 0 and len(st.session_state['reason_otf']) >= 10 else list_otf
+    mrr_discounted = list_mrr * (1 - st.session_state['discount_mrr']/100) if st.session_state['discount_mrr'] > 0 and len(st.session_state['reason_mrr']) >= 10 else list_mrr
+
+    st.info(f"OTF nach Rabatt: {otf_discounted:,.2f} €")
+    st.info(f"MRR nach Rabatt: {mrr_discounted:,.2f} €")
+
+    st.markdown("---")
+    st.markdown("### 🔻 MIN PREISE")
+    st.markdown(f"**OTF MIN gesamt:** {min_otf:,.2f} €")
+    st.markdown(f"**MRR MIN gesamt:** {min_mrr:,.2f} €")
 
 # =====================================================
 # 🗺️ Radien
