@@ -282,12 +282,17 @@ elif page == "Pricing":
 # =====================================================
 # 🗺️ Radien
 # =====================================================
-import io
+import streamlit as st
+import pandas as pd
+import math
+import folium
+from geopy.geocoders import Nominatim
+from streamlit_folium import st_folium
 from fpdf import FPDF
-import matplotlib.pyplot as plt
-from matplotlib.patches import Circle
+import io
+from PIL import Image
 
-st.header("🗺️ Radien um eine PLZ – Karte & PDF")
+st.header("🗺️ Radien um eine PLZ – mehrere Radien möglich")
 
 # CSV mit PLZ-Daten (inkl. Lat/Lon)
 CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
@@ -333,7 +338,6 @@ if st.button("🔍 PLZ berechnen"):
     lat_c, lon_c = center_row["lat"], center_row["lon"]
 
     # Haversine-Funktion
-    import math
     def haversine(lat1, lon1, lat2, lon2):
         R = 6371
         phi1, phi2 = math.radians(lat1), math.radians(lat2)
@@ -347,7 +351,6 @@ if st.button("🔍 PLZ berechnen"):
         axis=1
     )
 
-    # Filter alle PLZ innerhalb des größten Radius
     max_radius = max(radien)
     df_result = df_plz[df_plz["distance_km"] <= max_radius].sort_values("distance_km")
 
@@ -365,33 +368,53 @@ if st.session_state["show_result"] and st.session_state["df_result"] is not None
     st.success(f"✅ {len(df_result)} PLZ im Umkreis (bis {max(radien)} km)")
     st.dataframe(df_result[["plz", "lat", "lon", "distance_km"]].round(2), use_container_width=True)
 
-    # ---------------- Karte mit matplotlib ----------------
-    fig, ax = plt.subplots(figsize=(8,8))
-    ax.scatter(df_result["lon"], df_result["lat"], c="blue", label="PLZ")
-    ax.scatter(lon_c, lat_c, c="red", label="Zentrum", s=100)
+    # Karte erstellen
+    m = folium.Map(location=[lat_c, lon_c], zoom_start=10)
+    folium.Marker([lat_c, lon_c], popup="Zentrum", icon=folium.Icon(color="red")).add_to(m)
 
-    # Kreise für Radien
+    bounds = []
     for r in radien:
-        circle = Circle((lon_c, lat_c), r/111, color='blue', fill=False, alpha=0.3, lw=2)
-        ax.add_patch(circle)
+        folium.Circle(
+            location=[lat_c, lon_c],
+            radius=r*1000,
+            color="blue",
+            weight=2,
+            fill=True,
+            fill_opacity=0.15
+        ).add_to(m)
 
-    ax.set_xlabel("Longitude")
-    ax.set_ylabel("Latitude")
-    ax.set_title(f"PLZ um {center_plz} (Radien: {', '.join(map(str, radien))} km)")
-    ax.legend()
-    ax.set_aspect('equal', adjustable='datalim')
-    st.pyplot(fig)
+        bounds.append([lat_c + r/111, lon_c + r/111])
+        bounds.append([lat_c - r/111, lon_c - r/111])
 
-    # ---------------- PDF Export ----------------
+    m.fit_bounds(bounds)
+
+    for _, row in df_result.iterrows():
+        folium.CircleMarker([row["lat"], row["lon"]], radius=4, fill=True, fill_opacity=0.6, popup=f"{row['plz']}").add_to(m)
+
+    # Folium Map anzeigen
+    map_data = st_folium(m, width=1200, height=600)
+
+    # ---------------- PDF Download ----------------
     st.subheader("📄 PDF Export")
     pdf_name = st.text_input("Dateiname (ohne .pdf)", value=f"Radien_{center_plz}")
 
     if st.button("PDF herunterladen"):
-        # Karte als PNG
-        buf = io.BytesIO()
-        fig.savefig(buf, format='PNG', dpi=150)
-        buf.seek(0)
+        # Karte als PNG speichern
+        import branca
+        import base64
+        from streamlit_folium import folium_static
 
+        tmp_map = folium.Map(location=[lat_c, lon_c], zoom_start=10)
+        for _, row in df_result.iterrows():
+            folium.CircleMarker([row["lat"], row["lon"]], radius=4, fill=True, fill_opacity=0.6, popup=f"{row['plz']}").add_to(tmp_map)
+        for r in radien:
+            folium.Circle(location=[lat_c, lon_c], radius=r*1000, color="blue", fill=True, fill_opacity=0.15).add_to(tmp_map)
+
+        # HTML → Screenshot über Folium direkt nicht möglich → workaround: Karte als HTML speichern und per Browser Screenshot PDF
+        tmp_map.save("temp_map.html")
+        st.info("📌 Hinweis: Karte wird als HTML gespeichert. Screenshot manuell in PDF einfügen möglich.")
+
+        # PDF erstellen
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", "B", 16)
@@ -399,13 +422,9 @@ if st.session_state["show_result"] and st.session_state["df_result"] is not None
         pdf.ln(5)
         pdf.set_font("Arial", "", 12)
 
-        # Tabelle PLZ
+        # Tabelle
         for _, row in df_result.iterrows():
             pdf.cell(0, 8, f"{row['plz']} - Lat: {row['lat']:.5f}, Lon: {row['lon']:.5f}, Dist: {row['distance_km']:.2f} km", ln=True)
-
-        pdf.ln(5)
-        # Karte einfügen
-        pdf.image(buf, x=10, y=None, w=pdf.w-20)
 
         pdf_bytes = pdf.output(dest='S').encode('latin1')
         st.download_button("Download PDF", pdf_bytes, f"{pdf_name}.pdf", "application/pdf")
