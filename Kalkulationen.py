@@ -5,6 +5,7 @@ from supabase import create_client
 import math
 import folium
 from streamlit_folium import st_folium
+from geopy.geocoders import Nominatim
 
 # =====================================================
 # 🔐 Passwörter
@@ -101,7 +102,7 @@ st.title("📊 Kalkulations-App")
 # 🗂 Seitenauswahl
 page = st.sidebar.radio(
     "Wähle eine Kalkulation:",
-    ["Platform", "Cardpayment", "Pricing", "Radien", "Telesales", "Contractnumbers"]
+    ["Platform", "Cardpayment", "Pricing", "Radien", "Contractnumbers"]
 )
 
 # ==========================
@@ -277,18 +278,10 @@ def show_pricing():
     st.markdown(f"**MRR MIN gesamt:** {min_mrr:,.2f} €")
 
 # =====================================================
-# 🗺️ Radien nach Adresse, Stadt oder PLZ (mit CSV-Abgleich)
+# 🗺️ Radien
 # =====================================================
-import streamlit as st
-import pandas as pd
-import math
-import folium
-from streamlit_folium import st_folium
-from geopy.geocoders import Nominatim
-
 def show_radien():
     st.header("🗺️ Radien um eine Adresse, Stadt oder PLZ – mehrere Radien möglich")
-
     CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
 
     @st.cache_data
@@ -303,20 +296,16 @@ def show_radien():
         return df
 
     df_plz = load_plz_data()
-
-    # Input
     user_input = st.text_input("📍 Adresse, Stadt oder PLZ eingeben (z.B. Berlin, Alexanderplatz 1 oder 10115)")
     radien_input = st.text_input("📏 Radien eingeben (km, durch Komma getrennt, z.B. 5,10,20)", value="5,10")
 
     if user_input.strip():
-        # Prüfen, ob die Eingabe eine bekannte PLZ ist
         plz_match = df_plz[df_plz["plz"] == user_input.strip()]
         if not plz_match.empty:
             lat_c = plz_match.iloc[0]["lat"]
             lon_c = plz_match.iloc[0]["lon"]
             location_name = f"PLZ: {user_input.strip()}"
         else:
-            # Geopy-Geocoder für Adresse oder Stadt
             geolocator = Nominatim(user_agent="radien_app")
             location = geolocator.geocode(user_input)
             if not location:
@@ -325,18 +314,15 @@ def show_radien():
             lat_c, lon_c = location.latitude, location.longitude
             location_name = user_input.strip()
 
-        # Radien
         try:
             radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
         except ValueError:
             st.error("Bitte nur Zahlen für Radien eingeben, getrennt durch Komma.")
             return
-
         if len(radien) == 0:
             st.error("Mindestens ein Radius erforderlich.")
             return
 
-        # Haversine-Funktion
         def haversine(lat1, lon1, lat2, lon2):
             R = 6371
             phi1, phi2 = math.radians(lat1), math.radians(lat2)
@@ -345,161 +331,144 @@ def show_radien():
             a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
             return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-        # PLZ im Umkreis aus CSV filtern
         df_plz["distance_km"] = df_plz.apply(lambda r: haversine(lat_c, lon_c, r["lat"], r["lon"]), axis=1)
         df_result = df_plz[df_plz["distance_km"] <= max(radien)].sort_values("distance_km")
-
         st.success(f"✅ {len(df_result)} PLZ im Umkreis (bis {max(radien)} km)")
+        st.dataframe(df_result[["plz", "lat", "lon", "distance_km"]], use_container_width=True)
 
-        # Tabelle
-        st.dataframe(df_result[["plz", "lat", "lon", "distance_km"]].round(2), use_container_width=True)
-
-        # Karte
-        m = folium.Map(location=[lat_c, lon_c], zoom_start=10)
-        folium.Marker([lat_c, lon_c], popup=f"Zentrum: {location_name}", icon=folium.Icon(color="red")).add_to(m)
-
-        # Radien einzeichnen
-        colors = ["blue", "green", "orange", "purple"]
-        for i, r in enumerate(radien):
-            folium.Circle(
-                location=[lat_c, lon_c],
-                radius=r*1000,
-                color=colors[i % len(colors)],
-                fill=True,
-                fill_opacity=0.1,
-                popup=f"{r} km"
-            ).add_to(m)
-
-        # PLZ-Marker
-        for _, row in df_result.iterrows():
-            folium.Marker([row["lat"], row["lon"]],
-                          popup=f"{row['plz']} ({row['distance_km']:.1f} km)").add_to(m)
-
+        m = folium.Map(location=[lat_c, lon_c], zoom_start=11)
+        folium.Marker([lat_c, lon_c], tooltip=location_name, icon=folium.Icon(color="red")).add_to(m)
+        for r in radien:
+            folium.Circle([lat_c, lon_c], radius=r*1000, color="blue", fill=True, fill_opacity=0.1).add_to(m)
         st_folium(m, width=700, height=500)
 
+# =====================================================
+# 📦 Contract Numbers
+# =====================================================
+def show_contract_numbers():
+    st.header("📑 Contract Numbers")
 
-st.header("📑 Contract Numbers")
-
-# ====================== Produkte ======================
-df_sw = pd.DataFrame({
-    "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW", "TSE"],
-    "List_OTF": [999, 49, 999, 49, 0, 0, 0],
-    "List_MRR": [119, 49, 89, 25, 15, 0, 12],  # TSE = 12€
-    "Typ": ["Software"]*7
-})
-
-df_hw = pd.DataFrame({
-    "Produkt": ["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX", "Connect"],
-    "List_OTF": [299,1699,149,199,100,299,0],
-    "List_MRR": [0]*7,
-    "Typ": ["Hardware"]*7
-})
-
-df_products = pd.concat([df_sw, df_hw], ignore_index=True)
-
-# ====================== Eingaben ======================
-col1, col2 = st.columns(2)
-with col1:
-    total_mrr = st.number_input("💶 Gesamt MRR (€)", min_value=0.0, step=50.0)
-with col2:
-    total_otf = st.number_input("💶 Gesamt OTF (€)", min_value=0.0, step=100.0)
-
-st.markdown("---")
-st.subheader("📦 Verkäufe pro Produkt")
-
-# ====================== Darstellung ======================
-results = []
-
-# Trennung Software / Hardware optisch
-st.markdown("**Software**")
-for idx, row in df_sw.iterrows():
-    col_prod, col_qty, col_otf, col_mrr = st.columns([2,1,1,1])
-    with col_prod:
-        st.markdown(f"**{row['Produkt']}**")
-    
-    # ✅ Widget mit Initialwert aus session_state
-    qty = st.number_input(
-        "", 
-        min_value=0, step=1, 
-        key=f"qty_{idx}", 
-        value=st.session_state.get(f"qty_{idx}", 0), 
-        format="%d"
-    )
-    
-    # Automatik: POS → TSE + Hardware POS
-    if row["Produkt"] == "POS" and qty > 0:
-        idx_tse = df_sw[df_sw["Produkt"]=="TSE"].index[0]
-        idx_pos_hw = df_hw[df_hw["Produkt"]=="POS inkl 1 Printer"].index[0]
-        st.session_state[f"qty_{idx_tse}"] = max(1, st.session_state.get(f"qty_{idx_tse}", 0))
-        st.session_state[f"qty_{idx_pos_hw}"] = max(1, st.session_state.get(f"qty_{idx_pos_hw}", 0))
-    
-    otf_val = round(total_otf * (row["List_OTF"] * qty) / max(1, sum(df_sw["List_OTF"] * [st.session_state.get(f'qty_{i}',0) for i in df_sw.index])))
-    mrr_val = round(total_mrr * (row["List_MRR"] * qty) / max(1, sum(df_sw["List_MRR"] * [st.session_state.get(f'qty_{i}',0) for i in df_sw.index])))
-
-    with col_otf:
-        st.markdown(f"**OTF: {otf_val} €**")
-    with col_mrr:
-        st.markdown(f"**MRR: {mrr_val} €**")
-
-    results.append({
-        "Produkt": row["Produkt"],
-        "Typ": "Software",
-        "Menge": qty,
-        "OTF": otf_val,
-        "MRR_Monat": mrr_val,
-        "MRR_Woche": round(mrr_val/4)
+    # ====================== Produkte ======================
+    df_sw = pd.DataFrame({
+        "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW", "TSE"],
+        "List_OTF": [999, 49, 999, 49, 0, 0, 0],
+        "List_MRR": [119, 49, 89, 25, 15, 0, 12],
+        "Typ": ["Software"]*7
     })
 
-st.markdown("**Hardware**")
-for idx, row in df_hw.iterrows():
-    col_prod, col_qty, col_otf = st.columns([2,1,1])
-    with col_prod:
-        st.markdown(f"**{row['Produkt']}**")
-    
-    qty = st.number_input(
-        "", 
-        min_value=0, step=1, 
-        key=f"qty_{idx}", 
-        value=st.session_state.get(f"qty_{idx}", 0), 
-        format="%d"
-    )
-    
-    otf_val = round(total_otf * (row["List_OTF"] * qty) / max(1, sum(df_hw["List_OTF"] * [st.session_state.get(f'qty_{i}',0) for i in df_hw.index])))
-    
-    with col_otf:
-        st.markdown(f"**OTF: {otf_val} €**")
-    
-    results.append({
-        "Produkt": row["Produkt"],
-        "Typ": "Hardware",
-        "Menge": qty,
-        "OTF": otf_val,
-        "MRR_Monat": 0,
-        "MRR_Woche": 0
+    df_hw = pd.DataFrame({
+        "Produkt": ["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX", "Connect"],
+        "List_OTF": [299,1699,149,199,100,299,0],
+        "List_MRR": [0]*7,
+        "Typ": ["Hardware"]*7
     })
 
-# ====================== Kontrolle ======================
-st.markdown("---")
-st.subheader("✅ Kontrollübersicht")
-df_result = pd.DataFrame(results)
-otf_software = df_result[df_result["Typ"]=="Software"]["OTF"].sum()
-otf_hardware = df_result[df_result["Typ"]=="Hardware"]["OTF"].sum()
-total_otf_calc = df_result["OTF"].sum()
-total_mrr_calc = df_result["MRR_Monat"].sum()
+    df_products = pd.concat([df_sw, df_hw], ignore_index=True)
 
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.metric("💻 Software OTF", f"{otf_software} €")
-    st.metric("🖨️ Hardware OTF", f"{otf_hardware} €")
-with col2:
-    st.metric("🧾 OTF berechnet", f"{total_otf_calc} €")
-    st.metric("🧾 OTF Eingabe", f"{total_otf} €")
-with col3:
-    st.metric("💰 MRR / Monat", f"{total_mrr_calc} €")
-    st.metric("📆 MRR / Woche", f"{round(total_mrr_calc/4)} €")
+    # ====================== Eingaben ======================
+    col1, col2 = st.columns(2)
+    with col1:
+        total_mrr = st.number_input("💶 Gesamt MRR (€)", min_value=0.0, step=50.0)
+    with col2:
+        total_otf = st.number_input("💶 Gesamt OTF (€)", min_value=0.0, step=100.0)
+
+    st.markdown("---")
+    st.subheader("📦 Verkäufe pro Produkt")
+
+    # ====================== Darstellung ======================
+    results = []
+    auto_updates = []
+
+    st.markdown("**Software**")
+    for idx, row in df_sw.iterrows():
+        col_prod, col_qty, col_otf, col_mrr = st.columns([2,1,1,1])
+        with col_prod:
+            st.markdown(f"**{row['Produkt']}**")
+
+        qty = st.number_input(
+            "", 
+            min_value=0, step=1, 
+            key=f"qty_{idx}", 
+            value=st.session_state.get(f"qty_{idx}", 0), 
+            format="%d"
+        )
+
+        if row["Produkt"] == "POS" and qty > 0:
+            idx_tse = df_sw[df_sw["Produkt"]=="TSE"].index[0]
+            idx_pos_hw = df_hw[df_hw["Produkt"]=="POS inkl 1 Printer"].index[0]
+            auto_updates.append((f"qty_{idx_tse}", 1))
+            auto_updates.append((f"qty_{idx_pos_hw}", 1))
+
+        otf_val = round(total_otf * (row["List_OTF"] * qty) / max(1, sum(df_sw["List_OTF"] * [st.session_state.get(f'qty_{i}',0) for i in df_sw.index])))
+        mrr_val = round(total_mrr * (row["List_MRR"] * qty) / max(1, sum(df_sw["List_MRR"] * [st.session_state.get(f'qty_{i}',0) for i in df_sw.index])))
+
+        with col_otf:
+            st.markdown(f"**OTF: {otf_val} €**")
+        with col_mrr:
+            st.markdown(f"**MRR: {mrr_val} €**")
+
+        results.append({
+            "Produkt": row["Produkt"],
+            "Typ": "Software",
+            "Menge": qty,
+            "OTF": otf_val,
+            "MRR_Monat": mrr_val,
+            "MRR_Woche": round(mrr_val/4)
+        })
+
+    for key, val in auto_updates:
+        if st.session_state.get(key, 0) < val:
+            st.session_state[key] = val
+
+    st.markdown("**Hardware**")
+    for idx, row in df_hw.iterrows():
+        col_prod, col_qty, col_otf = st.columns([2,1,1])
+        with col_prod:
+            st.markdown(f"**{row['Produkt']}**")
+
+        qty = st.number_input(
+            "", 
+            min_value=0, step=1, 
+            key=f"qty_{idx}", 
+            value=st.session_state.get(f"qty_{idx}", 0), 
+            format="%d"
+        )
+
+        otf_val = round(total_otf * (row["List_OTF"] * qty) / max(1, sum(df_hw["List_OTF"] * [st.session_state.get(f'qty_{i}',0) for i in df_hw.index])))
+
+        with col_otf:
+            st.markdown(f"**OTF: {otf_val} €**")
+
+        results.append({
+            "Produkt": row["Produkt"],
+            "Typ": "Hardware",
+            "Menge": qty,
+            "OTF": otf_val,
+            "MRR_Monat": 0,
+            "MRR_Woche": 0
+        })
+
+    st.markdown("---")
+    st.subheader("✅ Kontrollübersicht")
+    df_result = pd.DataFrame(results)
+    otf_software = df_result[df_result["Typ"]=="Software"]["OTF"].sum()
+    otf_hardware = df_result[df_result["Typ"]=="Hardware"]["OTF"].sum()
+    total_otf_calc = df_result["OTF"].sum()
+    total_mrr_calc = df_result["MRR_Monat"].sum()
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("💻 Software OTF", f"{otf_software} €")
+        st.metric("🖨️ Hardware OTF", f"{otf_hardware} €")
+    with col2:
+        st.metric("🧾 OTF berechnet", f"{total_otf_calc} €")
+        st.metric("🧾 OTF Eingabe", f"{total_otf} €")
+    with col3:
+        st.metric("💰 MRR / Monat", f"{total_mrr_calc} €")
+        st.metric("📆 MRR / Woche", f"{round(total_mrr_calc/4)} €")
 
 # =====================================================
-# 🌐 Seiten-Dispatcher
+# 🏗 Seitenlogik
 # =====================================================
 if page == "Platform":
     show_platform()
@@ -509,8 +478,5 @@ elif page == "Pricing":
     show_pricing()
 elif page == "Radien":
     show_radien()
-elif page == "Telesales":
-    show_telesales()
 elif page == "Contractnumbers":
-    show_contractnumbers()
-
+    show_contract_numbers()
