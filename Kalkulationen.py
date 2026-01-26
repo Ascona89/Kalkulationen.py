@@ -377,13 +377,15 @@ def show_contractnumbers():
     st.markdown("**Software & Hardware**")
     for idx in range(max(len(df_sw), len(df_hw))):
         cols = st.columns([2,1,2,2,2,1,2,2])  # Software: Produkt,Menge | Hardware: Produkt,Menge
+
         # ---------------- Software ----------------
         if idx < len(df_sw):
             row_sw = df_sw.iloc[idx]
             cols[0].markdown(f"**{row_sw['Produkt']}**")
             qty_sw = cols[1].number_input(
-                "",
-                min_value=0, step=1,
+                "",  # kein Label
+                min_value=0,
+                step=1,  # 🔹 Stepper mit + / -
                 key=f"sw_qty_{idx}",
                 value=st.session_state.get(f"sw_qty_{idx}", 0)
             )
@@ -394,15 +396,15 @@ def show_contractnumbers():
             row_hw = df_hw.iloc[idx]
             cols[4].markdown(f"**{row_hw['Produkt']}**")
             qty_hw = cols[5].number_input(
-                "",
-                min_value=0, step=1,
+                "",  # kein Label
+                min_value=0,
+                step=1,  # 🔹 Stepper mit + / -
                 key=f"hw_qty_{idx}",
                 value=st.session_state.get(f"hw_qty_{idx}", 0)
             )
             qty_dict_hw[idx] = qty_hw
 
     # ====================== Berechnungen ======================
-    # Basiswerte für Proportionen
     sw_otf_base = sum(df_sw["List_OTF"] * [qty_dict_sw.get(i,0) for i in df_sw.index])
     sw_mrr_base = sum(df_sw["List_MRR"] * [qty_dict_sw.get(i,0) for i in df_sw.index])
     hw_otf_base = sum(df_hw["List_OTF"] * [qty_dict_hw.get(i,0) for i in df_hw.index])
@@ -438,12 +440,10 @@ def show_contractnumbers():
         })
 
     # ====================== Korrektur Rundungsdifferenzen ======================
-    # Sicherstellen, dass Summe OTF und MRR exakt den Gesamtwert ergibt
     df_results = pd.DataFrame(results)
     otf_diff = total_otf - df_results["OTF"].sum()
     mrr_diff = total_mrr - df_results[df_results["Typ"]=="Software"]["MRR_Monat"].sum()
 
-    # Differenz auf das erste Produkt aufschlagen (wenn >0)
     if not df_results.empty:
         df_results.loc[df_results.index[0], "OTF"] += otf_diff
         df_results.loc[df_results[df_results["Typ"]=="Software"].index[0], "MRR_Monat"] += mrr_diff
@@ -484,7 +484,6 @@ def show_contractnumbers():
     with col3:
         st.metric("💰 MRR / Monat", f"{total_mrr_calc} €")
         st.metric("📆 MRR / Woche", f"{round(total_mrr_calc/4)} €")
-
 
 # =====================================================
 # 🏗 Seitenlogik
