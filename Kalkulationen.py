@@ -337,9 +337,6 @@ elif page == "Radien":
         else:
             st.warning("Bitte Adresse eingeben und mindestens einen Radius angeben.")
 
-# =====================================================
-# =================== Contract Numbers ======================
-# =====================================================
 elif page == "Contract Numbers":
     st.header("📑 Contract Numbers")
 
@@ -347,7 +344,7 @@ elif page == "Contract Numbers":
     df_sw = pd.DataFrame({
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW", "TSE"],
         "Typ": ["Software"]*7,
-        "MRR": [0,0,0,0,0,0,12],  # TSE = 12€ MRR
+        "MRR": [0,0,0,0,15,0,12],  # TSE=12€, Connect=15€
     })
 
     df_hw = pd.DataFrame({
@@ -370,48 +367,41 @@ elif page == "Contract Numbers":
     # ---------------- Eingabe pro Produkt ----------------
     st.subheader("📦 Verkäufe pro Produkt")
 
-    # Initialisierung Session State
-    for idx, row in df_products.iterrows():
-        st.session_state.setdefault(f"qty_{idx}", 0)
-
-    # Software
+    # --- Software ---
     st.markdown("### 💻 Software")
     for idx, row in df_sw.iterrows():
         col_label, col_input, col_mrr_month, col_mrr_week = st.columns([2,1,1,1])
         with col_label:
             st.markdown(f"**{row['Produkt']}**")
         with col_input:
-            val = st.number_input("", min_value=0, step=1, key=f"qty_{idx}")
-            st.session_state[f"qty_{idx}"] = val
+            val = st.number_input("", min_value=0, step=1, key=f"qty_{idx}", format="%d")
         with col_mrr_month:
             mrr_val = val * row["MRR"]
             st.markdown(f"{mrr_val:,} €")
         with col_mrr_week:
             st.markdown(f"{round(mrr_val/4):,} €")
 
-    # Hardware
+    # --- Hardware ---
     st.markdown("### 🖨️ Hardware")
     for idx, row in df_hw.iterrows():
         col_label, col_input = st.columns([2,1])
         with col_label:
             st.markdown(f"**{row['Produkt']}**")
         with col_input:
-            val = st.number_input("", min_value=0, step=1, key=f"qty_{idx}")
-            st.session_state[f"qty_{idx}"] = val
+            st.number_input("", min_value=0, step=1, key=f"qty_{idx}", format="%d")
 
     # ---------------- Sonderlogik POS/TSE/Connect ----------------
-    # Wenn POS Software >0, TSE automatisch 1, POS Hardware automatisch 1
     pos_sw_idx = df_sw.index[df_sw["Produkt"]=="POS"][0]
     tse_idx = df_sw.index[df_sw["Produkt"]=="TSE"][0]
     connect_idx = df_sw.index[df_sw["Produkt"]=="Connect"][0]
     pos_hw_idx = df_hw.index[df_hw["Produkt"]=="POS"][0]
 
     if st.session_state[f"qty_{pos_sw_idx}"] > 0:
+        # Auto-Set TSE und POS Hardware
         st.session_state[f"qty_{tse_idx}"] = 1
         st.session_state[f"qty_{pos_hw_idx}"] = 1
 
     # ---------------- Berechnung OTF ----------------
-    # Summe List OTF der ausgewählten Produkte für prozentuale Verteilung
     df_products["OTF"] = 0
     total_qty_otf = sum([st.session_state[f"qty_{i}"] for i in df_products.index])
     if total_qty_otf > 0 and total_otf > 0:
