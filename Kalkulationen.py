@@ -101,7 +101,7 @@ st.title("📊 Kalkulations-App")
 # 🗂 Seitenauswahl
 page = st.sidebar.radio(
     "Wähle eine Kalkulation:",
-    ["Platform", "Cardpayment", "Pricing", "Radien", "Telesales", "Contract Numbers"]
+    ["Platform", "Cardpayment", "Pricing", "Radien", "Telesales", "Contractnumbers"]
 )
 
 # ==========================
@@ -125,7 +125,7 @@ def persistent_selectbox(label, key, options, index=0, **kwargs):
 # =====================================================
 # 🏁 Platform
 # =====================================================
-if page == "Platform":
+def show_platform():
     st.header("🏁 Platform Kalkulation")
     col1, col2 = st.columns([2, 1.5])
 
@@ -163,7 +163,7 @@ if page == "Platform":
 # =====================================================
 # 💳 Cardpayment
 # =====================================================
-elif page == "Cardpayment":
+def show_cardpayment():
     st.header("💳 Cardpayment Vergleich")
     col1, col2 = st.columns(2)
 
@@ -199,7 +199,7 @@ elif page == "Cardpayment":
 # =====================================================
 # 💰 Pricing
 # =====================================================
-elif page == "Pricing":
+def show_pricing():
     st.header("💰 Pricing Kalkulation")
 
     df_sw = pd.DataFrame({
@@ -279,7 +279,7 @@ elif page == "Pricing":
 # =====================================================
 # 🗺️ Radien
 # =====================================================
-elif page == "Radien":
+def show_radien():
     st.header("🗺️ Radien um eine PLZ – mehrere Radien möglich")
 
     CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
@@ -338,138 +338,47 @@ elif page == "Radien":
         for r in radien:
             folium.Circle(location=[lat_c, lon_c], radius=r*1000, color="blue", fill=True, fill_opacity=0.1).add_to(m)
         for _, row in df_result.iterrows():
-            folium.Marker([row["lat"], row["lon"]], popup=row["plz"], icon=folium.Icon(color="green", icon="info-sign")).add_to(m)
+            folium.Marker([row["lat"], row["lon"]], popup=row["plz"]).add_to(m)
         st_folium(m, width=700, height=500)
 
 # =====================================================
-# 🧾 Telesales (Beispiel mit Eingaben + Tabelle)
+# ☎️ Telesales
 # =====================================================
+def show_telesales():
+    st.header("☎️ Telesales")
+    df_ts = pd.DataFrame({
+        "Name": ["Max", "Lisa", "Tom", "Anna"],
+        "Calls": [120, 80, 95, 100],
+        "Success": [30, 20, 25, 28]
+    })
+    st.dataframe(df_ts, use_container_width=True)
+    st.bar_chart(df_ts.set_index("Name")["Success"])
+
+# =====================================================
+# 📑 Contractnumbers
+# =====================================================
+def show_contractnumbers():
+    st.header("📑 Vertragsnummern")
+    df_cn = pd.DataFrame({
+        "Kunde": ["Kunde1", "Kunde2", "Kunde3"],
+        "Vertragsnummer": ["12345", "23456", "34567"],
+        "Status": ["aktiv", "kündigend", "aktiv"]
+    })
+    st.dataframe(df_cn, use_container_width=True)
+
+# =====================================================
+# 🌐 Seiten-Dispatcher
+# =====================================================
+if page == "Platform":
+    show_platform()
+elif page == "Cardpayment":
+    show_cardpayment()
+elif page == "Pricing":
+    show_pricing()
+elif page == "Radien":
+    show_radien()
 elif page == "Telesales":
-    st.header("📞 Telesales Kalkulation")
-    st.subheader("Eingaben")
-    calls = persistent_number_input("Anzahl Calls pro Tag", "calls", 100)
-    conv_rate = persistent_number_input("Conversion Rate (%)", "conv_rate", 5.0)
-    avg_value = persistent_number_input("Durchschnittlicher Umsatz pro Call (€)", "avg_value", 50)
+    show_telesales()
+elif page == "Contractnumbers":
+    show_contractnumbers()
 
-    daily_revenue = calls * (conv_rate/100) * avg_value
-    st.info(f"💵 Geschätzter Umsatz pro Tag: {daily_revenue:,.2f} €")
-
-import streamlit as st
-import pandas as pd
-
-st.set_page_config(page_title="Contract Numbers", layout="wide")
-
-st.header("📑 Contract Numbers")
-
-# ==========================
-# Daten definieren
-# ==========================
-df_sw = pd.DataFrame({
-    "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW", "TSE"],
-    "List_OTF": [999, 49, 999, 49, 0, 0, 0],
-    "List_MRR": [119, 49, 89, 25, 0, 0, 12],
-    "Typ": ["Software"]*7
-})
-
-df_hw = pd.DataFrame({
-    "Produkt":["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX"],
-    "List_OTF":[299,1699,149,199,100,299],
-    "List_MRR":[0]*6,
-    "Typ": ["Hardware"]*6
-})
-
-df_products = pd.concat([df_sw, df_hw], ignore_index=True)
-
-# ==========================
-# Eingaben Gesamtwerte
-# ==========================
-col1, col2 = st.columns(2)
-with col1:
-    total_mrr = st.number_input("💶 Gesamt MRR (€)", min_value=0.0, step=50.0)
-with col2:
-    total_otf = st.number_input("💶 Gesamt OTF (€)", min_value=0.0, step=100.0)
-
-st.markdown("---")
-
-# ==========================
-# Produktzeilen anzeigen
-# ==========================
-st.subheader("📦 Verkäufe pro Produkt")
-
-def display_product_row(row):
-    idx = row.name
-    col_label, col_input, col_otf, col_mrr_month, col_mrr_week = st.columns([2,1,1,1,1])
-
-    with col_label:
-        st.markdown(f"**{row['Produkt']}**")
-
-    qty_key = f"qty_{idx}"
-    if qty_key not in st.session_state:
-        st.session_state[qty_key] = 0
-
-    with col_input:
-        st.number_input("", min_value=0, step=1, key=qty_key, format="%d")
-
-    # POS → TSE und Hardware POS automatisch
-    if row['Produkt'] == "POS" and st.session_state[qty_key] > 0:
-        # POS Hardware
-        idx_hw = df_hw[df_hw["Produkt"]=="POS inkl 1 Printer"].index[0]
-        hw_key = f"qty_{idx_hw}"
-        st.session_state[hw_key] = max(1, st.session_state.get(hw_key, 1))
-        # TSE Software
-        idx_tse = df_sw[df_sw["Produkt"]=="TSE"].index[0]
-        tse_key = f"qty_{idx_tse}"
-        st.session_state[tse_key] = max(1, st.session_state.get(tse_key, 1))
-
-    # Feste Preise für TSE und Connect
-    price_otf = row["List_OTF"]
-    price_mrr = row["List_MRR"]
-    if row['Produkt'] == "TSE":
-        price_otf = 0
-        price_mrr = 12
-    elif row['Produkt'] == "Connect":
-        price_otf = 15
-        price_mrr = 0
-
-    qty = st.session_state[qty_key]
-
-    otf_val = qty * price_otf
-    mrr_val = qty * price_mrr
-
-    # Ergebnisse direkt neben Eingabefeld
-    with col_otf:
-        st.markdown(f"{round(otf_val):,} €")
-    with col_mrr_month:
-        st.markdown(f"{round(mrr_val):,} €")
-    with col_mrr_week:
-        st.markdown(f"{round(mrr_val/4):,} €")
-
-    return otf_val, mrr_val
-
-# ==========================
-# Durch alle Produkte iterieren
-# ==========================
-total_otf_calc = 0
-total_mrr_calc = 0
-
-for i, row in df_products.iterrows():
-    otf_val, mrr_val = display_product_row(row)
-    total_otf_calc += otf_val
-    total_mrr_calc += mrr_val
-
-st.markdown("---")
-
-# ==========================
-# Kontrollwerte anzeigen
-# ==========================
-st.subheader("✅ Kontrollübersicht")
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.metric("💻 Software OTF", f"{round(df_products[df_products['Typ']=='Software'].apply(lambda r: st.session_state.get(f'qty_{r.name}',0)*r['List_OTF'], axis=1).sum()):,} €")
-    st.metric("🖨️ Hardware OTF", f"{round(df_products[df_products['Typ']=='Hardware'].apply(lambda r: st.session_state.get(f'qty_{r.name}',0)*r['List_OTF'], axis=1).sum()):,} €")
-with col2:
-    st.metric("🧾 OTF berechnet", f"{round(total_otf_calc):,} €")
-    st.metric("🧾 OTF Eingabe", f"{round(total_otf):,} €")
-with col3:
-    st.metric("💰 MRR / Monat", f"{round(total_mrr_calc):,} €")
-    st.metric("📆 MRR / Woche", f"{round(total_mrr_calc/4):,} €")
