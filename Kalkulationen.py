@@ -279,21 +279,19 @@ elif page == "Pricing":
     st.markdown(f"**OTF MIN gesamt:** {min_otf:,.2f} €")
     st.markdown(f"**MRR MIN gesamt:** {min_mrr:,.2f} €")
 
-import streamlit as st
-import pandas as pd
+# =====================================================
+# 🗺️ Radien
+# =====================================================
+import io
 import math
-from datetime import datetime
-import folium
-from streamlit_folium import st_folium
-from fpdf import FPDF
-from io import BytesIO
+import pandas as pd
+import streamlit as st
 from PIL import Image
+from fpdf import FPDF
+from staticmap import StaticMap, CircleMarker
 
-# =====================================================
-st.set_page_config(page_title="🗺️ Radien Kalkulation", layout="wide")
-st.title("🗺️ Radien um eine PLZ – Karte & PDF")
+st.header("🗺️ Radien um eine PLZ – mehrere Radien möglich")
 
-# =====================================================
 # CSV mit PLZ-Daten (inkl. Lat/Lon)
 CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
 
@@ -310,19 +308,15 @@ def load_plz_data():
 
 df_plz = load_plz_data()
 
-# =====================================================
-# User Inputs
+# Eingaben
 center_plz = st.text_input("📍 PLZ eingeben (z.B. 10115)")
 radien_input = st.text_input("📏 Radien eingeben (km, durch Komma getrennt, z.B. 5,10,20)", value="5,10")
 
-# Session-State
 st.session_state.setdefault("show_result", False)
 st.session_state.setdefault("df_result", None)
 st.session_state.setdefault("center_coords", None)
 st.session_state.setdefault("radien_list", [])
 
-# =====================================================
-# Berechnung
 if st.button("🔍 PLZ berechnen"):
     if center_plz.strip() not in df_plz["plz"].values:
         st.error("PLZ nicht in CSV gefunden.")
@@ -358,13 +352,11 @@ if st.button("🔍 PLZ berechnen"):
     max_radius = max(radien)
     df_result = df_plz[df_plz["distance_km"] <= max_radius].sort_values("distance_km")
 
-    # Session-State speichern
     st.session_state["df_result"] = df_result
     st.session_state["center_coords"] = (lat_c, lon_c)
     st.session_state["radien_list"] = radien
     st.session_state["show_result"] = True
 
-# =====================================================
 # Ergebnisse anzeigen
 if st.session_state["show_result"] and st.session_state["df_result"] is not None:
     df_result = st.session_state["df_result"]
@@ -374,44 +366,25 @@ if st.session_state["show_result"] and st.session_state["df_result"] is not None
     st.success(f"✅ {len(df_result)} PLZ im Umkreis (bis {max(radien)} km)")
     st.dataframe(df_result[["plz", "lat", "lon", "distance_km"]].round(2), use_container_width=True)
 
-    # =====================================================
-    # Karte erstellen
-    m = folium.Map(location=[lat_c, lon_c], zoom_start=10)
-    folium.Marker([lat_c, lon_c], popup="Zentrum", icon=folium.Icon(color="red")).add_to(m)
+    # Karte mit StaticMap
+    m_static = StaticMap(1200, 600)
 
-    bounds = []
-    for r in radien:
-        folium.Circle(
-            location=[lat_c, lon_c],
-            radius=r*1000,
-            color="blue",
-            weight=2,
-            fill=True,
-            fill_opacity=0.15
-        ).add_to(m)
-
-        bounds.append([lat_c + r/111, lon_c + r/111])
-        bounds.append([lat_c - r/111, lon_c - r/111])
-
-    m.fit_bounds(bounds)
+    # Zentrum
+    m_static.add_marker(CircleMarker((lon_c, lat_c), 'red', 12))
 
     # PLZ Punkte
     for _, row in df_result.iterrows():
-        folium.CircleMarker([row["lat"], row["lon"]], radius=4, fill=True, fill_opacity=0.6, popup=f"{row['plz']}").add_to(m)
+        m_static.add_marker(CircleMarker((row["lon"], row["lat"]), 'blue', 8))
 
-    # Karte in Streamlit anzeigen
-    map_data = st_folium(m, width=1200, height=600)
+    # Bild generieren
+    map_img = m_static.render()
+    st.image(map_img, caption="Karte", use_column_width=True)
 
-    # =====================================================
-    # PDF Export (inkl. Karte)
+    # ---------------- PDF Download ----------------
     st.subheader("📄 PDF Export")
     pdf_name = st.text_input("Dateiname (ohne .pdf)", value=f"Radien_{center_plz}")
 
     if st.button("PDF herunterladen"):
-        # Karte als HTML speichern, dann Screenshot via folium._to_png
-        img_data = m._to_png(5)  # zoom 5 für gute Qualität
-        img = Image.open(BytesIO(img_data))
-
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", "B", 16)
@@ -423,15 +396,15 @@ if st.session_state["show_result"] and st.session_state["df_result"] is not None
         for _, row in df_result.iterrows():
             pdf.cell(0, 8, f"{row['plz']} - Lat: {row['lat']:.5f}, Lon: {row['lon']:.5f}, Dist: {row['distance_km']:.2f} km", ln=True)
 
-        pdf.ln(10)
-        # Karte als Bild ins PDF
-        temp_img = BytesIO()
-        img.save(temp_img, format="PNG")
-        temp_img.seek(0)
-        pdf.image(temp_img, x=10, y=None, w=180)  # passt auf A4
+        # Karte ins PDF einfügen
+        img_bytes = io.BytesIO()
+        map_img.save(img_bytes, format='PNG')
+        img_bytes.seek(0)
+        pdf.image(img_bytes, x=10, y=None, w=pdf.w - 20)
 
-        pdf_bytes = pdf.output(dest='S').encode('latin1')
-        st.download_button("Download PDF", pdf_bytes, f"{pdf_name}.pdf", "application/pdf")
+        pdf_output = pdf.output(dest='S').encode('latin1')
+        st.download_button("Download PDF", pdf_output, f"{pdf_name}.pdf", "application/pdf")
+
 
 # =====================================================
 # =================== TELESSALES ======================
