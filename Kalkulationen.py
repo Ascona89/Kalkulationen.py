@@ -277,16 +277,17 @@ def show_pricing():
     st.markdown(f"**MRR MIN gesamt:** {min_mrr:,.2f} €")
 
 # =====================================================
-# 🗺️ Radien
+# 🗺️ Radien nach Adresse, Stadt oder PLZ (mit CSV-Abgleich)
 # =====================================================
 import streamlit as st
 import pandas as pd
 import math
 import folium
 from streamlit_folium import st_folium
+from geopy.geocoders import Nominatim
 
 def show_radien():
-    st.header("🗺️ Radien um eine PLZ – mehrere Radien möglich")
+    st.header("🗺️ Radien um eine Adresse, Stadt oder PLZ – mehrere Radien möglich")
 
     CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
 
@@ -303,10 +304,28 @@ def show_radien():
 
     df_plz = load_plz_data()
 
-    center_plz = st.text_input("📍 PLZ eingeben (z.B. 10115)")
+    # Input
+    user_input = st.text_input("📍 Adresse, Stadt oder PLZ eingeben (z.B. Berlin, Alexanderplatz 1 oder 10115)")
     radien_input = st.text_input("📏 Radien eingeben (km, durch Komma getrennt, z.B. 5,10,20)", value="5,10")
 
-    if center_plz.strip() in df_plz["plz"].values:
+    if user_input.strip():
+        # Prüfen, ob die Eingabe eine bekannte PLZ ist
+        plz_match = df_plz[df_plz["plz"] == user_input.strip()]
+        if not plz_match.empty:
+            lat_c = plz_match.iloc[0]["lat"]
+            lon_c = plz_match.iloc[0]["lon"]
+            location_name = f"PLZ: {user_input.strip()}"
+        else:
+            # Geopy-Geocoder für Adresse oder Stadt
+            geolocator = Nominatim(user_agent="radien_app")
+            location = geolocator.geocode(user_input)
+            if not location:
+                st.error("Adresse/Stadt/PLZ konnte nicht gefunden werden.")
+                return
+            lat_c, lon_c = location.latitude, location.longitude
+            location_name = user_input.strip()
+
+        # Radien
         try:
             radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
         except ValueError:
@@ -317,9 +336,6 @@ def show_radien():
             st.error("Mindestens ein Radius erforderlich.")
             return
 
-        center_row = df_plz[df_plz["plz"] == center_plz.strip()].iloc[0]
-        lat_c, lon_c = center_row["lat"], center_row["lon"]
-
         # Haversine-Funktion
         def haversine(lat1, lon1, lat2, lon2):
             R = 6371
@@ -329,17 +345,18 @@ def show_radien():
             a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
             return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
+        # PLZ im Umkreis aus CSV filtern
         df_plz["distance_km"] = df_plz.apply(lambda r: haversine(lat_c, lon_c, r["lat"], r["lon"]), axis=1)
         df_result = df_plz[df_plz["distance_km"] <= max(radien)].sort_values("distance_km")
 
         st.success(f"✅ {len(df_result)} PLZ im Umkreis (bis {max(radien)} km)")
 
-        # Tabelle dauerhaft anzeigen
+        # Tabelle
         st.dataframe(df_result[["plz", "lat", "lon", "distance_km"]].round(2), use_container_width=True)
 
         # Karte
         m = folium.Map(location=[lat_c, lon_c], zoom_start=10)
-        folium.Marker([lat_c, lon_c], popup=f"Zentrum: {center_plz}", icon=folium.Icon(color="red")).add_to(m)
+        folium.Marker([lat_c, lon_c], popup=f"Zentrum: {location_name}", icon=folium.Icon(color="red")).add_to(m)
 
         # Radien einzeichnen
         colors = ["blue", "green", "orange", "purple"]
@@ -355,12 +372,11 @@ def show_radien():
 
         # PLZ-Marker
         for _, row in df_result.iterrows():
-            folium.Marker([row["lat"], row["lon"]], popup=f"{row['plz']} ({row['distance_km']:.1f} km)").add_to(m)
+            folium.Marker([row["lat"], row["lon"]],
+                          popup=f"{row['plz']} ({row['distance_km']:.1f} km)").add_to(m)
 
         st_folium(m, width=700, height=500)
 
-    elif center_plz.strip():
-        st.error("PLZ nicht in CSV gefunden.")
 
 # =====================================================
 # ☎️ Telesales
