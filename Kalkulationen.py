@@ -282,110 +282,102 @@ elif page == "Pricing":
 # 🗺️ Radien
 # =====================================================
 # =====================================================
-# 🗺️ Radien
+# 🗺️ Radien – Cloud-kompatibel mit PDF Download
 # =====================================================
-import folium
-from geopy.geocoders import Nominatim
-from streamlit_folium import st_folium
-import pandas as pd
 import io
 from fpdf import FPDF
 
-st.header("🗺️ Radien um eine Adresse")
+st.header("🗺️ Radien um eine Adresse / PLZ")
 
-# --- Inputs ---
-adresse = st.text_input("Adresse eingeben", value=st.session_state.get('adresse', ''))
-radien_input = st.text_input("Radien eingeben (km, durch Komma getrennt)", value=st.session_state.get('radien_input', '5,10'))
-st.session_state['adresse'] = adresse
-st.session_state['radien_input'] = radien_input
+# CSV mit PLZ-Daten (inkl. Lat/Lon)
+CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
 
-if st.button("Karte anzeigen"):
-    st.session_state['show_map'] = True
+@st.cache_data
+def load_plz_data():
+    df = pd.read_csv(CSV_URL, dtype=str)
+    for col in ["plz", "lat", "lon"]:
+        if col not in df.columns:
+            st.error(f"Spalte '{col}' fehlt in der CSV!")
+            st.stop()
+    df["lat"] = df["lat"].astype(float)
+    df["lon"] = df["lon"].astype(float)
+    return df
 
-# --- Karte anzeigen ---
-if st.session_state.get('show_map', False):
-    if adresse.strip() and radien_input.strip():
-        try:
-            radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
-        except ValueError:
-            st.warning("Bitte nur Zahlen für Radien eingeben, getrennt durch Komma.")
-            radien = []
+df_plz = load_plz_data()
 
-        if radien:
-            geolocator = Nominatim(user_agent="streamlit-free-radius-map", timeout=10)
-            location = geolocator.geocode(adresse)
-            if location:
-                lat, lon = location.latitude, location.longitude
+# Eingaben
+center_plz = st.text_input("📍 PLZ eingeben (z.B. 10115)")
+radius_km = st.number_input("📏 Radius (km)", min_value=1, max_value=300, value=25)
 
-                # Karte erstellen
-                m = folium.Map(location=[lat, lon], zoom_start=12)
-                folium.Marker(
-                    [lat, lon],
-                    popup=adresse,
-                    tooltip="Zentrum",
-                    icon=folium.Icon(color="red", icon="info-sign")
-                ).add_to(m)
+st.session_state.setdefault("show_result", False)
+st.session_state.setdefault("df_result", None)
+st.session_state.setdefault("center_coords", None)
 
-                bounds = []
-                for r in radien:
-                    folium.Circle(
-                        location=[lat, lon],
-                        radius=r*1000,
-                        color="blue",
-                        weight=2,
-                        fill=True,
-                        fill_opacity=0.15
-                    ).add_to(m)
-                    bounds.append([lat + r/111, lon + r/111])
-                    bounds.append([lat - r/111, lon - r/111])
+if st.button("🔍 PLZ berechnen"):
+    if center_plz.strip() not in df_plz["plz"].values:
+        st.error("PLZ nicht in CSV gefunden.")
+        st.stop()
 
-                m.fit_bounds(bounds)
-                st_folium(m, width=1000, height=600)
+    center_row = df_plz[df_plz["plz"] == center_plz.strip()].iloc[0]
+    lat_c, lon_c = center_row["lat"], center_row["lon"]
 
-                # Daten für PDF speichern
-                st.session_state['pdf_data'] = {
-                    'adresse': adresse,
-                    'lat': lat,
-                    'lon': lon,
-                    'radien': radien
-                }
+    # Haversine-Funktion
+    def haversine(lat1, lon1, lat2, lon2):
+        R = 6371
+        phi1, phi2 = math.radians(lat1), math.radians(lat2)
+        dphi = math.radians(lat2 - lat1)
+        dlambda = math.radians(lon2 - lon1)
+        a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+        return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-            else:
-                st.warning("Adresse nicht gefunden.")
-        else:
-            st.warning("Bitte gültige Radien eingeben.")
-    else:
-        st.warning("Bitte Adresse eingeben und mindestens einen Radius angeben.")
+    df_plz["distance_km"] = df_plz.apply(
+        lambda r: haversine(lat_c, lon_c, r["lat"], r["lon"]),
+        axis=1
+    )
 
-# --- PDF Download ---
-st.subheader("📥 PDF herunterladen")
-pdf_filename = st.text_input("Dateiname für PDF", value="Radien_Karte")
+    df_result = df_plz[df_plz["distance_km"] <= radius_km].sort_values("distance_km")
 
-if st.button("PDF herunterladen"):
-    if st.session_state.get('pdf_data', None):
-        data = st.session_state['pdf_data']
+    st.session_state["df_result"] = df_result
+    st.session_state["center_coords"] = (lat_c, lon_c)
+    st.session_state["show_result"] = True
+
+# Ergebnisse anzeigen
+if st.session_state["show_result"] and st.session_state["df_result"] is not None:
+    df_result = st.session_state["df_result"]
+    lat_c, lon_c = st.session_state["center_coords"]
+
+    st.success(f"✅ {len(df_result)} PLZ im Umkreis")
+    st.dataframe(df_result[["plz", "lat", "lon", "distance_km"]].round(2), use_container_width=True)
+
+    # Karte
+    m = folium.Map(location=[lat_c, lon_c], zoom_start=9)
+    folium.Marker([lat_c, lon_c], popup="Zentrum", icon=folium.Icon(color="red")).add_to(m)
+    for _, row in df_result.iterrows():
+        folium.CircleMarker([row["lat"], row["lon"]], radius=4, fill=True, fill_opacity=0.6, popup=f"{row['plz']}").add_to(m)
+    st_folium(m, width=1200, height=600)
+
+    # ---------------- PDF Download ----------------
+    st.subheader("📄 PDF Export")
+
+    pdf_name = st.text_input("Dateiname (ohne .pdf)", value=f"Radien_{center_plz}")
+
+    if st.button("PDF herunterladen"):
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", "B", 16)
-        pdf.cell(0, 10, "Radien Übersicht", ln=True, align="C")
-        pdf.ln(10)
-
-        pdf.set_font("Arial", "", 12)
-        pdf.cell(0, 8, f"Adresse: {data['adresse']}", ln=True)
-        pdf.cell(0, 8, f"Koordinaten: {data['lat']:.6f}, {data['lon']:.6f}", ln=True)
+        pdf.cell(0, 10, f"PLZ im Umkreis von {center_plz} ({radius_km} km)", ln=True)
         pdf.ln(5)
+        pdf.set_font("Arial", "", 12)
 
-        pdf.cell(0, 8, "Radien (km):", ln=True)
-        for i, r in enumerate(data['radien'], start=1):
-            pdf.cell(0, 6, f"{i}. {r} km", ln=True)
+        # Tabelle
+        for _, row in df_result.iterrows():
+            pdf.cell(0, 8, f"{row['plz']} - Lat: {row['lat']:.5f}, Lon: {row['lon']:.5f}, Dist: {row['distance_km']:.2f} km", ln=True)
 
-        pdf_output = f"{pdf_filename}.pdf"
-        pdf_bytes = pdf.output(dest='S').encode('latin1')  # in Bytes
+        # Karte als Screenshot hinzufügen
+        st.info("📌 Hinweis: Die Karte selbst kann nicht direkt in das PDF eingebettet werden. Du kannst sie als Screenshot speichern.")
 
-        st.download_button("⬇️ PDF herunterladen", pdf_bytes, file_name=pdf_output, mime="application/pdf")
-    else:
-        st.warning("Bitte zuerst die Karte erstellen.")
-
+        pdf_bytes = pdf.output(dest='S').encode('latin1')
+        st.download_button("Download PDF", pdf_bytes, f"{pdf_name}.pdf", "application/pdf")
 
 # =====================================================
 # =================== TELESSALES ======================
