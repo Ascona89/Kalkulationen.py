@@ -277,6 +277,7 @@ elif page == "Pricing":
     st.markdown(f"**OTF MIN gesamt:** {min_otf:,.2f} €")
     st.markdown(f"**MRR MIN gesamt:** {min_mrr:,.2f} €")
 
+
 # =====================================================
 # 🗺️ Radien
 # =====================================================
@@ -286,11 +287,9 @@ elif page == "Pricing":
 import folium
 from geopy.geocoders import Nominatim
 from streamlit_folium import st_folium
-import tempfile
-from fpdf import FPDF
-from PIL import Image
+import pandas as pd
 import io
-import base64
+from fpdf import FPDF
 
 st.header("🗺️ Radien um eine Adresse")
 
@@ -343,7 +342,14 @@ if st.session_state.get('show_map', False):
                 m.fit_bounds(bounds)
                 st_folium(m, width=1000, height=600)
 
-                st.session_state['map_object'] = m  # Karte zwischenspeichern
+                # Daten für PDF speichern
+                st.session_state['pdf_data'] = {
+                    'adresse': adresse,
+                    'lat': lat,
+                    'lon': lon,
+                    'radien': radien
+                }
+
             else:
                 st.warning("Adresse nicht gefunden.")
         else:
@@ -352,51 +358,34 @@ if st.session_state.get('show_map', False):
         st.warning("Bitte Adresse eingeben und mindestens einen Radius angeben.")
 
 # --- PDF Download ---
-st.subheader("📥 Karte als PDF speichern")
-
+st.subheader("📥 PDF herunterladen")
 pdf_filename = st.text_input("Dateiname für PDF", value="Radien_Karte")
 
 if st.button("PDF herunterladen"):
-    if st.session_state.get('map_object', None):
-        m = st.session_state['map_object']
-
-        # Temporäre HTML-Datei speichern
-        tmp_file = tempfile.NamedTemporaryFile(suffix=".html", delete=False)
-        m.save(tmp_file.name)
-
-        # Screenshot der HTML-Karte als PNG
-        from pyppeteer import launch
-        import asyncio
-
-        async def capture_map():
-            browser = await launch()
-            page = await browser.newPage()
-            await page.goto(f'file://{tmp_file.name}')
-            await asyncio.sleep(2)  # Warte, bis alles geladen ist
-            screenshot = await page.screenshot()
-            await browser.close()
-            return screenshot
-
-        screenshot = asyncio.run(capture_map())
-
-        # PNG in PDF konvertieren
-        image = Image.open(io.BytesIO(screenshot))
+    if st.session_state.get('pdf_data', None):
+        data = st.session_state['pdf_data']
         pdf = FPDF()
         pdf.add_page()
-        pdf_w, pdf_h = pdf.w - 2*pdf.l_margin, pdf.h - 2*pdf.t_margin
-        image.thumbnail((pdf_w*4, pdf_h*4))  # Größenanpassung
-        tmp_img = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-        image.save(tmp_img.name, format="PNG")
-        pdf.image(tmp_img.name, x=pdf.l_margin, y=pdf.t_margin, w=pdf_w)
+        pdf.set_font("Arial", "B", 16)
+        pdf.cell(0, 10, "Radien Übersicht", ln=True, align="C")
+        pdf.ln(10)
+
+        pdf.set_font("Arial", "", 12)
+        pdf.cell(0, 8, f"Adresse: {data['adresse']}", ln=True)
+        pdf.cell(0, 8, f"Koordinaten: {data['lat']:.6f}, {data['lon']:.6f}", ln=True)
+        pdf.ln(5)
+
+        pdf.cell(0, 8, "Radien (km):", ln=True)
+        for i, r in enumerate(data['radien'], start=1):
+            pdf.cell(0, 6, f"{i}. {r} km", ln=True)
+
         pdf_output = f"{pdf_filename}.pdf"
-        pdf.output(pdf_output)
+        pdf_bytes = pdf.output(dest='S').encode('latin1')  # in Bytes
 
-        # Download Button
-        with open(pdf_output, "rb") as f:
-            st.download_button("⬇️ PDF herunterladen", f, file_name=pdf_output, mime="application/pdf")
-
+        st.download_button("⬇️ PDF herunterladen", pdf_bytes, file_name=pdf_output, mime="application/pdf")
     else:
         st.warning("Bitte zuerst die Karte erstellen.")
+
 
 # =====================================================
 # =================== TELESSALES ======================
