@@ -279,21 +279,21 @@ elif page == "Pricing":
     st.markdown(f"**OTF MIN gesamt:** {min_otf:,.2f} €")
     st.markdown(f"**MRR MIN gesamt:** {min_mrr:,.2f} €")
 
-# =====================================================
-# 🗺️ Radien
-# =====================================================
 import streamlit as st
 import pandas as pd
 import math
+from datetime import datetime
 import folium
 from streamlit_folium import st_folium
-from datetime import datetime
 from fpdf import FPDF
-import io
+from io import BytesIO
 from PIL import Image
 
-st.header("🗺️ Radien um eine PLZ – mehrere Radien möglich")
+# =====================================================
+st.set_page_config(page_title="🗺️ Radien Kalkulation", layout="wide")
+st.title("🗺️ Radien um eine PLZ – Karte & PDF")
 
+# =====================================================
 # CSV mit PLZ-Daten (inkl. Lat/Lon)
 CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
 
@@ -310,17 +310,19 @@ def load_plz_data():
 
 df_plz = load_plz_data()
 
-# ---------------- Eingaben ----------------
+# =====================================================
+# User Inputs
 center_plz = st.text_input("📍 PLZ eingeben (z.B. 10115)")
 radien_input = st.text_input("📏 Radien eingeben (km, durch Komma getrennt, z.B. 5,10,20)", value="5,10")
 
+# Session-State
 st.session_state.setdefault("show_result", False)
 st.session_state.setdefault("df_result", None)
 st.session_state.setdefault("center_coords", None)
 st.session_state.setdefault("radien_list", [])
-st.session_state.setdefault("map_html", None)
 
-# ---------------- Berechnung ----------------
+# =====================================================
+# Berechnung
 if st.button("🔍 PLZ berechnen"):
     if center_plz.strip() not in df_plz["plz"].values:
         st.error("PLZ nicht in CSV gefunden.")
@@ -353,16 +355,17 @@ if st.button("🔍 PLZ berechnen"):
         axis=1
     )
 
-    # Filter alle PLZ innerhalb des größten Radius
     max_radius = max(radien)
     df_result = df_plz[df_plz["distance_km"] <= max_radius].sort_values("distance_km")
 
+    # Session-State speichern
     st.session_state["df_result"] = df_result
     st.session_state["center_coords"] = (lat_c, lon_c)
     st.session_state["radien_list"] = radien
     st.session_state["show_result"] = True
 
-# ---------------- Ergebnisse anzeigen ----------------
+# =====================================================
+# Ergebnisse anzeigen
 if st.session_state["show_result"] and st.session_state["df_result"] is not None:
     df_result = st.session_state["df_result"]
     lat_c, lon_c = st.session_state["center_coords"]
@@ -371,7 +374,8 @@ if st.session_state["show_result"] and st.session_state["df_result"] is not None
     st.success(f"✅ {len(df_result)} PLZ im Umkreis (bis {max(radien)} km)")
     st.dataframe(df_result[["plz", "lat", "lon", "distance_km"]].round(2), use_container_width=True)
 
-    # ---------------- Karte ----------------
+    # =====================================================
+    # Karte erstellen
     m = folium.Map(location=[lat_c, lon_c], zoom_start=10)
     folium.Marker([lat_c, lon_c], popup="Zentrum", icon=folium.Icon(color="red")).add_to(m)
 
@@ -395,19 +399,19 @@ if st.session_state["show_result"] and st.session_state["df_result"] is not None
     for _, row in df_result.iterrows():
         folium.CircleMarker([row["lat"], row["lon"]], radius=4, fill=True, fill_opacity=0.6, popup=f"{row['plz']}").add_to(m)
 
-    # Speichern der Karte als HTML
-    map_html = "map.html"
-    m.save(map_html)
-    st.session_state["map_html"] = map_html
+    # Karte in Streamlit anzeigen
+    map_data = st_folium(m, width=1200, height=600)
 
-    st.subheader("🗺️ Karte")
-    st_folium(m, width=1200, height=600)
-
-    # ---------------- PDF Download ----------------
+    # =====================================================
+    # PDF Export (inkl. Karte)
     st.subheader("📄 PDF Export")
     pdf_name = st.text_input("Dateiname (ohne .pdf)", value=f"Radien_{center_plz}")
 
     if st.button("PDF herunterladen"):
+        # Karte als HTML speichern, dann Screenshot via folium._to_png
+        img_data = m._to_png(5)  # zoom 5 für gute Qualität
+        img = Image.open(BytesIO(img_data))
+
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", "B", 16)
@@ -419,27 +423,12 @@ if st.session_state["show_result"] and st.session_state["df_result"] is not None
         for _, row in df_result.iterrows():
             pdf.cell(0, 8, f"{row['plz']} - Lat: {row['lat']:.5f}, Lon: {row['lon']:.5f}, Dist: {row['distance_km']:.2f} km", ln=True)
 
-        # Karte als PNG einfügen
-        from selenium.webdriver import Chrome
-        from selenium.webdriver.chrome.options import Options
-        from streamlit.components.v1 import html
-        from selenium import webdriver
-        from selenium.webdriver.chrome.service import Service
-        import base64
-
-        import imgkit
-
-        try:
-            import imgkit
-            # HTML Karte zu PNG
-            png_bytes = imgkit.from_file(map_html, False)
-            image = Image.open(io.BytesIO(png_bytes))
-            tmp_file = io.BytesIO()
-            image.save(tmp_file, format="PNG")
-            tmp_file.seek(0)
-            pdf.image(tmp_file, x=10, y=None, w=180)
-        except:
-            st.warning("📌 Karte konnte nicht automatisch ins PDF integriert werden. PDF enthält nur Tabelle.")
+        pdf.ln(10)
+        # Karte als Bild ins PDF
+        temp_img = BytesIO()
+        img.save(temp_img, format="PNG")
+        temp_img.seek(0)
+        pdf.image(temp_img, x=10, y=None, w=180)  # passt auf A4
 
         pdf_bytes = pdf.output(dest='S').encode('latin1')
         st.download_button("Download PDF", pdf_bytes, f"{pdf_name}.pdf", "application/pdf")
