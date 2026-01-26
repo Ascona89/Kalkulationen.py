@@ -279,6 +279,12 @@ def show_pricing():
 # =====================================================
 # 🗺️ Radien
 # =====================================================
+import streamlit as st
+import pandas as pd
+import math
+import folium
+from streamlit_folium import st_folium
+
 def show_radien():
     st.header("🗺️ Radien um eine PLZ – mehrere Radien möglich")
 
@@ -300,24 +306,21 @@ def show_radien():
     center_plz = st.text_input("📍 PLZ eingeben (z.B. 10115)")
     radien_input = st.text_input("📏 Radien eingeben (km, durch Komma getrennt, z.B. 5,10,20)", value="5,10")
 
-    if st.button("🔍 PLZ berechnen"):
-        if center_plz.strip() not in df_plz["plz"].values:
-            st.error("PLZ nicht in CSV gefunden.")
-            st.stop()
-
+    if center_plz.strip() in df_plz["plz"].values:
         try:
             radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
         except ValueError:
             st.error("Bitte nur Zahlen für Radien eingeben, getrennt durch Komma.")
-            st.stop()
+            return
 
         if len(radien) == 0:
             st.error("Mindestens ein Radius erforderlich.")
-            st.stop()
+            return
 
         center_row = df_plz[df_plz["plz"] == center_plz.strip()].iloc[0]
         lat_c, lon_c = center_row["lat"], center_row["lon"]
 
+        # Haversine-Funktion
         def haversine(lat1, lon1, lat2, lon2):
             R = 6371
             phi1, phi2 = math.radians(lat1), math.radians(lat2)
@@ -330,16 +333,34 @@ def show_radien():
         df_result = df_plz[df_plz["distance_km"] <= max(radien)].sort_values("distance_km")
 
         st.success(f"✅ {len(df_result)} PLZ im Umkreis (bis {max(radien)} km)")
+
+        # Tabelle dauerhaft anzeigen
         st.dataframe(df_result[["plz", "lat", "lon", "distance_km"]].round(2), use_container_width=True)
 
         # Karte
         m = folium.Map(location=[lat_c, lon_c], zoom_start=10)
-        folium.Marker([lat_c, lon_c], popup="Zentrum", icon=folium.Icon(color="red")).add_to(m)
-        for r in radien:
-            folium.Circle(location=[lat_c, lon_c], radius=r*1000, color="blue", fill=True, fill_opacity=0.1).add_to(m)
+        folium.Marker([lat_c, lon_c], popup=f"Zentrum: {center_plz}", icon=folium.Icon(color="red")).add_to(m)
+
+        # Radien einzeichnen
+        colors = ["blue", "green", "orange", "purple"]
+        for i, r in enumerate(radien):
+            folium.Circle(
+                location=[lat_c, lon_c],
+                radius=r*1000,
+                color=colors[i % len(colors)],
+                fill=True,
+                fill_opacity=0.1,
+                popup=f"{r} km"
+            ).add_to(m)
+
+        # PLZ-Marker
         for _, row in df_result.iterrows():
-            folium.Marker([row["lat"], row["lon"]], popup=row["plz"]).add_to(m)
+            folium.Marker([row["lat"], row["lon"]], popup=f"{row['plz']} ({row['distance_km']:.1f} km)").add_to(m)
+
         st_folium(m, width=700, height=500)
+
+    elif center_plz.strip():
+        st.error("PLZ nicht in CSV gefunden.")
 
 # =====================================================
 # ☎️ Telesales
