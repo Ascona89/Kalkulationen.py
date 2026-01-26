@@ -371,10 +371,10 @@ def show_contractnumbers():
     st.subheader("📦 Produkteingabe (Mengen mit + / -)")
 
     # ====================== Eingaben nebeneinander ======================
+    max_len = max(len(df_sw), len(df_hw))
     qty_dict_sw = {}
     qty_dict_hw = {}
 
-    max_len = max(len(df_sw), len(df_hw))
     for idx in range(max_len):
         cols = st.columns([2,1,2,2,2,1,2,2])  # Software: Produkt,Menge | Hardware: Produkt,Menge
 
@@ -382,12 +382,12 @@ def show_contractnumbers():
         if idx < len(df_sw):
             row_sw = df_sw.iloc[idx]
             cols[0].markdown(f"**{row_sw['Produkt']}**")
+            # 🔹 Stepper: value = st.session_state.get(...) oder 0
+            key_sw = f"sw_qty_{idx}"
+            if key_sw not in st.session_state:
+                st.session_state[key_sw] = 0
             qty_sw = cols[1].number_input(
-                "",  # kein Label
-                min_value=0,
-                step=1,  # 🔹 Stepper mit + / -
-                key=f"sw_qty_{idx}",
-                value=st.session_state.get(f"sw_qty_{idx}", 0)
+                "", min_value=0, step=1, key=key_sw, format="%d"
             )
             qty_dict_sw[idx] = qty_sw
 
@@ -395,12 +395,11 @@ def show_contractnumbers():
         if idx < len(df_hw):
             row_hw = df_hw.iloc[idx]
             cols[4].markdown(f"**{row_hw['Produkt']}**")
+            key_hw = f"hw_qty_{idx}"
+            if key_hw not in st.session_state:
+                st.session_state[key_hw] = 0
             qty_hw = cols[5].number_input(
-                "",  # kein Label
-                min_value=0,
-                step=1,  # 🔹 Stepper mit + / -
-                key=f"hw_qty_{idx}",
-                value=st.session_state.get(f"hw_qty_{idx}", 0)
+                "", min_value=0, step=1, key=key_hw, format="%d"
             )
             qty_dict_hw[idx] = qty_hw
 
