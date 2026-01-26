@@ -282,12 +282,12 @@ elif page == "Pricing":
 # 🗺️ Radien
 # =====================================================
 # =====================================================
-# 🗺️ Radien – Cloud-kompatibel mit PDF Download
+# 🗺️ Radien – Cloud-kompatibel, mehrere Radien, PDF Download
 # =====================================================
 import io
 from fpdf import FPDF
 
-st.header("🗺️ Radien um eine Adresse / PLZ")
+st.header("🗺️ Radien um eine PLZ – mehrere Radien möglich")
 
 # CSV mit PLZ-Daten (inkl. Lat/Lon)
 CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
@@ -307,15 +307,26 @@ df_plz = load_plz_data()
 
 # Eingaben
 center_plz = st.text_input("📍 PLZ eingeben (z.B. 10115)")
-radius_km = st.number_input("📏 Radius (km)", min_value=1, max_value=300, value=25)
+radien_input = st.text_input("📏 Radien eingeben (km, durch Komma getrennt, z.B. 5,10,20)", value="5,10")
 
 st.session_state.setdefault("show_result", False)
 st.session_state.setdefault("df_result", None)
 st.session_state.setdefault("center_coords", None)
+st.session_state.setdefault("radien_list", [])
 
 if st.button("🔍 PLZ berechnen"):
     if center_plz.strip() not in df_plz["plz"].values:
         st.error("PLZ nicht in CSV gefunden.")
+        st.stop()
+
+    try:
+        radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
+    except ValueError:
+        st.error("Bitte nur Zahlen für Radien eingeben, getrennt durch Komma.")
+        st.stop()
+
+    if len(radien) == 0:
+        st.error("Mindestens ein Radius erforderlich.")
         st.stop()
 
     center_row = df_plz[df_plz["plz"] == center_plz.strip()].iloc[0]
@@ -335,37 +346,59 @@ if st.button("🔍 PLZ berechnen"):
         axis=1
     )
 
-    df_result = df_plz[df_plz["distance_km"] <= radius_km].sort_values("distance_km")
+    # Filter alle PLZ innerhalb des größten Radius
+    max_radius = max(radien)
+    df_result = df_plz[df_plz["distance_km"] <= max_radius].sort_values("distance_km")
 
     st.session_state["df_result"] = df_result
     st.session_state["center_coords"] = (lat_c, lon_c)
+    st.session_state["radien_list"] = radien
     st.session_state["show_result"] = True
 
 # Ergebnisse anzeigen
 if st.session_state["show_result"] and st.session_state["df_result"] is not None:
     df_result = st.session_state["df_result"]
     lat_c, lon_c = st.session_state["center_coords"]
+    radien = st.session_state["radien_list"]
 
-    st.success(f"✅ {len(df_result)} PLZ im Umkreis")
+    st.success(f"✅ {len(df_result)} PLZ im Umkreis (bis {max(radien)} km)")
     st.dataframe(df_result[["plz", "lat", "lon", "distance_km"]].round(2), use_container_width=True)
 
     # Karte
-    m = folium.Map(location=[lat_c, lon_c], zoom_start=9)
+    m = folium.Map(location=[lat_c, lon_c], zoom_start=10)
     folium.Marker([lat_c, lon_c], popup="Zentrum", icon=folium.Icon(color="red")).add_to(m)
+
+    bounds = []
+    for r in radien:
+        folium.Circle(
+            location=[lat_c, lon_c],
+            radius=r*1000,
+            color="blue",
+            weight=2,
+            fill=True,
+            fill_opacity=0.15
+        ).add_to(m)
+
+        bounds.append([lat_c + r/111, lon_c + r/111])
+        bounds.append([lat_c - r/111, lon_c - r/111])
+
+    m.fit_bounds(bounds)
+
+    # PLZ Punkte
     for _, row in df_result.iterrows():
         folium.CircleMarker([row["lat"], row["lon"]], radius=4, fill=True, fill_opacity=0.6, popup=f"{row['plz']}").add_to(m)
+
     st_folium(m, width=1200, height=600)
 
     # ---------------- PDF Download ----------------
     st.subheader("📄 PDF Export")
-
     pdf_name = st.text_input("Dateiname (ohne .pdf)", value=f"Radien_{center_plz}")
 
     if st.button("PDF herunterladen"):
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", "B", 16)
-        pdf.cell(0, 10, f"PLZ im Umkreis von {center_plz} ({radius_km} km)", ln=True)
+        pdf.cell(0, 10, f"PLZ im Umkreis von {center_plz} ({', '.join([str(r) for r in radien])} km)", ln=True)
         pdf.ln(5)
         pdf.set_font("Arial", "", 12)
 
@@ -373,8 +406,8 @@ if st.session_state["show_result"] and st.session_state["df_result"] is not None
         for _, row in df_result.iterrows():
             pdf.cell(0, 8, f"{row['plz']} - Lat: {row['lat']:.5f}, Lon: {row['lon']:.5f}, Dist: {row['distance_km']:.2f} km", ln=True)
 
-        # Karte als Screenshot hinzufügen
-        st.info("📌 Hinweis: Die Karte selbst kann nicht direkt in das PDF eingebettet werden. Du kannst sie als Screenshot speichern.")
+        # Hinweis: Karte nicht im PDF (Screenshot empfohlen)
+        st.info("📌 Hinweis: Die Karte kann nicht direkt ins PDF eingebettet werden. Screenshot speichern möglich.")
 
         pdf_bytes = pdf.output(dest='S').encode('latin1')
         st.download_button("Download PDF", pdf_bytes, f"{pdf_name}.pdf", "application/pdf")
