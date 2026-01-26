@@ -418,17 +418,17 @@ elif page == "Contract Numbers":
 
     # Produkte
     df_sw = pd.DataFrame({
-        "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW"],
-        "List_OTF": [999, 49, 999, 49, 0, 0],
-        "List_MRR": [119, 49, 89, 25, 15, 0],
-        "Typ": ["Software"]*6
+        "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW", "TSE"],  # TSE hinzufügen
+        "List_OTF": [999, 49, 999, 49, 0, 0, 0],
+        "List_MRR": [119, 49, 89, 25, 15, 0, 15],  # TSE kostet 15€
+        "Typ": ["Software"]*7
     })
 
     df_hw = pd.DataFrame({
-        "Produkt":["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX"],
-        "List_OTF":[299,1699,149,199,100,299],
-        "List_MRR":[0]*6,
-        "Typ": ["Hardware"]*6
+        "Produkt":["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX","TSE"],
+        "List_OTF":[299,1699,149,199,100,299,0],
+        "List_MRR":[0]*7,
+        "Typ": ["Hardware"]*7
     })
 
     df_products = pd.concat([df_sw, df_hw], ignore_index=True)
@@ -452,6 +452,15 @@ elif page == "Contract Numbers":
         qty_key = f"cn_qty_{row['Produkt']}"
         qty = st.session_state[qty_key]
 
+        # Spezieller Trigger: Wenn Software POS > 0
+        if row["Produkt"] == "POS" and row["Typ"]=="Software" and qty > 0:
+            # Hardware POS auf 1 setzen
+            st.session_state["cn_qty_POS inkl 1 Printer"] = 1
+            # Hardware TSE auf 1 setzen
+            st.session_state["cn_qty_TSE"] = 1
+            # Software TSE auf 1
+            st.session_state["cn_qty_TSE"] = 1
+
         # Gesamter Listenwert der ausgewählten Produkte (Software + Hardware)
         total_list_otf_all = (df_selected["List_OTF"] * df_selected["Produkt"].map(
             lambda p: st.session_state[f"cn_qty_{p}"]
@@ -470,16 +479,21 @@ elif page == "Contract Numbers":
         mrr_val = (row["List_MRR"] * qty / total_list_mrr_sw * total_mrr) if total_list_mrr_sw > 0 and row["Typ"]=="Software" else 0
         mrr_week = mrr_val / 4
 
+        # Rundung auf ganze Euro für Anzeige
+        otf_disp = round(otf_val)
+        mrr_disp = round(mrr_val)
+        mrr_week_disp = round(mrr_week)
+
         # Anzeige in einer Reihe
         cols = st.columns([2, 1, 1, 1])
         with cols[0]:
             st.number_input(row["Produkt"], min_value=0, step=1, key=qty_key, format="%d")
         with cols[1]:
-            st.markdown(f"<span style='font-size:18px;'>OTF: {otf_val:,.2f} €</span>", unsafe_allow_html=True)
+            st.markdown(f"<span style='font-size:18px;'>OTF: {otf_disp:,.0f} €</span>", unsafe_allow_html=True)
         with cols[2]:
-            st.markdown(f"<span style='font-size:18px;'>MRR/Monat: {mrr_val:,.2f} €</span>", unsafe_allow_html=True)
+            st.markdown(f"<span style='font-size:18px;'>MRR/Monat: {mrr_disp:,.0f} €</span>", unsafe_allow_html=True)
         with cols[3]:
-            st.markdown(f"<span style='font-size:18px;'>MRR/Woche: {mrr_week:,.2f} €</span>", unsafe_allow_html=True)
+            st.markdown(f"<span style='font-size:18px;'>MRR/Woche: {mrr_week_disp:,.0f} €</span>", unsafe_allow_html=True)
 
         return otf_val, mrr_val
 
@@ -505,9 +519,10 @@ elif page == "Contract Numbers":
     st.subheader("✅ Kontrollübersicht")
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("💻 Software OTF + Hardware OTF", f"{otf_total:,.2f} €")
+        st.metric("💻 Software + Hardware OTF", f"{otf_total:,.2f} €")
     with col2:
         st.metric("🧾 OTF Eingabe", f"{total_otf:,.2f} €")
     with col3:
         st.metric("💰 MRR / Monat", f"{mrr_total:,.2f} €")
         st.metric("📆 MRR / Woche", f"{mrr_total/4:,.2f} €")
+
