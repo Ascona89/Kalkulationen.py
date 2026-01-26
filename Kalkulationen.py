@@ -416,17 +416,18 @@ elif page == "Telesales":
 elif page == "Contract Numbers":
     st.header("📑 Contract Numbers")
 
-    # Produkte
+    # Produkte Software
     df_sw = pd.DataFrame({
-        "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW", "TSE"],  # TSE hinzufügen
-        "List_OTF": [999, 49, 999, 49, 0, 0, 0],
-        "List_MRR": [119, 49, 89, 25, 15, 0, 15],  # TSE kostet 15€
+        "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW", "TSE"],
+        "List_OTF": [999, 49, 999, 49, 0, 0, 15],
+        "List_MRR": [119, 49, 89, 25, 15, 0, 0],
         "Typ": ["Software"]*7
     })
 
+    # Produkte Hardware
     df_hw = pd.DataFrame({
         "Produkt":["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX","TSE"],
-        "List_OTF":[299,1699,149,199,100,299,0],
+        "List_OTF":[299,1699,149,199,100,299,15],
         "List_MRR":[0]*7,
         "Typ": ["Hardware"]*7
     })
@@ -441,88 +442,135 @@ elif page == "Contract Numbers":
         total_otf = st.number_input("💶 Gesamt OTF (€)", min_value=0.0, step=100.0)
 
     st.markdown("---")
+    st.subheader("💻 Software")
+    
+    df_sw_selected = df_products[df_products["Typ"]=="Software"]
+    df_hw_selected = df_products[df_products["Typ"]=="Hardware"]
 
-    # ====== Session State Keys initialisieren ======
-    for p in df_products["Produkt"]:
-        key = f"cn_qty_{p}"
-        st.session_state.setdefault(key, 0)
+    # Initialisiere Session State
+    for i, row in df_products.iterrows():
+        st.session_state.setdefault(f"cn_qty_{row['Produkt']}", 0)
 
-    # ================= Funktion für Zeilenanzeige =================
+    # Funktion um Produktzeile darzustellen
     def display_product_row(row, total_otf, total_mrr, df_selected):
         qty_key = f"cn_qty_{row['Produkt']}"
         qty = st.session_state[qty_key]
 
         # Spezieller Trigger: Wenn Software POS > 0
         if row["Produkt"] == "POS" and row["Typ"]=="Software" and qty > 0:
-            # Hardware POS auf 1 setzen
+            # Hardware POS und TSE auf 1 setzen
             st.session_state["cn_qty_POS inkl 1 Printer"] = 1
-            # Hardware TSE auf 1 setzen
-            st.session_state["cn_qty_TSE"] = 1
+            st.session_state["cn_qty_TSE"] = 1  # TSE für Hardware
             # Software TSE auf 1
             st.session_state["cn_qty_TSE"] = 1
 
-        # Gesamter Listenwert der ausgewählten Produkte (Software + Hardware)
-        total_list_otf_all = (df_selected["List_OTF"] * df_selected["Produkt"].map(
-            lambda p: st.session_state[f"cn_qty_{p}"]
-        )).sum()
-
-        # MRR nur Software proportional
-        df_sw_selected = df_selected[df_selected["Typ"]=="Software"]
-        total_list_mrr_sw = (df_sw_selected["List_MRR"] * df_sw_selected["Produkt"].map(
-            lambda p: st.session_state[f"cn_qty_{p}"]
-        )).sum() if row["Typ"] == "Software" else 0
-
-        # OTF proportional zur List_OTF über alle Produkte
-        otf_val = (row["List_OTF"] * qty / total_list_otf_all * total_otf) if total_list_otf_all > 0 else 0
+        # Berechnung proportional zur Liste (OTF)
+        total_list_otf_all = sum(
+            st.session_state[f"cn_qty_{p}"] * df_selected.loc[df_selected["Produkt"]==p, "List_OTF"].values[0]
+            for p in df_selected["Produkt"]
+        )
 
         # MRR nur Software
-        mrr_val = (row["List_MRR"] * qty / total_list_mrr_sw * total_mrr) if total_list_mrr_sw > 0 and row["Typ"]=="Software" else 0
+        df_sw_sel = df_selected[df_selected["Typ"]=="Software"]
+        total_list_mrr_sw = sum(
+            st.session_state[f"cn_qty_{p}"] * df_sw_sel.loc[df_sw_sel["Produkt"]==p, "List_MRR"].values[0]
+            for p in df_sw_sel["Produkt"]
+        ) if row["Typ"]=="Software" else 0
+
+        otf_val = (row["List_OTF"] * qty / total_list_otf_all * total_otf) if total_list_otf_all>0 else 0
+        mrr_val = (row["List_MRR"] * qty / total_list_mrr_sw * total_mrr) if total_list_mrr_sw>0 and row["Typ"]=="Software" else 0
         mrr_week = mrr_val / 4
 
-        # Rundung auf ganze Euro für Anzeige
+        # Rundung für Anzeige
         otf_disp = round(otf_val)
         mrr_disp = round(mrr_val)
         mrr_week_disp = round(mrr_week)
 
-        # Anzeige in einer Reihe
-        cols = st.columns([2, 1, 1, 1])
+        # Zeilenanzeige
+        cols = st.columns([2,1,1,1])
         with cols[0]:
-            st.number_input(row["Produkt"], min_value=0, step=1, key=qty_key, format="%d")
+            if row["Produkt"] == "TSE":
+                st.markdown(f"**{row['Produkt']}**")
+            else:
+                st.number_input(row["Produkt"], min_value=0, step=1, key=qty_key, format="%d")
         with cols[1]:
-            st.markdown(f"<span style='font-size:18px;'>OTF: {otf_disp:,.0f} €</span>", unsafe_allow_html=True)
+            st.markdown(f"OTF: {otf_disp:,.0f} €")
         with cols[2]:
-            st.markdown(f"<span style='font-size:18px;'>MRR/Monat: {mrr_disp:,.0f} €</span>", unsafe_allow_html=True)
+            st.markdown(f"MRR/Monat: {mrr_disp:,.0f} €")
         with cols[3]:
-            st.markdown(f"<span style='font-size:18px;'>MRR/Woche: {mrr_week_disp:,.0f} €</span>", unsafe_allow_html=True)
+            st.markdown(f"MRR/Woche: {mrr_week_disp:,.0f} €")
 
         return otf_val, mrr_val
 
-    # ================= Software =================
-    st.subheader("💻 Software")
-    st.markdown("---")
-    otf_total = 0
-    mrr_total = 0
-    for i, row in df_sw.iterrows():
-        otf_val, mrr_val = display_product_row(row, total_otf, total_mrr, df_products)
-        otf_total += otf_val
-        mrr_total += mrr_val
+    # ---------------- Software ----------------
+    for i, row in df_sw_selected.iterrows():
+        display_product_row(row, total_otf, total_mrr, df_products)
 
-    # ================= Hardware =================
+    st.markdown("---")
     st.subheader("🖨️ Hardware")
-    st.markdown("---")
-    for i, row in df_hw.iterrows():
-        otf_val, _ = display_product_row(row, total_otf, total_mrr, df_products)
-        otf_total += otf_val
+    for i, row in df_hw_selected.iterrows():
+        display_product_row(row, total_otf, total_mrr, df_products)
 
-    # ================= Kontrollfelder =================
+    # ---------------- Summen / Kontrolle ----------------
+    df_result = []
+    for i, row in df_products.iterrows():
+        qty = st.session_state[f"cn_qty_{row['Produkt']}"]
+        df_result.append({
+            "Produkt": row["Produkt"],
+            "Typ": row["Typ"],
+            "Menge": qty,
+            "List_OTF": row["List_OTF"],
+            "List_MRR": row["List_MRR"]
+        })
+    df_result = pd.DataFrame(df_result)
+
+    # Berechne OTF/MRR nach proportionaler Verteilung
+    df_sw_sel = df_result[(df_result["Typ"]=="Software") & (df_result["Menge"]>0)]
+    df_hw_sel = df_result[(df_result["Typ"]=="Hardware") & (df_result["Menge"]>0)]
+
+    sw_total_list_otf = (df_sw_sel["List_OTF"] * df_sw_sel["Menge"]).sum()
+    hw_total_list_otf = (df_hw_sel["List_OTF"] * df_hw_sel["Menge"]).sum()
+    total_list_otf = sw_total_list_otf + hw_total_list_otf
+
+    sw_otf_total = total_otf * (sw_total_list_otf / total_list_otf) if total_list_otf>0 else 0
+    hw_otf_total = total_otf * (hw_total_list_otf / total_list_otf) if total_list_otf>0 else 0
+
+    df_result["OTF_Anteil"] = 0.0
+    if sw_total_list_otf>0:
+        df_result.loc[df_sw_sel.index, "OTF_Anteil"] = (
+            df_result.loc[df_sw_sel.index, "List_OTF"] * df_result.loc[df_sw_sel.index, "Menge"]
+            / sw_total_list_otf * sw_otf_total
+        )
+    if hw_total_list_otf>0:
+        df_result.loc[df_hw_sel.index, "OTF_Anteil"] = (
+            df_result.loc[df_hw_sel.index, "List_OTF"] * df_result.loc[df_hw_sel.index, "Menge"]
+            / hw_total_list_otf * hw_otf_total
+        )
+
+    df_result["MRR_Monat"] = 0.0
+    if total_mrr>0 and sw_total_list_mrr>0:
+        df_result.loc[df_sw_sel.index, "MRR_Monat"] = (
+            df_result.loc[df_sw_sel.index, "List_MRR"] * df_result.loc[df_sw_sel.index, "Menge"]
+            / sw_total_list_mrr * total_mrr
+        )
+    df_result["MRR_Woche"] = df_result["MRR_Monat"]/4
+
+    otf_software = df_result[df_result["Typ"]=="Software"]["OTF_Anteil"].sum()
+    otf_hardware = df_result[df_result["Typ"]=="Hardware"]["OTF_Anteil"].sum()
+    total_otf_calc = df_result["OTF_Anteil"].sum()
+    total_mrr_calc = df_result["MRR_Monat"].sum()
+
     st.markdown("---")
     st.subheader("✅ Kontrollübersicht")
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("💻 Software + Hardware OTF", f"{otf_total:,.2f} €")
+        st.metric("💻 Software OTF", f"{otf_software:,.0f} €")
+        st.metric("🖨️ Hardware OTF", f"{otf_hardware:,.0f} €")
     with col2:
-        st.metric("🧾 OTF Eingabe", f"{total_otf:,.2f} €")
+        st.metric("🧾 OTF berechnet", f"{total_otf_calc:,.0f} €")
+        st.metric("🧾 OTF Eingabe", f"{total_otf:,.0f} €")
     with col3:
-        st.metric("💰 MRR / Monat", f"{mrr_total:,.2f} €")
-        st.metric("📆 MRR / Woche", f"{mrr_total/4:,.2f} €")
+        st.metric("💰 MRR / Monat", f"{total_mrr_calc:,.0f} €")
+        st.metric("📆 MRR / Woche", f"{total_mrr_calc/4:,.0f} €")
+
 
