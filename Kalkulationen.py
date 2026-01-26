@@ -283,14 +283,11 @@ elif page == "Pricing":
 # 🗺️ Radien
 # =====================================================
 import io
-import math
-import pandas as pd
-import streamlit as st
-from PIL import Image
 from fpdf import FPDF
-from staticmap import StaticMap, CircleMarker
+import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
 
-st.header("🗺️ Radien um eine PLZ – mehrere Radien möglich")
+st.header("🗺️ Radien um eine PLZ – Karte & PDF")
 
 # CSV mit PLZ-Daten (inkl. Lat/Lon)
 CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
@@ -336,6 +333,7 @@ if st.button("🔍 PLZ berechnen"):
     lat_c, lon_c = center_row["lat"], center_row["lon"]
 
     # Haversine-Funktion
+    import math
     def haversine(lat1, lon1, lat2, lon2):
         R = 6371
         phi1, phi2 = math.radians(lat1), math.radians(lat2)
@@ -349,6 +347,7 @@ if st.button("🔍 PLZ berechnen"):
         axis=1
     )
 
+    # Filter alle PLZ innerhalb des größten Radius
     max_radius = max(radien)
     df_result = df_plz[df_plz["distance_km"] <= max_radius].sort_values("distance_km")
 
@@ -366,25 +365,33 @@ if st.session_state["show_result"] and st.session_state["df_result"] is not None
     st.success(f"✅ {len(df_result)} PLZ im Umkreis (bis {max(radien)} km)")
     st.dataframe(df_result[["plz", "lat", "lon", "distance_km"]].round(2), use_container_width=True)
 
-    # Karte mit StaticMap
-    m_static = StaticMap(1200, 600)
+    # ---------------- Karte mit matplotlib ----------------
+    fig, ax = plt.subplots(figsize=(8,8))
+    ax.scatter(df_result["lon"], df_result["lat"], c="blue", label="PLZ")
+    ax.scatter(lon_c, lat_c, c="red", label="Zentrum", s=100)
 
-    # Zentrum
-    m_static.add_marker(CircleMarker((lon_c, lat_c), 'red', 12))
+    # Kreise für Radien
+    for r in radien:
+        circle = Circle((lon_c, lat_c), r/111, color='blue', fill=False, alpha=0.3, lw=2)
+        ax.add_patch(circle)
 
-    # PLZ Punkte
-    for _, row in df_result.iterrows():
-        m_static.add_marker(CircleMarker((row["lon"], row["lat"]), 'blue', 8))
+    ax.set_xlabel("Longitude")
+    ax.set_ylabel("Latitude")
+    ax.set_title(f"PLZ um {center_plz} (Radien: {', '.join(map(str, radien))} km)")
+    ax.legend()
+    ax.set_aspect('equal', adjustable='datalim')
+    st.pyplot(fig)
 
-    # Bild generieren
-    map_img = m_static.render()
-    st.image(map_img, caption="Karte", use_column_width=True)
-
-    # ---------------- PDF Download ----------------
+    # ---------------- PDF Export ----------------
     st.subheader("📄 PDF Export")
     pdf_name = st.text_input("Dateiname (ohne .pdf)", value=f"Radien_{center_plz}")
 
     if st.button("PDF herunterladen"):
+        # Karte als PNG
+        buf = io.BytesIO()
+        fig.savefig(buf, format='PNG', dpi=150)
+        buf.seek(0)
+
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", "B", 16)
@@ -392,19 +399,16 @@ if st.session_state["show_result"] and st.session_state["df_result"] is not None
         pdf.ln(5)
         pdf.set_font("Arial", "", 12)
 
-        # Tabelle
+        # Tabelle PLZ
         for _, row in df_result.iterrows():
             pdf.cell(0, 8, f"{row['plz']} - Lat: {row['lat']:.5f}, Lon: {row['lon']:.5f}, Dist: {row['distance_km']:.2f} km", ln=True)
 
-        # Karte ins PDF einfügen
-        img_bytes = io.BytesIO()
-        map_img.save(img_bytes, format='PNG')
-        img_bytes.seek(0)
-        pdf.image(img_bytes, x=10, y=None, w=pdf.w - 20)
+        pdf.ln(5)
+        # Karte einfügen
+        pdf.image(buf, x=10, y=None, w=pdf.w-20)
 
-        pdf_output = pdf.output(dest='S').encode('latin1')
-        st.download_button("Download PDF", pdf_output, f"{pdf_name}.pdf", "application/pdf")
-
+        pdf_bytes = pdf.output(dest='S').encode('latin1')
+        st.download_button("Download PDF", pdf_bytes, f"{pdf_name}.pdf", "application/pdf")
 
 # =====================================================
 # =================== TELESSALES ======================
