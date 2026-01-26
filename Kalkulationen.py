@@ -287,12 +287,12 @@ import pandas as pd
 import math
 import folium
 from streamlit_folium import st_folium
+from datetime import datetime
 from fpdf import FPDF
-from io import BytesIO
-from selenium import webdriver
+import io
 from PIL import Image
 
-st.header("🗺️ Radien um eine PLZ – Karte & PDF")
+st.header("🗺️ Radien um eine PLZ – mehrere Radien möglich")
 
 # CSV mit PLZ-Daten (inkl. Lat/Lon)
 CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
@@ -318,7 +318,9 @@ st.session_state.setdefault("show_result", False)
 st.session_state.setdefault("df_result", None)
 st.session_state.setdefault("center_coords", None)
 st.session_state.setdefault("radien_list", [])
+st.session_state.setdefault("map_html", None)
 
+# ---------------- Berechnung ----------------
 if st.button("🔍 PLZ berechnen"):
     if center_plz.strip() not in df_plz["plz"].values:
         st.error("PLZ nicht in CSV gefunden.")
@@ -369,7 +371,7 @@ if st.session_state["show_result"] and st.session_state["df_result"] is not None
     st.success(f"✅ {len(df_result)} PLZ im Umkreis (bis {max(radien)} km)")
     st.dataframe(df_result[["plz", "lat", "lon", "distance_km"]].round(2), use_container_width=True)
 
-    # Karte erstellen
+    # ---------------- Karte ----------------
     m = folium.Map(location=[lat_c, lon_c], zoom_start=10)
     folium.Marker([lat_c, lon_c], popup="Zentrum", icon=folium.Icon(color="red")).add_to(m)
 
@@ -393,22 +395,19 @@ if st.session_state["show_result"] and st.session_state["df_result"] is not None
     for _, row in df_result.iterrows():
         folium.CircleMarker([row["lat"], row["lon"]], radius=4, fill=True, fill_opacity=0.6, popup=f"{row['plz']}").add_to(m)
 
+    # Speichern der Karte als HTML
+    map_html = "map.html"
+    m.save(map_html)
+    st.session_state["map_html"] = map_html
+
+    st.subheader("🗺️ Karte")
     st_folium(m, width=1200, height=600)
 
-    # ---------------- PDF Export ----------------
+    # ---------------- PDF Download ----------------
     st.subheader("📄 PDF Export")
     pdf_name = st.text_input("Dateiname (ohne .pdf)", value=f"Radien_{center_plz}")
 
     if st.button("PDF herunterladen"):
-        # Karte als PNG speichern
-        map_path = f"{pdf_name}.png"
-        m.save("tmp_map.html")
-        
-        # HTML → PNG via Selenium/ChromeDriver oder andere Methode
-        # hier einfacher Workaround mit Screenshot in Browser empfohlen
-        st.info("📌 Hinweis: Für die PDF wird ein Screenshot der Karte benötigt. Bitte lokal speichern und einfügen.")
-
-        # PDF erstellen
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", "B", 16)
@@ -420,10 +419,27 @@ if st.session_state["show_result"] and st.session_state["df_result"] is not None
         for _, row in df_result.iterrows():
             pdf.cell(0, 8, f"{row['plz']} - Lat: {row['lat']:.5f}, Lon: {row['lon']:.5f}, Dist: {row['distance_km']:.2f} km", ln=True)
 
-        # Hinweis für Karte
-        pdf.ln(5)
-        pdf.set_font("Arial", "I", 10)
-        pdf.multi_cell(0, 5, "📌 Die Karte ist in der Vorschau interaktiv in Streamlit. Für die PDF kann ein Screenshot verwendet werden.")
+        # Karte als PNG einfügen
+        from selenium.webdriver import Chrome
+        from selenium.webdriver.chrome.options import Options
+        from streamlit.components.v1 import html
+        from selenium import webdriver
+        from selenium.webdriver.chrome.service import Service
+        import base64
+
+        import imgkit
+
+        try:
+            import imgkit
+            # HTML Karte zu PNG
+            png_bytes = imgkit.from_file(map_html, False)
+            image = Image.open(io.BytesIO(png_bytes))
+            tmp_file = io.BytesIO()
+            image.save(tmp_file, format="PNG")
+            tmp_file.seek(0)
+            pdf.image(tmp_file, x=10, y=None, w=180)
+        except:
+            st.warning("📌 Karte konnte nicht automatisch ins PDF integriert werden. PDF enthält nur Tabelle.")
 
         pdf_bytes = pdf.output(dest='S').encode('latin1')
         st.download_button("Download PDF", pdf_bytes, f"{pdf_name}.pdf", "application/pdf")
