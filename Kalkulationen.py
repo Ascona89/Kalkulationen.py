@@ -342,9 +342,6 @@ def show_radien():
             folium.Circle([lat_c, lon_c], radius=r*1000, color="blue", fill=True, fill_opacity=0.1).add_to(m)
         st_folium(m, width=700, height=500)
 
-# =====================================================
-# 📦 Contract Numbers
-# =====================================================
 def show_contractnumbers():
     st.header("📑 Contract Numbers")
 
@@ -363,8 +360,6 @@ def show_contractnumbers():
         "Typ": ["Hardware"]*7
     })
 
-    df_products = pd.concat([df_sw, df_hw], ignore_index=True)
-
     # ====================== Eingaben ======================
     col1, col2 = st.columns(2)
     with col1:
@@ -376,36 +371,34 @@ def show_contractnumbers():
     st.subheader("📦 Verkäufe pro Produkt")
 
     results = []
-    auto_updates = []
 
-    # ====================== Software ======================
+    # Software
     st.markdown("**Software**")
     for idx, row in df_sw.iterrows():
-        cols = st.columns([2,1,1,1])  # Produkt | Menge | OTF | MRR
-        cols[0].markdown(f"**{row['Produkt']}**")
-
-        # Menge eingeben
+        cols = st.columns([2,1,1,1])  # Produkt, Menge, OTF, MRR
+        with cols[0]:
+            st.markdown(f"**{row['Produkt']}**")
+        # Eindeutiger Key
         qty = cols[1].number_input(
-            "", 
-            min_value=0, step=1, 
-            key=f"qty_{idx}", 
-            value=st.session_state.get(f"qty_{idx}", 0), 
-            format="%d"
+            "", min_value=0, step=1,
+            key=f"sw_qty_{idx}",
+            value=st.session_state.get(f"sw_qty_{idx}", 0)
         )
 
         # Automatik: POS → TSE + Hardware POS
         if row["Produkt"] == "POS" and qty > 0:
             idx_tse = df_sw[df_sw["Produkt"]=="TSE"].index[0]
             idx_pos_hw = df_hw[df_hw["Produkt"]=="POS inkl 1 Printer"].index[0]
-            auto_updates.append((f"qty_{idx_tse}", 1))
-            auto_updates.append((f"qty_{idx_pos_hw}", 1))
+            st.session_state[f"sw_qty_{idx_tse}"] = max(1, st.session_state.get(f"sw_qty_{idx_tse}", 0))
+            st.session_state[f"hw_qty_{idx_pos_hw}"] = max(1, st.session_state.get(f"hw_qty_{idx_pos_hw}", 0))
 
-        # OTF / MRR Berechnung
-        otf_val = round(total_otf * (row["List_OTF"] * qty) / max(1, sum(df_sw["List_OTF"] * [st.session_state.get(f'qty_{i}',0) for i in df_sw.index])))
-        mrr_val = round(total_mrr * (row["List_MRR"] * qty) / max(1, sum(df_sw["List_MRR"] * [st.session_state.get(f'qty_{i}',0) for i in df_sw.index])))
+        otf_val = round(total_otf * (row["List_OTF"] * qty) / max(1, sum(df_sw["List_OTF"] * [st.session_state.get(f'sw_qty_{i}',0) for i in df_sw.index])))
+        mrr_val = round(total_mrr * (row["List_MRR"] * qty) / max(1, sum(df_sw["List_MRR"] * [st.session_state.get(f'sw_qty_{i}',0) for i in df_sw.index])))
 
-        cols[2].markdown(f"**OTF: {otf_val} €**")
-        cols[3].markdown(f"**MRR: {mrr_val} €**")
+        with cols[2]:
+            st.markdown(f"**OTF: {otf_val} €**")
+        with cols[3]:
+            st.markdown(f"**MRR: {mrr_val} €**")
 
         results.append({
             "Produkt": row["Produkt"],
@@ -416,27 +409,23 @@ def show_contractnumbers():
             "MRR_Woche": round(mrr_val/4)
         })
 
-    # automatische Updates anwenden
-    for key, val in auto_updates:
-        if st.session_state.get(key, 0) < val:
-            st.session_state[key] = val
-
-    # ====================== Hardware ======================
+    # Hardware
     st.markdown("**Hardware**")
     for idx, row in df_hw.iterrows():
-        cols = st.columns([2,1,1])  # Produkt | Menge | OTF
-        cols[0].markdown(f"**{row['Produkt']}**")
-
+        cols = st.columns([2,1,1])  # Produkt, Menge, OTF
+        with cols[0]:
+            st.markdown(f"**{row['Produkt']}**")
+        # Eindeutiger Key
         qty = cols[1].number_input(
-            "", 
-            min_value=0, step=1, 
-            key=f"qty_{idx}", 
-            value=st.session_state.get(f"qty_{idx}", 0), 
-            format="%d"
+            "", min_value=0, step=1,
+            key=f"hw_qty_{idx}",
+            value=st.session_state.get(f"hw_qty_{idx}", 0)
         )
 
-        otf_val = round(total_otf * (row["List_OTF"] * qty) / max(1, sum(df_hw["List_OTF"] * [st.session_state.get(f'qty_{i}',0) for i in df_hw.index])))
-        cols[2].markdown(f"**OTF: {otf_val} €**")
+        otf_val = round(total_otf * (row["List_OTF"] * qty) / max(1, sum(df_hw["List_OTF"] * [st.session_state.get(f'hw_qty_{i}',0) for i in df_hw.index])))
+
+        with cols[2]:
+            st.markdown(f"**OTF: {otf_val} €**")
 
         results.append({
             "Produkt": row["Produkt"],
@@ -447,7 +436,7 @@ def show_contractnumbers():
             "MRR_Woche": 0
         })
 
-    # ====================== Kontrollübersicht ======================
+    # ====================== Kontrolle ======================
     st.markdown("---")
     st.subheader("✅ Kontrollübersicht")
     df_result = pd.DataFrame(results)
