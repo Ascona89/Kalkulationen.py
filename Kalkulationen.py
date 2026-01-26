@@ -448,24 +448,26 @@ elif page == "Contract Numbers":
         st.session_state.setdefault(key, 0)
 
     # ================= Funktion für Zeilenanzeige =================
-    def display_product_row(row, total_otf, total_mrr, df_type_selected):
+    def display_product_row(row, total_otf, total_mrr, df_selected):
         qty_key = f"cn_qty_{row['Produkt']}"
         qty = st.session_state[qty_key]
 
-        # Gesamter Listenwert der ausgewählten Produkte dieses Typs
-        total_list_otf_type = (df_type_selected["List_OTF"] * df_type_selected["Produkt"].map(
+        # Gesamter Listenwert der ausgewählten Produkte (Software + Hardware)
+        total_list_otf_all = (df_selected["List_OTF"] * df_selected["Produkt"].map(
             lambda p: st.session_state[f"cn_qty_{p}"]
         )).sum()
 
-        total_list_mrr_type = (df_type_selected["List_MRR"] * df_type_selected["Produkt"].map(
+        # MRR nur Software proportional
+        df_sw_selected = df_selected[df_selected["Typ"]=="Software"]
+        total_list_mrr_sw = (df_sw_selected["List_MRR"] * df_sw_selected["Produkt"].map(
             lambda p: st.session_state[f"cn_qty_{p}"]
         )).sum() if row["Typ"] == "Software" else 0
 
-        # OTF proportional zur List_OTF innerhalb der ausgewählten Menge
-        otf_val = (row["List_OTF"] * qty / total_list_otf_type * total_otf) if total_list_otf_type > 0 else 0
+        # OTF proportional zur List_OTF über alle Produkte
+        otf_val = (row["List_OTF"] * qty / total_list_otf_all * total_otf) if total_list_otf_all > 0 else 0
 
-        # MRR nur Software proportional zur List_MRR innerhalb der ausgewählten Menge
-        mrr_val = (row["List_MRR"] * qty / total_list_mrr_type * total_mrr) if total_list_mrr_type > 0 and row["Typ"]=="Software" else 0
+        # MRR nur Software
+        mrr_val = (row["List_MRR"] * qty / total_list_mrr_sw * total_mrr) if total_list_mrr_sw > 0 and row["Typ"]=="Software" else 0
         mrr_week = mrr_val / 4
 
         # Anzeige in einer Reihe
@@ -484,32 +486,28 @@ elif page == "Contract Numbers":
     # ================= Software =================
     st.subheader("💻 Software")
     st.markdown("---")
-    df_sw_selected = df_sw.copy()
-    otf_software_total = 0
-    mrr_software_total = 0
+    otf_total = 0
+    mrr_total = 0
     for i, row in df_sw.iterrows():
-        otf_val, mrr_val = display_product_row(row, total_otf, total_mrr, df_sw_selected)
-        otf_software_total += otf_val
-        mrr_software_total += mrr_val
+        otf_val, mrr_val = display_product_row(row, total_otf, total_mrr, df_products)
+        otf_total += otf_val
+        mrr_total += mrr_val
 
     # ================= Hardware =================
     st.subheader("🖨️ Hardware")
     st.markdown("---")
-    df_hw_selected = df_hw.copy()
-    otf_hardware_total = 0
     for i, row in df_hw.iterrows():
-        otf_val, _ = display_product_row(row, total_otf, total_mrr, df_hw_selected)
-        otf_hardware_total += otf_val
+        otf_val, _ = display_product_row(row, total_otf, total_mrr, df_products)
+        otf_total += otf_val
 
     # ================= Kontrollfelder =================
     st.markdown("---")
     st.subheader("✅ Kontrollübersicht")
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("💻 Software OTF", f"{otf_software_total:,.2f} €")
-        st.metric("🖨️ Hardware OTF", f"{otf_hardware_total:,.2f} €")
+        st.metric("💻 Software OTF + Hardware OTF", f"{otf_total:,.2f} €")
     with col2:
         st.metric("🧾 OTF Eingabe", f"{total_otf:,.2f} €")
     with col3:
-        st.metric("💰 MRR / Monat", f"{mrr_software_total:,.2f} €")
-        st.metric("📆 MRR / Woche", f"{mrr_software_total/4:,.2f} €")
+        st.metric("💰 MRR / Monat", f"{mrr_total:,.2f} €")
+        st.metric("📆 MRR / Woche", f"{mrr_total/4:,.2f} €")
