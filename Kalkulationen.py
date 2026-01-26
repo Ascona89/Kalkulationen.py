@@ -435,18 +435,26 @@ if page == "Telesales":
 
     df_plz = load_plz_data()
 
+    # Session State initialisieren
     st.session_state.setdefault("show_result", False)
     st.session_state.setdefault("df_result", None)
     st.session_state.setdefault("center", None)
 
+    # Eingaben
     col1, col2 = st.columns(2)
     with col1:
-        center_input = st.text_input("📍 PLZ eingeben", placeholder="z.B. 10115")
+        center_input = st.text_input(
+            "📍 PLZ eingeben", placeholder="z.B. 10115", key="center_input"
+        )
     with col2:
-        radius_km = st.number_input("📏 Radius (km)", min_value=1, max_value=300, value=25)
+        radius_km = st.number_input(
+            "📏 Radius (km)", min_value=1, max_value=300, value=25, key="radius_km"
+        )
 
-    if st.button("🔍 PLZ berechnen"):
-        # **PLZ direkt aus CSV**
+    # Button mit eindeutiger Key
+    if st.button("🔍 PLZ berechnen", key="calculate_button"):
+
+        # PLZ direkt aus CSV prüfen
         if center_input.strip() not in df_plz["plz"].values:
             st.error("PLZ nicht in CSV gefunden.")
             st.stop()
@@ -454,6 +462,7 @@ if page == "Telesales":
         center_row = df_plz[df_plz["plz"] == center_input.strip()].iloc[0]
         lat_c, lon_c = center_row["lat"], center_row["lon"]
 
+        # Haversine Funktion
         def haversine(lat1, lon1, lat2, lon2):
             R = 6371
             phi1, phi2 = math.radians(lat1), math.radians(lat2)
@@ -462,17 +471,21 @@ if page == "Telesales":
             a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
             return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
+        # Entfernungen berechnen
         df_plz["distance_km"] = df_plz.apply(
             lambda r: haversine(lat_c, lon_c, r["lat"], r["lon"]),
             axis=1
         )
 
+        # Ergebnisse filtern
         df_result = df_plz[df_plz["distance_km"] <= radius_km].sort_values("distance_km")
 
+        # Session State speichern
         st.session_state["df_result"] = df_result
         st.session_state["center"] = (lat_c, lon_c)
         st.session_state["show_result"] = True
 
+    # Ergebnisse anzeigen
     if st.session_state["show_result"] and st.session_state["df_result"] is not None:
         df_result = st.session_state["df_result"]
         lat_c, lon_c = st.session_state["center"]
@@ -480,10 +493,18 @@ if page == "Telesales":
         st.success(f"✅ {len(df_result)} PLZ im Umkreis")
         st.dataframe(df_result[["plz", "lat", "lon", "distance_km"]].round(2), use_container_width=True)
 
+        # Karte erstellen
         m = folium.Map(location=[lat_c, lon_c], zoom_start=9)
         folium.Marker([lat_c, lon_c], popup="Zentrum", icon=folium.Icon(color="red")).add_to(m)
         for _, row in df_result.iterrows():
-            folium.CircleMarker([row["lat"], row["lon"]], radius=4, fill=True, fill_opacity=0.6, popup=f"{row['plz']}").add_to(m)
+            folium.CircleMarker(
+                [row["lat"], row["lon"]],
+                radius=4,
+                fill=True,
+                fill_opacity=0.6,
+                popup=f"{row['plz']}"
+            ).add_to(m)
+
         st_folium(m, width=1200, height=600)
 
 # =====================================================
