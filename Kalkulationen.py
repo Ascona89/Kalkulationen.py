@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -100,10 +99,10 @@ if st.session_state.is_admin:
 st.set_page_config(page_title="Kalkulations-App", layout="wide")
 st.title("📊 Kalkulations-App")
 
-# 🗂 Seitenauswahl (Sidebar)
+# 🗂 Seitenauswahl (Sidebar) – erweitert um Contract Numbers
 page = st.sidebar.radio(
     "Wähle eine Kalkulation:",
-    ["Platform", "Cardpayment", "Pricing", "Radien", "Telesales"]
+    ["Platform", "Cardpayment", "Pricing", "Radien", "Telesales", "Contract Numbers"]
 )
 
 # ==========================
@@ -341,13 +340,7 @@ elif page == "Radien":
 # =====================================================
 # =================== TELESSALES ======================
 # =====================================================
-if page == "Telesales":
-
-    import math
-    import folium
-    from geopy.geocoders import Nominatim
-    from streamlit_folium import st_folium
-
+elif page == "Telesales":
     st.header("📞 Telesales – PLZ im Radius")
 
     # CSV mit PLZ-Daten lokal oder vom GitHub Repo
@@ -356,113 +349,74 @@ if page == "Telesales":
     @st.cache_data
     def load_plz_data():
         df = pd.read_csv(CSV_URL, dtype=str)
-
-        # Prüfen, dass die Spalten existieren
         for col in ["plz", "lat", "lon"]:
             if col not in df.columns:
                 st.error(f"Spalte '{col}' fehlt in der CSV!")
                 st.stop()
-
-        # Konvertiere lat/lon zu float
         df["lat"] = df["lat"].astype(float)
         df["lon"] = df["lon"].astype(float)
-
         return df
 
     df_plz = load_plz_data()
 
-    # ---------------- Session State ----------------
     st.session_state.setdefault("show_result", False)
     st.session_state.setdefault("df_result", None)
     st.session_state.setdefault("center", None)
 
-    # ---------------- Inputs ----------------
     col1, col2 = st.columns(2)
-
     with col1:
         center_input = st.text_input("📍 Stadt oder PLZ", placeholder="z.B. Berlin oder 10115")
-
     with col2:
-        radius_km = st.number_input("📏 Radius (km)", min_value=1, max_value=300, value=25)
+        radius_km = st.number_input("📏 Radius (km)", min_value=1, max_value=300, value=10, step=1)
 
-    # ---------------- Button ----------------
-    if st.button("🔍 PLZ berechnen"):
-        geolocator = Nominatim(user_agent="telesales-app")
-        center = geolocator.geocode(center_input + ", Deutschland")
+    if st.button("PLZ im Radius anzeigen"):
+        geolocator = Nominatim(user_agent="telesales_radius_app", timeout=10)
+        loc = geolocator.geocode(center_input)
+        if loc:
+            lat0, lon0 = loc.latitude, loc.longitude
+            st.session_state.center = (lat0, lon0)
+            # Haversine Distance
+            df_plz["distance"] = df_plz.apply(
+                lambda row: 6371*math.acos(
+                    math.cos(math.radians(lat0))*math.cos(math.radians(row["lat"]))*
+                    math.cos(math.radians(row["lon"])-math.radians(lon0))+
+                    math.sin(math.radians(lat0))*math.sin(math.radians(row["lat"]))
+                ), axis=1)
+            df_result = df_plz[df_plz["distance"]<=radius_km].copy()
+            st.session_state.df_result = df_result
+            st.session_state.show_result = True
+        else:
+            st.warning("Adresse nicht gefunden.")
 
-        if not center:
-            st.error("Ort oder PLZ nicht gefunden.")
-            st.stop()
-
-        lat_c, lon_c = center.latitude, center.longitude
-
-        def haversine(lat1, lon1, lat2, lon2):
-            R = 6371
-            phi1, phi2 = math.radians(lat1), math.radians(lat2)
-            dphi = math.radians(lat2 - lat1)
-            dlambda = math.radians(lon2 - lon1)
-            a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
-            return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-        # Filter PLZ im Radius
-        df_plz["distance_km"] = df_plz.apply(
-            lambda r: haversine(lat_c, lon_c, r["lat"], r["lon"]),
-            axis=1
-        )
-
-        df_result = df_plz[df_plz["distance_km"] <= radius_km].sort_values("distance_km")
-
-        st.session_state["df_result"] = df_result
-        st.session_state["center"] = (lat_c, lon_c)
-        st.session_state["show_result"] = True
-
-    # ---------------- RESULTS (persisted) ----------------
-    if st.session_state["show_result"] and st.session_state["df_result"] is not None:
-
-        df_result = st.session_state["df_result"]
-        lat_c, lon_c = st.session_state["center"]
-
-        st.success(f"✅ {len(df_result)} PLZ im Umkreis")
-
-        st.dataframe(
-            df_result[["plz", "lat", "lon", "distance_km"]].round(2),
-            use_container_width=True
-        )
-
-        # ---------------- MAP ----------------
-        m = folium.Map(location=[lat_c, lon_c], zoom_start=9)
-
+    if st.session_state.show_result and st.session_state.df_result is not None:
+        st.subheader("Ergebnisse")
+        st.dataframe(st.session_state.df_result[["plz","ort","distance"]].sort_values("distance"), use_container_width=True)
+        # Karte
+        df_map = st.session_state.df_result
+        m = folium.Map(location=st.session_state.center, zoom_start=10)
         folium.Marker(
-            [lat_c, lon_c],
-            popup="Zentrum",
+            location=st.session_state.center,
+            popup=center_input,
             icon=folium.Icon(color="red")
         ).add_to(m)
-
-        for _, row in df_result.iterrows():
+        for _, row in df_map.iterrows():
             folium.CircleMarker(
                 location=[row["lat"], row["lon"]],
-                radius=4,
+                radius=5,
+                popup=f"{row['plz']} {row['ort']} ({row['distance']:.1f} km)",
+                color="blue",
                 fill=True,
-                fill_opacity=0.6,
-                popup=f"{row['plz']}"
+                fill_opacity=0.7
             ).add_to(m)
-
-        st_folium(m, width=1200, height=600)
-
-
-# 🗂 Seitenauswahl (Sidebar) – erweitert um Contract Numbers
-page = st.sidebar.radio(
-    "Wähle eine Kalkulation:",
-    ["Platform", "Cardpayment", "Pricing", "Radien", "Telesales", "Contract Numbers"]
-)
+        st_folium(m, width=1000, height=600)
 
 # =====================================================
 # =================== Contract Numbers ======================
 # =====================================================
-if page == "Contract Numbers":
+elif page == "Contract Numbers":
     st.header("📑 Contract Numbers")
 
-    # Produkte aus Pricing
+    # Produkte
     df_sw = pd.DataFrame({
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW"],
         "List_OTF": [999, 49, 999, 49, 0, 0],
@@ -479,9 +433,7 @@ if page == "Contract Numbers":
 
     df_products = pd.concat([df_sw, df_hw], ignore_index=True)
 
-    # -------------------------
     # Eingaben Gesamtwerte
-    # -------------------------
     col1, col2 = st.columns(2)
     with col1:
         total_mrr = st.number_input("💶 Gesamt MRR (€)", min_value=0.0, step=50.0)
@@ -497,7 +449,6 @@ if page == "Contract Numbers":
 
     # Auswahlfelder & Berechnung
     results = []
-
     for i, row in df_products.iterrows():
         qty = st.number_input(row["Produkt"], min_value=0, step=1, key=f"cn_qty_{i}")
         results.append({
@@ -510,16 +461,14 @@ if page == "Contract Numbers":
 
     df_result = pd.DataFrame(results)
 
-    # -------------------------
     # OTF Verteilung nach List_OTF
-    # -------------------------
     df_sw_sel = df_result[(df_result["Typ"]=="Software") & (df_result["Menge"]>0)]
     df_hw_sel = df_result[(df_result["Typ"]=="Hardware") & (df_result["Menge"]>0)]
 
     sw_total_list_otf = (df_sw_sel["List_OTF"] * df_sw_sel["Menge"]).sum()
     hw_total_list_otf = (df_hw_sel["List_OTF"] * df_hw_sel["Menge"]).sum()
-
     total_list_otf = sw_total_list_otf + hw_total_list_otf
+
     if total_list_otf == 0:
         sw_otf_total = 0
         hw_otf_total = 0
@@ -527,7 +476,6 @@ if page == "Contract Numbers":
         sw_otf_total = total_otf * (sw_total_list_otf / total_list_otf)
         hw_otf_total = total_otf * (hw_total_list_otf / total_list_otf)
 
-    # Anteilig pro Produkt
     df_result["OTF_Anteil"] = 0.0
     if sw_total_list_otf > 0:
         df_result.loc[df_sw_sel.index, "OTF_Anteil"] = (
@@ -540,9 +488,7 @@ if page == "Contract Numbers":
             / hw_total_list_otf * hw_otf_total
         )
 
-    # -------------------------
     # MRR Verteilung nur Software
-    # -------------------------
     df_result["MRR_Monat"] = 0.0
     sw_total_list_mrr = (df_sw_sel["List_MRR"] * df_sw_sel["Menge"]).sum()
     if sw_total_list_mrr > 0:
@@ -552,9 +498,7 @@ if page == "Contract Numbers":
         )
     df_result["MRR_Woche"] = df_result["MRR_Monat"] / 4
 
-    # -------------------------
     # Summen & Kontrolle
-    # -------------------------
     otf_software = df_result[df_result["Typ"]=="Software"]["OTF_Anteil"].sum()
     otf_hardware = df_result[df_result["Typ"]=="Hardware"]["OTF_Anteil"].sum()
     total_mrr_calc = df_result["MRR_Monat"].sum()
@@ -562,20 +506,16 @@ if page == "Contract Numbers":
 
     st.markdown("---")
     st.subheader("✅ Kontrollübersicht")
-
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("💻 SUF (Software OTF)", f"{otf_software:,.2f} €")
+        st.metric("💻 Software OTF", f"{otf_software:,.2f} €")
         st.metric("🖨️ Hardware OTF", f"{otf_hardware:,.2f} €")
-
     with col2:
         st.metric("🧾 OTF berechnet", f"{total_otf_calc:,.2f} €")
         st.metric("🧾 OTF Eingabe", f"{total_otf:,.2f} €")
-
     with col3:
         st.metric("💰 MRR / Monat", f"{total_mrr_calc:,.2f} €")
         st.metric("📆 MRR / Woche", f"{total_mrr_calc/4:,.2f} €")
 
     st.markdown("---")
     st.dataframe(df_result.round(2), use_container_width=True)
-
