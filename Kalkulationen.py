@@ -446,14 +446,7 @@ elif page == "Contract Numbers":
     # Menge für jedes Produkt
     for i in df_products.index:
         st.session_state.setdefault(f"cn_qty_{i}", 0)
-
-    # Berechnung der OTF- und MRR-Anteile
-    df_products["Menge"] = 0
-    for i, row in df_products.iterrows():
-        col_qty, col_otf, col_mrr_mon, col_mrr_week = st.columns([2,1,1,1])
-        with col_qty:
-            qty = st.number_input(row["Produkt"], min_value=0, step=1, key=f"cn_qty_{i}")
-            df_products.at[i, "Menge"] = qty
+        df_products.at[i, "Menge"] = st.session_state[f"cn_qty_{i}"]
 
     # OTF-Verteilung nach Software / Hardware
     df_sw_sel = df_products[(df_products["Typ"]=="Software") & (df_products["Menge"]>0)]
@@ -489,9 +482,12 @@ elif page == "Contract Numbers":
         )
         df_products.loc[df_sw_sel.index, "MRR_Woche"] = df_products.loc[df_sw_sel.index, "MRR_Monat"] / 4
 
-    # Ergebnisse direkt neben jedem Number Input anzeigen
+    # Anzeige direkt neben Input (alle in einer Reihe)
     for i, row in df_products.iterrows():
-        col_qty, col_otf, col_mrr_mon, col_mrr_week = st.columns([2,1,1,1])
+        col_input, col_otf, col_mrr_mon, col_mrr_week = st.columns([1,1,1,1])
+        with col_input:
+            qty = st.number_input(row["Produkt"], min_value=0, step=1, key=f"cn_qty_{i}")
+            df_products.at[i, "Menge"] = qty
         with col_otf:
             st.write(f"OTF: {row['OTF_Anteil']:.2f} €")
         with col_mrr_mon:
