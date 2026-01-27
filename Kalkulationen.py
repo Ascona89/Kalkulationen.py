@@ -347,9 +347,6 @@ def show_radien():
 # =====================================================
 # 📑 Contract Numbers
 # =====================================================
-# =====================================================
-# 📑 Contract Numbers
-# =====================================================
 def show_contractnumbers():
     st.header("📑 Contract Numbers")
 
@@ -381,8 +378,6 @@ def show_contractnumbers():
     st.subheader("📦 Verkäufe pro Produkt")
 
     # ====================== Eingabefelder nebeneinander ======================
-    results = []
-
     # Software Eingabe
     st.markdown("### 💻 Software")
     sw_cols = st.columns(len(df_sw))
@@ -410,11 +405,9 @@ def show_contractnumbers():
             )
 
     # ====================== Berechnung OTF / MRR ======================
-    # Software
     df_sw["Menge"] = [st.session_state[f"qty_sw_{i}"] for i in range(len(df_sw))]
     df_hw["Menge"] = [st.session_state[f"qty_hw_{i}"] for i in range(len(df_hw))]
 
-    # Funktion: proportional verteilen und exakt summe matchen
     def proportional_round(values, total):
         total_float = sum(values)
         if total_float == 0:
@@ -422,14 +415,13 @@ def show_contractnumbers():
         scaled = [v/total_float * total for v in values]
         floored = [math.floor(v) for v in scaled]
         diff = int(round(total - sum(floored)))
-        # diff verteilen
         for i in range(diff):
-            idx = scaled.index(max(scaled))  # größten Rest zuerst
+            idx = scaled.index(max(scaled))
             floored[idx] += 1
-            scaled[idx] = 0  # damit nächste iteration den zweitgrößten nimmt
+            scaled[idx] = 0
         return floored
 
-    # OTF proportional
+    # OTF proportional (Software + Hardware)
     otf_values = proportional_round(
         list(df_sw["Menge"]*df_sw["List_OTF"]) + list(df_hw["Menge"]*df_hw["List_OTF"]),
         total_otf
@@ -437,31 +429,27 @@ def show_contractnumbers():
     df_sw["OTF"] = otf_values[:len(df_sw)]
     df_hw["OTF"] = otf_values[len(df_sw):]
 
-    # MRR proportional (nur Software relevant)
-    mrr_values = proportional_round(
-        list(df_sw["Menge"]*df_sw["List_MRR"]),
-        total_mrr
-    )
+    # MRR proportional (nur Software)
+    mrr_values = proportional_round(list(df_sw["Menge"]*df_sw["List_MRR"]), total_mrr)
     df_sw["MRR_Monat"] = mrr_values
-    df_sw["MRR_Woche"] = [round(v/4) for v in mrr_values]
+    df_sw["MRR_Woche"] = [v/4 for v in mrr_values]  # KEINE Rundung
     df_hw["MRR_Monat"] = 0
     df_hw["MRR_Woche"] = 0
 
-    # ====================== Ergebnisse ======================
+    # ====================== Ergebnisse untereinander ======================
     st.markdown("---")
     st.subheader("✅ Ergebnisse")
 
     df_result = pd.concat([df_sw, df_hw], ignore_index=True)
-    results_cols = st.columns(len(df_result))
+
     for idx, row in df_result.iterrows():
-        with results_cols[idx]:
-            st.markdown(f"**{row['Produkt']}**")
-            st.markdown(f"OTF: {row['OTF']} €")
-            st.markdown(f"MRR/Monat: {row['MRR_Monat']} €")
-            st.markdown(f"MRR/Woche: {row['MRR_Woche']} €")
+        st.markdown(f"**{row['Produkt']}**")
+        st.markdown(f"- OTF: {row['OTF']} €")
+        st.markdown(f"- MRR/Monat: {row['MRR_Monat']} €")
+        st.markdown(f"- MRR/Woche: {row['MRR_Woche']} €")
+        st.markdown("---")
 
     # ====================== Kontrolle ======================
-    st.markdown("---")
     st.subheader("📊 Kontrollübersicht")
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -472,8 +460,7 @@ def show_contractnumbers():
         st.metric("🧾 OTF Eingabe", f"{total_otf} €")
     with col3:
         st.metric("💰 MRR / Monat", f"{df_result['MRR_Monat'].sum()} €")
-        st.metric("📆 MRR / Woche", f"{round(df_result['MRR_Monat'].sum()/4)} €")
-
+        st.metric("📆 MRR / Woche", f"{df_result['MRR_Woche'].sum()} €")
 
 
 # =====================================================
