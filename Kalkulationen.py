@@ -344,9 +344,7 @@ def show_radien():
 # =====================================================
 # Contract Numbers
 # =====================================================
-# =====================================================
-# 📑 Contract Numbers
-# =====================================================
+
 def show_contractnumbers():
     st.header("📑 Contract Numbers")
 
@@ -378,7 +376,6 @@ def show_contractnumbers():
     st.subheader("📦 Verkäufe pro Produkt")
 
     # ====================== Eingabefelder nebeneinander ======================
-    # Software Eingabe
     st.markdown("### 💻 Software")
     sw_cols = st.columns(len(df_sw))
     for idx, row in df_sw.iterrows():
@@ -391,7 +388,6 @@ def show_contractnumbers():
                 key=f"qty_sw_input_{idx}"
             )
 
-    # Hardware Eingabe
     st.markdown("### 🖨️ Hardware")
     hw_cols = st.columns(len(df_hw))
     for idx, row in df_hw.iterrows():
@@ -436,18 +432,18 @@ def show_contractnumbers():
     df_hw["MRR_Monat"] = 0
     df_hw["MRR_Woche"] = 0
 
-    # ====================== Ergebnisse untereinander ======================
+    # ====================== Ergebnisse untereinander nebeneinander ======================
     st.markdown("---")
     st.subheader("✅ Ergebnisse")
 
     df_result = pd.concat([df_sw, df_hw], ignore_index=True)
 
     for idx, row in df_result.iterrows():
-        st.markdown(f"**{row['Produkt']}**")
-        st.markdown(f"- OTF: {row['OTF']} €")
-        st.markdown(f"- MRR/Monat: {row['MRR_Monat']} €")
-        st.markdown(f"- MRR/Woche: {row['MRR_Woche']} €")
-        st.markdown("---")
+        cols = st.columns([2, 1, 1, 1])
+        cols[0].markdown(f"**{row['Produkt']}**")
+        cols[1].markdown(f"OTF: {row['OTF']} €")
+        cols[2].markdown(f"MRR/Monat: {row['MRR_Monat']} €")
+        cols[3].markdown(f"MRR/Woche: {row['MRR_Woche']} €")
 
     # ====================== Kontrolle ======================
     st.subheader("📊 Kontrollübersicht")
@@ -461,7 +457,6 @@ def show_contractnumbers():
     with col3:
         st.metric("💰 MRR / Monat", f"{df_result['MRR_Monat'].sum()} €")
         st.metric("📆 MRR / Woche", f"{df_result['MRR_Woche'].sum()} €")
-
 
 # =====================================================
 # 🏗 Seitenlogik
