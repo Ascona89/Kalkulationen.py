@@ -4,6 +4,8 @@ geopy
 folium
 streamlit-folium
 fpdf==1.7.2
+supabase
+
 
 
 
