@@ -429,19 +429,14 @@ def show_contractnumbers():
     connect_mrr_monat = 13.72
     connect_mrr_woche = 3.43
 
-    # Restliche MRR für andere Software-Produkte
     total_mrr_rest = max(total_mrr - connect_mrr_monat, 0)
     other_sw_indexes = df_sw[df_sw["Produkt"] != "Connect"].index
     other_sw_values = df_sw.loc[other_sw_indexes, "Menge"] * df_sw.loc[other_sw_indexes, "List_MRR"]
 
     if other_sw_values.sum() > 0:
-        mrr_rest_values = proportional_round(list(other_sw_values), total_mrr_rest)
-        # Differenz nach Rundung aufteilen
-        diff = int(round(total_mrr_rest - sum(mrr_rest_values)))
-        for i in range(diff):
-            idx_max = other_sw_values.idxmax()
-            mrr_rest_values[list(other_sw_indexes).index(idx_max)] += 1
-            other_sw_values[idx_max] = 0
+        # Exakte proportionale Verteilung ohne Rundungsverlust
+        prop = other_sw_values / other_sw_values.sum()
+        mrr_rest_values = (prop * total_mrr_rest).tolist()
     else:
         mrr_rest_values = [0]*len(other_sw_values)
 
@@ -464,8 +459,8 @@ def show_contractnumbers():
         cols = st.columns([2, 1, 1, 1])
         cols[0].markdown(f"**{row['Produkt']}**")
         cols[1].markdown(f"OTF: {row['OTF']} €")
-        cols[2].markdown(f"MRR/Monat: {row['MRR_Monat']} €")
-        cols[3].markdown(f"MRR/Woche: {row['MRR_Woche']} €")
+        cols[2].markdown(f"MRR/Monat: {row['MRR_Monat']:.2f} €")
+        cols[3].markdown(f"MRR/Woche: {row['MRR_Woche']:.2f} €")
 
     # ====================== Kontrolle ======================
     st.subheader("📊 Kontrollübersicht")
@@ -477,8 +472,8 @@ def show_contractnumbers():
         st.metric("🧾 OTF berechnet", f"{df_result['OTF'].sum()} €")
         st.metric("🧾 OTF Eingabe", f"{total_otf} €")
     with col3:
-        st.metric("💰 MRR / Monat", f"{df_result['MRR_Monat'].sum()} €")
-        st.metric("📆 MRR / Woche", f"{df_result['MRR_Woche'].sum()} €")
+        st.metric("💰 MRR / Monat", f"{df_result['MRR_Monat'].sum():.2f} €")
+        st.metric("📆 MRR / Woche", f"{df_result['MRR_Woche'].sum():.2f} €")
 
 # =====================================================
 # 🏗 Seitenlogik
