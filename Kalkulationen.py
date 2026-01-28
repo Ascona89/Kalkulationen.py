@@ -404,6 +404,7 @@ def show_contractnumbers():
     df_sw["Menge"] = [st.session_state[f"qty_sw_{i}"] for i in range(len(df_sw))]
     df_hw["Menge"] = [st.session_state[f"qty_hw_{i}"] for i in range(len(df_hw))]
 
+    # ====================== OTF ======================
     def proportional_round(values, total):
         total_float = sum(values)
         if total_float == 0:
@@ -417,7 +418,6 @@ def show_contractnumbers():
             scaled[idx] = 0
         return floored
 
-    # ====================== OTF ======================
     otf_values = proportional_round(
         list(df_sw["Menge"]*df_sw["List_OTF"]) + list(df_hw["Menge"]*df_hw["List_OTF"]),
         total_otf
@@ -426,15 +426,21 @@ def show_contractnumbers():
     df_hw["OTF"] = otf_values[len(df_sw):]
 
     # ====================== MRR ======================
-    connect_mrr_monat = 13.72
-    connect_mrr_woche = 3.43
+    # Fixe MRR für Connect und TSE
+    fixed_mrr = {
+        "Connect": 13.72,
+        "TSE": 12.0
+    }
+    fixed_mrr_week = {k: v/4 for k, v in fixed_mrr.items()}
 
-    total_mrr_rest = max(total_mrr - connect_mrr_monat, 0)
-    other_sw_indexes = df_sw[df_sw["Produkt"] != "Connect"].index
+    # Restliche MRR für andere Software-Produkte
+    total_fixed = sum(fixed_mrr.values())
+    total_mrr_rest = max(total_mrr - total_fixed, 0)
+
+    other_sw_indexes = df_sw[~df_sw["Produkt"].isin(fixed_mrr.keys())].index
     other_sw_values = df_sw.loc[other_sw_indexes, "Menge"] * df_sw.loc[other_sw_indexes, "List_MRR"]
 
     if other_sw_values.sum() > 0:
-        # Exakte proportionale Verteilung ohne Rundungsverlust
         prop = other_sw_values / other_sw_values.sum()
         mrr_rest_values = (prop * total_mrr_rest).tolist()
     else:
@@ -443,8 +449,10 @@ def show_contractnumbers():
     # MRR Monat und Woche setzen
     df_sw.loc[other_sw_indexes, "MRR_Monat"] = mrr_rest_values
     df_sw.loc[other_sw_indexes, "MRR_Woche"] = [v/4 for v in mrr_rest_values]
-    df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Monat"] = connect_mrr_monat
-    df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Woche"] = connect_mrr_woche
+
+    for prod, val in fixed_mrr.items():
+        df_sw.loc[df_sw["Produkt"] == prod, "MRR_Monat"] = val
+        df_sw.loc[df_sw["Produkt"] == prod, "MRR_Woche"] = val/4
 
     df_hw["MRR_Monat"] = 0
     df_hw["MRR_Woche"] = 0
