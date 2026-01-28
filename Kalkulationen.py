@@ -281,66 +281,143 @@ def show_pricing():
 # 🗺️ Radien
 # =====================================================
 def show_radien():
-    st.header("🗺️ Radien um eine Adresse, Stadt oder PLZ – mehrere Radien möglich")
+    import requests
+    import math
+    import folium
+    import pandas as pd
+    import streamlit as st
+    from streamlit_folium import st_folium
+
+    st.header("🗺️ Radien um Stadt, Adresse oder PLZ (Cloud-stabil)")
+
     CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
 
+    # ======================
+    # PLZ CSV laden
+    # ======================
     @st.cache_data
     def load_plz_data():
         df = pd.read_csv(CSV_URL, dtype=str)
-        for col in ["plz", "lat", "lon"]:
-            if col not in df.columns:
-                st.error(f"Spalte '{col}' fehlt in der CSV!")
-                st.stop()
         df["lat"] = df["lat"].astype(float)
         df["lon"] = df["lon"].astype(float)
         return df
 
     df_plz = load_plz_data()
-    user_input = st.text_input("📍 Adresse, Stadt oder PLZ eingeben (z.B. Berlin, Alexanderplatz 1 oder 10115)")
-    radien_input = st.text_input("📏 Radien eingeben (km, durch Komma getrennt, z.B. 5,10,20)", value="5,10")
 
-    if user_input.strip():
+    # ======================
+    # Inputs
+    # ======================
+    user_input = st.text_input(
+        "📍 Stadt, Adresse oder PLZ eingeben",
+        placeholder="z.B. Berlin, Alexanderplatz 1 oder 10115"
+    )
+
+    radien_input = st.text_input(
+        "📏 Radien in km (Komma-getrennt)",
+        value="5,10"
+    )
+
+    if not user_input.strip():
+        return
+
+    # ======================
+    # Koordinaten ermitteln
+    # ======================
+    lat_c, lon_c, location_name = None, None, ""
+
+    # 1️⃣ PLZ direkt aus CSV
+    if user_input.strip().isdigit() and len(user_input.strip()) == 5:
         plz_match = df_plz[df_plz["plz"] == user_input.strip()]
-        if not plz_match.empty:
-            lat_c = plz_match.iloc[0]["lat"]
-            lon_c = plz_match.iloc[0]["lon"]
-            location_name = f"PLZ: {user_input.strip()}"
-        else:
-            geolocator = Nominatim(user_agent="radien_app")
-            location = geolocator.geocode(user_input)
-            if not location:
-                st.error("Adresse/Stadt/PLZ konnte nicht gefunden werden.")
+        if plz_match.empty:
+            st.error("❌ PLZ nicht in Datenbank gefunden.")
+            return
+        lat_c = plz_match.iloc[0]["lat"]
+        lon_c = plz_match.iloc[0]["lon"]
+        location_name = f"PLZ {user_input.strip()}"
+
+    # 2️⃣ Photon API (Cloud-safe)
+    else:
+        try:
+            response = requests.get(
+                "https://photon.komoot.io/api/",
+                params={"q": user_input, "limit": 1},
+                timeout=10
+            )
+            data = response.json()
+
+            if not data["features"]:
+                st.error("❌ Ort/Adresse nicht gefunden.")
                 return
-            lat_c, lon_c = location.latitude, location.longitude
+
+            coords = data["features"][0]["geometry"]["coordinates"]
+            lon_c, lat_c = coords[0], coords[1]
             location_name = user_input.strip()
 
-        try:
-            radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
-        except ValueError:
-            st.error("Bitte nur Zahlen für Radien eingeben, getrennt durch Komma.")
-            return
-        if len(radien) == 0:
-            st.error("Mindestens ein Radius erforderlich.")
+        except Exception as e:
+            st.error("🌍 Geocoding-Service aktuell nicht erreichbar.")
             return
 
-        def haversine(lat1, lon1, lat2, lon2):
-            R = 6371
-            phi1, phi2 = math.radians(lat1), math.radians(lat2)
-            dphi = math.radians(lat2 - lat1)
-            dlambda = math.radians(lon2 - lon1)
-            a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
-            return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    # ======================
+    # Radien parsen
+    # ======================
+    try:
+        radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
+    except ValueError:
+        st.error("❌ Radien müssen Zahlen sein (z.B. 5,10,20)")
+        return
 
-        df_plz["distance_km"] = df_plz.apply(lambda r: haversine(lat_c, lon_c, r["lat"], r["lon"]), axis=1)
-        df_result = df_plz[df_plz["distance_km"] <= max(radien)].sort_values("distance_km")
-        st.success(f"✅ {len(df_result)} PLZ im Umkreis (bis {max(radien)} km)")
-        st.dataframe(df_result[["plz", "lat", "lon", "distance_km"]], use_container_width=True)
+    if not radien:
+        st.error("❌ Mindestens ein Radius erforderlich.")
+        return
 
-        m = folium.Map(location=[lat_c, lon_c], zoom_start=11)
-        folium.Marker([lat_c, lon_c], tooltip=location_name, icon=folium.Icon(color="red")).add_to(m)
-        for r in radien:
-            folium.Circle([lat_c, lon_c], radius=r*1000, color="blue", fill=True, fill_opacity=0.1).add_to(m)
-        st_folium(m, width=700, height=500)
+    # ======================
+    # Haversine
+    # ======================
+    def haversine(lat1, lon1, lat2, lon2):
+        R = 6371
+        phi1, phi2 = math.radians(lat1), math.radians(lat2)
+        dphi = math.radians(lat2 - lat1)
+        dlambda = math.radians(lon2 - lon1)
+        a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+        return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    df_plz["distance_km"] = df_plz.apply(
+        lambda r: haversine(lat_c, lon_c, r["lat"], r["lon"]), axis=1
+    )
+
+    max_radius = max(radien)
+    df_result = df_plz[df_plz["distance_km"] <= max_radius].sort_values("distance_km")
+
+    # ======================
+    # Ergebnis
+    # ======================
+    st.success(f"✅ {len(df_result)} PLZ im Umkreis von {max_radius} km")
+    st.dataframe(
+        df_result[["plz", "lat", "lon", "distance_km"]],
+        use_container_width=True
+    )
+
+    # ======================
+    # Karte
+    # ======================
+    m = folium.Map(location=[lat_c, lon_c], zoom_start=11)
+    folium.Marker(
+        [lat_c, lon_c],
+        tooltip=location_name,
+        icon=folium.Icon(color="red")
+    ).add_to(m)
+
+    for r in radien:
+        folium.Circle(
+            [lat_c, lon_c],
+            radius=r * 1000,
+            color="blue",
+            fill=True,
+            fill_opacity=0.1
+        ).add_to(m)
+
+    st_folium(m, width=700, height=500)
+
 # =====================================================
 # Contract Numbers
 # =====================================================
