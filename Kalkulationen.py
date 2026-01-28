@@ -345,9 +345,6 @@ def show_radien():
 # Contract Numbers
 # =====================================================
 
-# =====================================================
-# Contract Numbers
-# =====================================================
 
 def show_contractnumbers():
     st.header("📑 Contract Numbers")
@@ -421,7 +418,7 @@ def show_contractnumbers():
             scaled[idx] = 0
         return floored
 
-    # OTF proportional (Software + Hardware)
+    # ====================== OTF ======================
     otf_values = proportional_round(
         list(df_sw["Menge"]*df_sw["List_OTF"]) + list(df_hw["Menge"]*df_hw["List_OTF"]),
         total_otf
@@ -429,19 +426,31 @@ def show_contractnumbers():
     df_sw["OTF"] = otf_values[:len(df_sw)]
     df_hw["OTF"] = otf_values[len(df_sw):]
 
-    # MRR proportional (nur Software)
-    mrr_values = proportional_round(list(df_sw["Menge"]*df_sw["List_MRR"]), total_mrr)
-    df_sw["MRR_Monat"] = mrr_values
-    df_sw["MRR_Woche"] = [v/4 for v in mrr_values]  # KEINE Rundung
+    # ====================== MRR ======================
+    # Fix MRR für Connect
+    connect_mrr_monat = 13.72
+    connect_mrr_woche = 3.43
+
+    # Restliche MRR für andere Software-Produkte
+    total_mrr_rest = max(total_mrr - connect_mrr_monat, 0)
+    other_sw_indexes = df_sw[df_sw["Produkt"] != "Connect"].index
+    other_sw_values = df_sw.loc[other_sw_indexes, "Menge"] * df_sw.loc[other_sw_indexes, "List_MRR"]
+
+    if other_sw_values.sum() > 0:
+        mrr_rest_values = proportional_round(list(other_sw_values), total_mrr_rest)
+    else:
+        mrr_rest_values = [0]*len(other_sw_values)
+
+    # MRR Monat und Woche setzen
+    df_sw.loc[other_sw_indexes, "MRR_Monat"] = mrr_rest_values
+    df_sw.loc[other_sw_indexes, "MRR_Woche"] = [v/4 for v in mrr_rest_values]
+    df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Monat"] = connect_mrr_monat
+    df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Woche"] = connect_mrr_woche
+
     df_hw["MRR_Monat"] = 0
     df_hw["MRR_Woche"] = 0
 
-    # ====================== FIX MRR für Connect ======================
-    # Connect bekommt eine fixe MRR, unabhängig von der proportionalen Berechnung
-    df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Monat"] = 13.72
-    df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Woche"] = 3.43
-
-    # ====================== Ergebnisse untereinander nebeneinander ======================
+    # ====================== Ergebnisse ======================
     st.markdown("---")
     st.subheader("✅ Ergebnisse")
 
@@ -466,6 +475,7 @@ def show_contractnumbers():
     with col3:
         st.metric("💰 MRR / Monat", f"{df_result['MRR_Monat'].sum()} €")
         st.metric("📆 MRR / Woche", f"{df_result['MRR_Woche'].sum()} €")
+
 
 
 # =====================================================
