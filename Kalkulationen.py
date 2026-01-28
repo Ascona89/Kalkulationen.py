@@ -345,23 +345,22 @@ def show_radien():
 # Contract Numbers
 # =====================================================
 
-
 def show_contractnumbers():
     st.header("📑 Contract Numbers")
 
     # ====================== Produkte ======================
     df_sw = pd.DataFrame({
-        "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW", "TSE"],
-        "List_OTF": [999, 49, 999, 49, 0, 0, 0],
-        "List_MRR": [119, 49, 89, 25, 15, 0, 12],
-        "Typ": ["Software"]*7
+        "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "TSE"],
+        "List_OTF": [999, 49, 999, 49, 0, 0],
+        "List_MRR": [119, 49, 89, 25, 15, 12],
+        "Typ": ["Software"]*6
     })
 
     df_hw = pd.DataFrame({
-        "Produkt": ["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX", "Connect"],
-        "List_OTF": [299,1699,149,199,100,299,0],
-        "List_MRR": [0]*7,
-        "Typ": ["Hardware"]*7
+        "Produkt": ["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX"],
+        "List_OTF": [299,1699,149,199,100,299],
+        "List_MRR": [0]*6,
+        "Typ": ["Hardware"]*6
     })
 
     df_products = pd.concat([df_sw, df_hw], ignore_index=True)
@@ -427,7 +426,6 @@ def show_contractnumbers():
     df_hw["OTF"] = otf_values[len(df_sw):]
 
     # ====================== MRR ======================
-    # Fix MRR für Connect
     connect_mrr_monat = 13.72
     connect_mrr_woche = 3.43
 
@@ -438,6 +436,12 @@ def show_contractnumbers():
 
     if other_sw_values.sum() > 0:
         mrr_rest_values = proportional_round(list(other_sw_values), total_mrr_rest)
+        # Differenz nach Rundung aufteilen
+        diff = int(round(total_mrr_rest - sum(mrr_rest_values)))
+        for i in range(diff):
+            idx_max = other_sw_values.idxmax()
+            mrr_rest_values[list(other_sw_indexes).index(idx_max)] += 1
+            other_sw_values[idx_max] = 0
     else:
         mrr_rest_values = [0]*len(other_sw_values)
 
@@ -475,8 +479,6 @@ def show_contractnumbers():
     with col3:
         st.metric("💰 MRR / Monat", f"{df_result['MRR_Monat'].sum()} €")
         st.metric("📆 MRR / Woche", f"{df_result['MRR_Woche'].sum()} €")
-
-
 
 # =====================================================
 # 🏗 Seitenlogik
