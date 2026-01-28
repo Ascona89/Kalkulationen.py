@@ -432,6 +432,10 @@ def show_contractnumbers():
     df_hw["MRR_Monat"] = 0
     df_hw["MRR_Woche"] = 0
 
+    # ====================== FIX MRR für Connect ======================
+    df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Monat"] = 13.72
+    df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Woche"] = 3.43
+
     # ====================== Ergebnisse untereinander nebeneinander ======================
     st.markdown("---")
     st.subheader("✅ Ergebnisse")
