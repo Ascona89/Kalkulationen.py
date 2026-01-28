@@ -345,6 +345,10 @@ def show_radien():
 # Contract Numbers
 # =====================================================
 
+# =====================================================
+# Contract Numbers
+# =====================================================
+
 def show_contractnumbers():
     st.header("📑 Contract Numbers")
 
@@ -433,6 +437,7 @@ def show_contractnumbers():
     df_hw["MRR_Woche"] = 0
 
     # ====================== FIX MRR für Connect ======================
+    # Connect bekommt eine fixe MRR, unabhängig von der proportionalen Berechnung
     df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Monat"] = 13.72
     df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Woche"] = 3.43
 
@@ -461,6 +466,7 @@ def show_contractnumbers():
     with col3:
         st.metric("💰 MRR / Monat", f"{df_result['MRR_Monat'].sum()} €")
         st.metric("📆 MRR / Woche", f"{df_result['MRR_Woche'].sum()} €")
+
 
 # =====================================================
 # 🏗 Seitenlogik
