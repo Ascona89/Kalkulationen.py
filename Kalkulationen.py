@@ -559,29 +559,26 @@ def show_contractnumbers():
             )
 
     # ======================
-    # Mengen setzen
+    # Mengen setzen (unverändert)
     # ======================
     df_sw["Menge"] = [st.session_state[f"qty_sw_{i}"] for i in range(len(df_sw))]
     df_hw["Menge"] = [st.session_state[f"qty_hw_{i}"] for i in range(len(df_hw))]
 
     # ======================
-    # OTF Berechnung
+    # OTF Berechnung (proportional & Preise gerundet)
     # ======================
-    # Basiswerte für Software und Hardware
     sw_base = df_sw["Menge"] * df_sw["List_OTF"]
     hw_base = df_hw["Menge"] * df_hw["List_OTF"]
     total_base = sw_base.sum() + hw_base.sum()
 
-    if total_base > 0:
-        scale_factor = total_otf / total_base
-    else:
-        scale_factor = 0
+    scale_factor = total_otf / total_base if total_base > 0 else 0
 
+    # Mengen bleiben unverändert, nur Preise runden
     df_sw["OTF"] = (sw_base * scale_factor).round(0).astype(int)
     df_hw["OTF"] = (hw_base * scale_factor).round(0).astype(int)
 
     # ======================
-    # MRR Berechnung
+    # MRR Berechnung (Preise gerundet)
     # ======================
     fixed_mrr = {"Connect": 13.72}
     per_unit_mrr = {"TSE": 12.0}
@@ -590,28 +587,28 @@ def show_contractnumbers():
     fixed_total = sum(fixed_active.values())
 
     per_unit_total = sum(df_sw.loc[df_sw["Produkt"]==prod,"Menge"].iloc[0]*val for prod,val in per_unit_mrr.items())
-    total_mrr_rest = max(total_mrr - fixed_total - per_unit_total,0)
+    total_mrr_rest = max(total_mrr - fixed_total - per_unit_total, 0)
 
     variable_sw = df_sw[~df_sw["Produkt"].isin(list(fixed_mrr.keys()) + list(per_unit_mrr.keys()))]
     variable_values = variable_sw["Menge"] * variable_sw["List_MRR"]
 
     if variable_values.sum() > 0:
         prop = variable_values / variable_values.sum()
-        mrr_rest_values = prop * total_mrr_rest
+        mrr_rest_values = (prop * total_mrr_rest).round(0)
     else:
         mrr_rest_values = [0]*len(variable_sw)
 
     df_sw.loc[variable_sw.index,"MRR_Monat"] = mrr_rest_values
-    df_sw.loc[variable_sw.index,"MRR_Woche"] = [v/4 for v in mrr_rest_values]
+    df_sw.loc[variable_sw.index,"MRR_Woche"] = (mrr_rest_values / 4).round(2)
 
-    for prod,val in fixed_active.items():
-        df_sw.loc[df_sw["Produkt"]==prod,"MRR_Monat"] = val
-        df_sw.loc[df_sw["Produkt"]==prod,"MRR_Woche"] = val/4
+    for prod, val in fixed_active.items():
+        df_sw.loc[df_sw["Produkt"]==prod,"MRR_Monat"] = round(val)
+        df_sw.loc[df_sw["Produkt"]==prod,"MRR_Woche"] = round(val/4, 2)
 
-    for prod,val in per_unit_mrr.items():
+    for prod, val in per_unit_mrr.items():
         qty = df_sw.loc[df_sw["Produkt"]==prod,"Menge"].iloc[0]
-        df_sw.loc[df_sw["Produkt"]==prod,"MRR_Monat"] = qty*val
-        df_sw.loc[df_sw["Produkt"]==prod,"MRR_Woche"] = (qty*val)/4
+        df_sw.loc[df_sw["Produkt"]==prod,"MRR_Monat"] = round(qty*val)
+        df_sw.loc[df_sw["Produkt"]==prod,"MRR_Woche"] = round((qty*val)/4, 2)
 
     df_hw["MRR_Monat"] = 0
     df_hw["MRR_Woche"] = 0
