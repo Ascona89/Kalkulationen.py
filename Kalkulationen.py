@@ -288,7 +288,7 @@ def show_radien():
     import streamlit as st
     from streamlit_folium import st_folium
 
-    st.header("🗺️ Radien um Stadt, Adresse oder PLZ (Cloud-stabil)")
+    st.header("🗺️ Radien um eine Adresse, Stadt oder PLZ – mehrere Radien möglich")
 
     CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
 
@@ -298,6 +298,10 @@ def show_radien():
     @st.cache_data
     def load_plz_data():
         df = pd.read_csv(CSV_URL, dtype=str)
+        for col in ["plz", "lat", "lon"]:
+            if col not in df.columns:
+                st.error(f"Spalte '{col}' fehlt in der CSV!")
+                st.stop()
         df["lat"] = df["lat"].astype(float)
         df["lon"] = df["lon"].astype(float)
         return df
@@ -308,12 +312,11 @@ def show_radien():
     # Inputs
     # ======================
     user_input = st.text_input(
-        "📍 Stadt, Adresse oder PLZ eingeben",
-        placeholder="z.B. Berlin, Alexanderplatz 1 oder 10115"
+        "📍 Adresse, Stadt oder PLZ eingeben (z.B. Berlin, Alexanderplatz 1 oder 10115)"
     )
 
     radien_input = st.text_input(
-        "📏 Radien in km (Komma-getrennt)",
+        "📏 Radien eingeben (km, durch Komma getrennt, z.B. 5,10)",
         value="5,10"
     )
 
@@ -333,27 +336,41 @@ def show_radien():
             return
         lat_c = plz_match.iloc[0]["lat"]
         lon_c = plz_match.iloc[0]["lon"]
-        location_name = f"PLZ {user_input.strip()}"
+        location_name = f"PLZ: {user_input.strip()}"
 
-    # 2️⃣ Photon API (Cloud-safe)
+    # 2️⃣ Photon Geocoding (cloud-tauglich)
     else:
+        headers = {
+            "User-Agent": "kalkulations-app/1.0 (contact: support@example.com)"
+        }
+
         try:
             response = requests.get(
                 "https://photon.komoot.io/api/",
-                params={"q": user_input, "limit": 1},
+                params={
+                    "q": user_input,
+                    "limit": 1,
+                    "lang": "de"
+                },
+                headers=headers,
                 timeout=10
             )
+
+            if response.status_code != 200:
+                st.error(f"🌍 Geocoding fehlgeschlagen (Status {response.status_code})")
+                return
+
             data = response.json()
 
-            if not data["features"]:
-                st.error("❌ Ort/Adresse nicht gefunden.")
+            if "features" not in data or len(data["features"]) == 0:
+                st.error("❌ Adresse/Stadt/PLZ konnte nicht gefunden werden.")
                 return
 
             coords = data["features"][0]["geometry"]["coordinates"]
             lon_c, lat_c = coords[0], coords[1]
             location_name = user_input.strip()
 
-        except Exception as e:
+        except requests.exceptions.RequestException:
             st.error("🌍 Geocoding-Service aktuell nicht erreichbar.")
             return
 
@@ -363,11 +380,11 @@ def show_radien():
     try:
         radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
     except ValueError:
-        st.error("❌ Radien müssen Zahlen sein (z.B. 5,10,20)")
+        st.error("Bitte nur Zahlen für Radien eingeben, getrennt durch Komma.")
         return
 
-    if not radien:
-        st.error("❌ Mindestens ein Radius erforderlich.")
+    if len(radien) == 0:
+        st.error("Mindestens ein Radius erforderlich.")
         return
 
     # ======================
@@ -382,16 +399,16 @@ def show_radien():
         return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
     df_plz["distance_km"] = df_plz.apply(
-        lambda r: haversine(lat_c, lon_c, r["lat"], r["lon"]), axis=1
+        lambda r: haversine(lat_c, lon_c, r["lat"], r["lon"]),
+        axis=1
     )
 
-    max_radius = max(radien)
-    df_result = df_plz[df_plz["distance_km"] <= max_radius].sort_values("distance_km")
+    df_result = df_plz[df_plz["distance_km"] <= max(radien)].sort_values("distance_km")
 
     # ======================
-    # Ergebnis
+    # Ergebnisse
     # ======================
-    st.success(f"✅ {len(df_result)} PLZ im Umkreis von {max_radius} km")
+    st.success(f"✅ {len(df_result)} PLZ im Umkreis (bis {max(radien)} km)")
     st.dataframe(
         df_result[["plz", "lat", "lon", "distance_km"]],
         use_container_width=True
@@ -417,6 +434,7 @@ def show_radien():
         ).add_to(m)
 
     st_folium(m, width=700, height=500)
+
 
 # =====================================================
 # Contract Numbers
