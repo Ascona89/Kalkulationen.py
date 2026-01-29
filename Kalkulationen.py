@@ -567,19 +567,15 @@ def show_contractnumbers():
     # ======================
     # OTF Berechnung
     # ======================
-
-    # Berechne Basiswerte
+    # Basiswerte für Software und Hardware
     sw_base = df_sw["Menge"] * df_sw["List_OTF"]
     hw_base = df_hw["Menge"] * df_hw["List_OTF"]
-
-    # Gesamt-OTF prüfen
     total_base = sw_base.sum() + hw_base.sum()
 
     if total_base > 0:
-    # Skaliere proportional auf eingegebenes total_otf
-    scale_factor = total_otf / total_base
+        scale_factor = total_otf / total_base
     else:
-    scale_factor = 0
+        scale_factor = 0
 
     df_sw["OTF"] = (sw_base * scale_factor).round(0).astype(int)
     df_hw["OTF"] = (hw_base * scale_factor).round(0).astype(int)
