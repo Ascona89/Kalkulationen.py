@@ -547,19 +547,13 @@ def show_contractnumbers():
         key="zahlungswahl"
     )
 
-    # Checkbox: Aufschlag abziehen
-    aufschlag_abziehen = st.checkbox("Aufschlag abziehen", value=False)
-    
-    # Faktor berechnen
-    prozent = zahlungs_optionen[zahlungswahl]
-    faktor_gesamt = 1 - prozent if aufschlag_abziehen else 1 + prozent
-
+    # ======================
+    # Verkäufe pro Produkt
+    # ======================
     st.markdown("---")
     st.subheader("📦 Verkäufe pro Produkt")
 
-    # ======================
     # Software Eingabefelder horizontal
-    # ======================
     st.markdown("### 💻 Software")
     sw_cols = st.columns(len(df_sw))
     for idx, row in df_sw.iterrows():
@@ -572,9 +566,7 @@ def show_contractnumbers():
                 key=f"qty_sw_input_{idx}"
             )
 
-    # ======================
     # Hardware Eingabefelder horizontal
-    # ======================
     st.markdown("### 🖨️ Hardware")
     hw_cols = st.columns(len(df_hw))
     for idx, row in df_hw.iterrows():
@@ -594,16 +586,17 @@ def show_contractnumbers():
     df_hw["Menge"] = [st.session_state[f"qty_hw_{i}"] for i in range(len(df_hw))]
 
     # ======================
-    # OTF Berechnung mit Faktor
+    # OTF Berechnung mit Zahlungsoption
     # ======================
-    sw_base = df_sw["Menge"] * df_sw["List_OTF"] * faktor_gesamt
-    hw_base = df_hw["Menge"] * df_hw["List_OTF"] * faktor_gesamt
-    total_base = sw_base.sum() + hw_base.sum()
+    prozent = zahlungs_optionen[zahlungswahl]
+    otf_adjusted = total_otf * (1 - prozent)  # Prozentsatz von OTF abziehen, wenn Option gewählt
 
-    scale_factor = total_otf / total_base if total_base > 0 else 0
+    # Berechne proportional die OTF auf die Produkte
+    total_base = (df_sw["Menge"] * df_sw["List_OTF"]).sum() + (df_hw["Menge"] * df_hw["List_OTF"]).sum()
+    scale_factor = otf_adjusted / total_base if total_base > 0 else 0
 
-    df_sw["OTF"] = (sw_base * scale_factor).round(0).astype(int)
-    df_hw["OTF"] = (hw_base * scale_factor).round(0).astype(int)
+    df_sw["OTF"] = (df_sw["Menge"] * df_sw["List_OTF"] * scale_factor).round(0).astype(int)
+    df_hw["OTF"] = (df_hw["Menge"] * df_hw["List_OTF"] * scale_factor).round(0).astype(int)
 
     # ======================
     # MRR Berechnung
