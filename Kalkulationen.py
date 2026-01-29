@@ -526,6 +526,40 @@ def show_contractnumbers():
         total_otf = st.number_input("💶 Gesamt OTF (€)", min_value=0.0, step=100.0, key="total_otf")
 
     st.markdown("---")
+    
+    # ======================
+    # Auswahlfelder für Zahlungsoptionen
+    # ======================
+    st.subheader("💳 Zahlungsoption wählen (Pflichtfeld)")
+
+    zahlungs_optionen = {
+        "Vorauszahlung (100% Vorauszahlung) 5% Rabatt": -0.05,
+        "Gemischte Zahlung (25% Vorauszahlung + 12 wöchentliche Raten) 10% Aufschlag": 0.10,
+        "Zahlung aus Online-Umsatz (100% Vorauszahlung) 10% Aufschlag": 0.10,
+        "Monatliche Raten (Bis zu 12 monatliche Raten, 35% Aufschlag)": 0.35,
+        "Andere Sonderkondition": 0.0  # z.B. neutral
+    }
+
+    zahlungswahl = st.radio(
+        "Wähle die Zahlungsoption:",
+        options=list(zahlungs_optionen.keys()),
+        index=0,
+        key="zahlungswahl"
+    )
+
+    otf_optionen = {
+        "OTF beibehalten": 0.0,
+        "OTF anpassen": 0.35
+    }
+
+    otf_wahl = st.radio(
+        "Wähle OTF-Verhalten:",
+        options=list(otf_optionen.keys()),
+        index=0,
+        key="otf_wahl"
+    )
+
+    st.markdown("---")
     st.subheader("📦 Verkäufe pro Produkt")
 
     # ======================
@@ -565,13 +599,27 @@ def show_contractnumbers():
     df_hw["Menge"] = [st.session_state[f"qty_hw_{i}"] for i in range(len(df_hw))]
 
     # ======================
-    # OTF Berechnung (proportional & Preise gerundet)
+    # OTF Berechnung mit Zahlungsfaktor
     # ======================
-    sw_base = df_sw["Menge"] * df_sw["List_OTF"]
-    hw_base = df_hw["Menge"] * df_hw["List_OTF"]
+    # Faktor aus beiden Auswahlfeldern
+    zahlungsfaktor = zahlungs_optionen[zahlungswahl]
+    otf_faktor = otf_optionen[otf_wahl]
+
+    if otf_wahl == "OTF beibehalten":
+        # OTF wird ggf. reduziert bei Zahlungsoption (z.B. Monatliche Raten -35%)
+        faktor_gesamt = 1 + zahlungsfaktor
+    else:
+        # OTF anpassen → + Aufschlag
+        faktor_gesamt = 1 + otf_faktor
+
+    sw_base = df_sw["Menge"] * df_sw["List_OTF"] * faktor_gesamt
+    hw_base = df_hw["Menge"] * df_hw["List_OTF"] * faktor_gesamt
     total_base = sw_base.sum() + hw_base.sum()
 
-    scale_factor = total_otf / total_base if total_base > 0 else 0
+    if total_base > 0:
+        scale_factor = total_otf / total_base
+    else:
+        scale_factor = 0
 
     df_sw["OTF"] = (sw_base * scale_factor).round(0).astype(int)
     df_hw["OTF"] = (hw_base * scale_factor).round(0).astype(int)
