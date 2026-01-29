@@ -568,25 +568,29 @@ def show_contractnumbers():
     # ======================
     # OTF Berechnung
     # ======================
-    def proportional_round(values, total):
-        total_float = sum(values)
-        if total_float == 0:
-            return [0]*len(values)
-        scaled = [v/total_float * total for v in values]
-        floored = [math.floor(v) for v in scaled]
-        diff = int(round(total - sum(floored)))
-        for i in range(diff):
-            idx = scaled.index(max(scaled))
-            floored[idx] += 1
-            scaled[idx] = 0
-        return floored
 
-    otf_values = proportional_round(
-        list(df_sw["Menge"]*df_sw["List_OTF"]) + list(df_hw["Menge"]*df_hw["List_OTF"]),
-        total_otf
-    )
-    df_sw["OTF"] = otf_values[:len(df_sw)]
-    df_hw["OTF"] = otf_values[len(df_sw):]
+def proportional_round(values, total):
+    total_float = sum(values)
+    if total_float == 0:
+        return [0]*len(values)
+    scaled = [v/total_float * total for v in values]
+    floored = [math.floor(v) for v in scaled]
+    diff = int(round(total - sum(floored)))
+    for i in range(diff):
+        idx = scaled.index(max(scaled))
+        floored[idx] += 1
+        scaled[idx] = 0
+    return floored
+
+# Menge * Listenpreis für Software und Hardware
+otf_base_values = list(df_sw["Menge"] * df_sw["List_OTF"]) + list(df_hw["Menge"] * df_hw["List_OTF"])
+
+# Proportional auf Gesamt-OTF skalieren
+otf_values = proportional_round(otf_base_values, total_otf)
+
+df_sw["OTF"] = otf_values[:len(df_sw)]
+df_hw["OTF"] = otf_values[len(df_sw):]
+
 
     # ======================
     # MRR Berechnung
