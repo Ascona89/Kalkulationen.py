@@ -599,31 +599,44 @@ def show_contractnumbers():
     df_hw["OTF"] = (df_hw["Menge"] * df_hw["List_OTF"] * scale_factor).round(0).astype(int)
 
     # ======================
-    # MRR Berechnung: exakte Eingabe berücksichtigen
+    # MRR Berechnung exakt zur Eingabe
     # ======================
     fixed_mrr = {"Connect": 13.72}
     per_unit_mrr = {"TSE": 12.0}
 
-    # fixe Werte setzen
+    # feste Werte setzen
     for prod, val in fixed_mrr.items():
         qty = df_sw.loc[df_sw["Produkt"]==prod, "Menge"].iloc[0]
-        df_sw.loc[df_sw["Produkt"]==prod, "MRR_Monat"] = val
+        df_sw.loc[df_sw["Produkt"]==prod, "MRR_Monat"] = round(val,2)
         df_sw.loc[df_sw["Produkt"]==prod, "MRR_Woche"] = round(val/4,2)
 
     for prod, val in per_unit_mrr.items():
         qty = df_sw.loc[df_sw["Produkt"]==prod, "Menge"].iloc[0]
-        df_sw.loc[df_sw["Produkt"]==prod, "MRR_Monat"] = qty*val
+        df_sw.loc[df_sw["Produkt"]==prod, "MRR_Monat"] = round(qty*val,2)
         df_sw.loc[df_sw["Produkt"]==prod, "MRR_Woche"] = round((qty*val)/4,2)
 
-    # übrige variable Produkte proportional verteilen
+    # variable Produkte proportional verteilen
     variable_sw = df_sw[~df_sw["Produkt"].isin(list(fixed_mrr.keys()) + list(per_unit_mrr.keys()))]
     variable_values = variable_sw["Menge"] * variable_sw["List_MRR"]
     total_variable = variable_values.sum()
 
     rest_mrr = total_mrr - df_sw.loc[df_sw["Produkt"].isin(list(fixed_mrr.keys()) + list(per_unit_mrr.keys())), "MRR_Monat"].sum()
+
+    def proportional_round(values, target_total):
+        """Proportional auf Werte verteilen und so runden, dass Summe = target_total"""
+        if sum(values) == 0:
+            return [0]*len(values)
+        scaled = [v/sum(values)*target_total for v in values]
+        floored = [round(v,2) for v in scaled]
+        diff = round(target_total - sum(floored),2)
+        for i in range(int(abs(diff*100))):  # adjust cent by cent
+            idx = scaled.index(max(scaled))
+            floored[idx] += 0.01 if diff > 0 else -0.01
+            scaled[idx] = 0
+        return [round(v,2) for v in floored]
+
     if total_variable > 0:
-        prop = variable_values / total_variable
-        df_sw.loc[variable_sw.index, "MRR_Monat"] = (prop * rest_mrr).round(2)
+        df_sw.loc[variable_sw.index, "MRR_Monat"] = proportional_round(variable_values.tolist(), rest_mrr)
         df_sw.loc[variable_sw.index, "MRR_Woche"] = (df_sw.loc[variable_sw.index, "MRR_Monat"]/4).round(2)
     else:
         df_sw.loc[variable_sw.index, "MRR_Monat"] = 0
