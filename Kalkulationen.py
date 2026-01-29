@@ -613,22 +613,30 @@ def show_contractnumbers():
     df_hw["MRR_Woche"] = 0
 
     # ======================
-    # Ergebnisse: Hardware Mehrfachauswahl anzeigen
+    # Ergebnisse: Software und Hardware getrennt
     # ======================
     st.markdown("---")
-    st.subheader("✅ Ergebnisse")
-    df_result = pd.concat([df_sw, df_hw], ignore_index=True)
-
-    for idx, row in df_result.iterrows():
+    
+    # Software Block
+    st.subheader("💻 Software")
+    for idx, row in df_sw.iterrows():
         cols = st.columns([2,1,1,1])
-        
-        # Hardware: Bei Mehrfachauswahl Menge × Einzelpreis = Gesamtpreis
-        if row["Typ"] == "Hardware" and row["Menge"] > 1:
+        cols[0].markdown(f"**{row['Produkt']}**")
+        cols[1].markdown(f"OTF: {row['OTF']} €")
+        cols[2].markdown(f"MRR/Monat: {row['MRR_Monat']:.2f} €")
+        cols[3].markdown(f"MRR/Woche: {row['MRR_Woche']:.2f} €")
+
+    st.markdown("---")
+
+    # Hardware Block
+    st.subheader("🖨️ Hardware")
+    for idx, row in df_hw.iterrows():
+        cols = st.columns([2,1,1,1])
+        if row["Menge"] > 1:
             single_price = round(row["OTF"] / row["Menge"])
             otf_display = f"{row['Menge']} × {single_price} € = {row['OTF']} €"
         else:
             otf_display = f"{row['OTF']} €"
-        
         cols[0].markdown(f"**{row['Produkt']}**")
         cols[1].markdown(f"OTF: {otf_display}")
         cols[2].markdown(f"MRR/Monat: {row['MRR_Monat']:.2f} €")
@@ -643,11 +651,11 @@ def show_contractnumbers():
         st.metric("💻 Software OTF", f"{df_sw['OTF'].sum()} €")
         st.metric("🖨️ Hardware OTF", f"{df_hw['OTF'].sum()} €")
     with col2:
-        st.metric("🧾 OTF berechnet", f"{df_result['OTF'].sum()} €")
+        st.metric("🧾 OTF berechnet", f"{df_sw['OTF'].sum() + df_hw['OTF'].sum()} €")
         st.metric("🧾 OTF Eingabe", f"{total_otf} €")
     with col3:
-        st.metric("💰 MRR / Monat", f"{df_result['MRR_Monat'].sum():.2f} €")
-        st.metric("📆 MRR / Woche", f"{df_result['MRR_Woche'].sum():.2f} €")
+        st.metric("💰 MRR / Monat", f"{df_sw['MRR_Monat'].sum() + df_hw['MRR_Monat'].sum():.2f} €")
+        st.metric("📆 MRR / Woche", f"{df_sw['MRR_Woche'].sum() + df_hw['MRR_Woche'].sum():.2f} €")
 
 # =====================================================
 # 🏗 Seitenlogik
