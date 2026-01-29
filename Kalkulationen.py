@@ -440,6 +440,7 @@ def show_radien():
 # Contract Numbers
 # =====================================================
 
+
 def show_contractnumbers():
     st.header("📑 Contract Numbers")
 
@@ -521,33 +522,54 @@ def show_contractnumbers():
     df_hw["OTF"] = otf_values[len(df_sw):]
 
     # ====================== MRR ======================
-    # Fixe MRR für Connect und TSE
+    # Fixe und pro Stück MRR
     fixed_mrr = {
-        "Connect": 13.72,
+        "Connect": 13.72
+    }
+    per_unit_mrr = {
         "TSE": 12.0
     }
-    fixed_mrr_week = {k: v/4 for k, v in fixed_mrr.items()}
+
+    # Fix pro Vertrag nur wenn Menge > 0
+    fixed_active = {
+        prod: val
+        for prod, val in fixed_mrr.items()
+        if df_sw.loc[df_sw["Produkt"] == prod, "Menge"].iloc[0] > 0
+    }
+    fixed_total = sum(fixed_active.values())
+
+    # Pro Stück MRR (z.B. TSE)
+    per_unit_total = sum(
+        df_sw.loc[df_sw["Produkt"] == prod, "Menge"].iloc[0] * val
+        for prod, val in per_unit_mrr.items()
+    )
 
     # Restliche MRR für andere Software-Produkte
-    total_fixed = sum(fixed_mrr.values())
-    total_mrr_rest = max(total_mrr - total_fixed, 0)
+    total_mrr_rest = max(total_mrr - fixed_total - per_unit_total, 0)
+    variable_sw = df_sw[
+        ~df_sw["Produkt"].isin(list(fixed_mrr.keys()) + list(per_unit_mrr.keys()))
+    ]
+    variable_values = variable_sw["Menge"] * variable_sw["List_MRR"]
 
-    other_sw_indexes = df_sw[~df_sw["Produkt"].isin(fixed_mrr.keys())].index
-    other_sw_values = df_sw.loc[other_sw_indexes, "Menge"] * df_sw.loc[other_sw_indexes, "List_MRR"]
-
-    if other_sw_values.sum() > 0:
-        prop = other_sw_values / other_sw_values.sum()
-        mrr_rest_values = (prop * total_mrr_rest).tolist()
+    if variable_values.sum() > 0:
+        prop = variable_values / variable_values.sum()
+        mrr_rest_values = prop * total_mrr_rest
     else:
-        mrr_rest_values = [0]*len(other_sw_values)
+        mrr_rest_values = [0] * len(variable_sw)
 
-    # MRR Monat und Woche setzen
-    df_sw.loc[other_sw_indexes, "MRR_Monat"] = mrr_rest_values
-    df_sw.loc[other_sw_indexes, "MRR_Woche"] = [v/4 for v in mrr_rest_values]
+    df_sw.loc[variable_sw.index, "MRR_Monat"] = mrr_rest_values
+    df_sw.loc[variable_sw.index, "MRR_Woche"] = [v/4 for v in mrr_rest_values]
 
-    for prod, val in fixed_mrr.items():
+    # Fixe MRR setzen
+    for prod, val in fixed_active.items():
         df_sw.loc[df_sw["Produkt"] == prod, "MRR_Monat"] = val
-        df_sw.loc[df_sw["Produkt"] == prod, "MRR_Woche"] = val/4
+        df_sw.loc[df_sw["Produkt"] == prod, "MRR_Woche"] = val / 4
+
+    # Pro Stück MRR setzen
+    for prod, val in per_unit_mrr.items():
+        qty = df_sw.loc[df_sw["Produkt"] == prod, "Menge"].iloc[0]
+        df_sw.loc[df_sw["Produkt"] == prod, "MRR_Monat"] = qty * val
+        df_sw.loc[df_sw["Produkt"] == prod, "MRR_Woche"] = (qty * val) / 4
 
     df_hw["MRR_Monat"] = 0
     df_hw["MRR_Woche"] = 0
@@ -577,6 +599,7 @@ def show_contractnumbers():
     with col3:
         st.metric("💰 MRR / Monat", f"{df_result['MRR_Monat'].sum():.2f} €")
         st.metric("📆 MRR / Woche", f"{df_result['MRR_Woche'].sum():.2f} €")
+
 
 # =====================================================
 # 🏗 Seitenlogik
