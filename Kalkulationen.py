@@ -488,11 +488,13 @@ def show_radien():
 # =====================================================
 # Contract Numbers
 # =====================================================
+
+import streamlit as st
+import pandas as pd
+import math
+
 def show_contractnumbers():
     st.header("📑 Contract Numbers")
-
-    import pandas as pd
-    import streamlit as st
 
     # ======================
     # Produkte
