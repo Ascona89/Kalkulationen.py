@@ -614,7 +614,7 @@ def show_contractnumbers():
     df_hw["MRR_Woche"] = 0
 
     # ======================
-    # Ergebnisse
+    # Ergebnisse mit Menge × Einzelpreis = Gesamtpreis
     # ======================
     st.markdown("---")
     st.subheader("✅ Ergebnisse")
@@ -622,8 +622,13 @@ def show_contractnumbers():
 
     for idx, row in df_result.iterrows():
         cols = st.columns([2,1,1,1])
+        if row['Menge'] > 0:
+            single_price = round(row['OTF'] / row['Menge'])
+            otf_display = f"{row['Menge']} × {single_price} € = {row['OTF']} €"
+        else:
+            otf_display = f"{row['OTF']} €"
         cols[0].markdown(f"**{row['Produkt']}**")
-        cols[1].markdown(f"OTF: {row['OTF']} €")
+        cols[1].markdown(f"OTF: {otf_display}")
         cols[2].markdown(f"MRR/Monat: {row['MRR_Monat']:.2f} €")
         cols[3].markdown(f"MRR/Woche: {row['MRR_Woche']:.2f} €")
 
