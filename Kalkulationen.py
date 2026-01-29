@@ -573,7 +573,6 @@ def show_contractnumbers():
 
     scale_factor = total_otf / total_base if total_base > 0 else 0
 
-    # Mengen bleiben unverändert, nur Preise runden
     df_sw["OTF"] = (sw_base * scale_factor).round(0).astype(int)
     df_hw["OTF"] = (hw_base * scale_factor).round(0).astype(int)
 
@@ -614,7 +613,7 @@ def show_contractnumbers():
     df_hw["MRR_Woche"] = 0
 
     # ======================
-    # Ergebnisse mit Menge × Einzelpreis = Gesamtpreis
+    # Ergebnisse: Hardware Mehrfachauswahl anzeigen
     # ======================
     st.markdown("---")
     st.subheader("✅ Ergebnisse")
@@ -622,11 +621,14 @@ def show_contractnumbers():
 
     for idx, row in df_result.iterrows():
         cols = st.columns([2,1,1,1])
-        if row['Menge'] > 0:
-            single_price = round(row['OTF'] / row['Menge'])
+        
+        # Hardware: Bei Mehrfachauswahl Menge × Einzelpreis = Gesamtpreis
+        if row["Typ"] == "Hardware" and row["Menge"] > 1:
+            single_price = round(row["OTF"] / row["Menge"])
             otf_display = f"{row['Menge']} × {single_price} € = {row['OTF']} €"
         else:
             otf_display = f"{row['OTF']} €"
+        
         cols[0].markdown(f"**{row['Produkt']}**")
         cols[1].markdown(f"OTF: {otf_display}")
         cols[2].markdown(f"MRR/Monat: {row['MRR_Monat']:.2f} €")
