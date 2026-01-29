@@ -219,24 +219,50 @@ def show_pricing():
         "List_MRR":[0]*6
     })
 
+    # ======================
+    # Session-State Initialisierung
+    # ======================
     for i in range(len(df_sw)):
         st.session_state.setdefault(f"sw_{i}", 0)
     for i in range(len(df_hw)):
         st.session_state.setdefault(f"hw_{i}", 0)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("Software")
-        for i, p in enumerate(df_sw["Produkt"]):
-            st.session_state[f"sw_{i}"] = st.number_input(p, min_value=0, step=1, key=f"sw_ui_{i}")
-    with col2:
-        st.subheader("Hardware")
-        for i, p in enumerate(df_hw["Produkt"]):
-            st.session_state[f"hw_{i}"] = st.number_input(p, min_value=0, step=1, key=f"hw_ui_{i}")
+    # ======================
+    # Eingabefelder horizontal nebeneinander
+    # ======================
+    st.subheader("💻 Software")
+    sw_cols = st.columns(len(df_sw))
+    for i, p in enumerate(df_sw["Produkt"]):
+        with sw_cols[i]:
+            st.session_state[f"sw_{i}"] = st.number_input(
+                p,
+                min_value=0,
+                step=1,
+                value=st.session_state[f"sw_{i}"],
+                key=f"sw_ui_{i}"
+            )
 
+    st.subheader("🖨️ Hardware")
+    hw_cols = st.columns(len(df_hw))
+    for i, p in enumerate(df_hw["Produkt"]):
+        with hw_cols[i]:
+            st.session_state[f"hw_{i}"] = st.number_input(
+                p,
+                min_value=0,
+                step=1,
+                value=st.session_state[f"hw_{i}"],
+                key=f"hw_ui_{i}"
+            )
+
+    # ======================
+    # Mengen übernehmen
+    # ======================
     df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
     df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
 
+    # ======================
+    # LIST Preise
+    # ======================
     list_otf = (df_sw["Menge"]*df_sw["List_OTF"]).sum() + (df_hw["Menge"]*df_hw["List_OTF"]).sum()
     min_otf = (df_sw["Menge"]*df_sw["Min_OTF"]).sum() + (df_hw["Menge"]*df_hw["Min_OTF"]).sum()
     list_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum()
@@ -247,11 +273,16 @@ def show_pricing():
     st.markdown(f"**MRR LIST gesamt:** {list_mrr:,.2f} €")
     st.markdown("---")
 
-    st.subheader("💸 Rabattfunktion")
+    # ======================
+    # Rabattfunktion
+    # ======================
     col_otf, col_otf_reason = st.columns([1,3])
     with col_otf:
-        st.session_state['discount_otf'] = st.selectbox("OTF Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], 
-                                                       index=[0,5,10,15,20,25,30,35,40,45,50].index(st.session_state.get('discount_otf',0)))
+        st.session_state['discount_otf'] = st.selectbox(
+            "OTF Rabatt (%)",
+            [0,5,10,15,20,25,30,35,40,45,50],
+            index=[0,5,10,15,20,25,30,35,40,45,50].index(st.session_state.get('discount_otf',0))
+        )
     with col_otf_reason:
         st.session_state['reason_otf'] = st.text_input("Grund OTF Rabatt", value=st.session_state.get('reason_otf',''))
         if st.session_state['discount_otf'] > 0 and len(st.session_state['reason_otf']) < 10:
@@ -259,15 +290,20 @@ def show_pricing():
 
     col_mrr, col_mrr_reason = st.columns([1,3])
     with col_mrr:
-        st.session_state['discount_mrr'] = st.selectbox("MRR Rabatt (%)", [0,5,10,15,20,25,30,35,40,45,50], 
-                                                       index=[0,5,10,15,20,25,30,35,40,45,50].index(st.session_state.get('discount_mrr',0)))
+        st.session_state['discount_mrr'] = st.selectbox(
+            "MRR Rabatt (%)",
+            [0,5,10,15,20,25,30,35,40,45,50],
+            index=[0,5,10,15,20,25,30,35,40,45,50].index(st.session_state.get('discount_mrr',0))
+        )
     with col_mrr_reason:
         st.session_state['reason_mrr'] = st.text_input("Grund MRR Rabatt", value=st.session_state.get('reason_mrr',''))
         if st.session_state['discount_mrr'] > 0 and len(st.session_state['reason_mrr']) < 10:
             st.warning("Bitte Begründung eintragen (mindestens 10 Zeichen).")
 
-    otf_discounted = list_otf * (1 - st.session_state['discount_otf']/100) if st.session_state['discount_otf'] > 0 and len(st.session_state['reason_otf']) >= 10 else list_otf
-    mrr_discounted = list_mrr * (1 - st.session_state['discount_mrr']/100) if st.session_state['discount_mrr'] > 0 and len(st.session_state['reason_mrr']) >= 10 else list_mrr
+    otf_discounted = list_otf * (1 - st.session_state['discount_otf']/100) \
+        if st.session_state['discount_otf'] > 0 and len(st.session_state['reason_otf']) >= 10 else list_otf
+    mrr_discounted = list_mrr * (1 - st.session_state['discount_mrr']/100) \
+        if st.session_state['discount_mrr'] > 0 and len(st.session_state['reason_mrr']) >= 10 else list_mrr
 
     st.info(f"OTF nach Rabatt: {otf_discounted:,.2f} €")
     st.info(f"MRR nach Rabatt: {mrr_discounted:,.2f} €")
@@ -276,6 +312,7 @@ def show_pricing():
     st.markdown("### 🔻 MIN PREISE")
     st.markdown(f"**OTF MIN gesamt:** {min_otf:,.2f} €")
     st.markdown(f"**MRR MIN gesamt:** {min_mrr:,.2f} €")
+
 
 # =====================================================
 # 🗺️ Radien
@@ -439,12 +476,9 @@ def show_radien():
 # =====================================================
 # Contract Numbers
 # =====================================================
-
-
 def show_contractnumbers():
     st.header("📑 Contract Numbers")
 
-    # ====================== Produkte ======================
     df_sw = pd.DataFrame({
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "TSE"],
         "List_OTF": [999, 49, 999, 49, 0, 0],
@@ -459,9 +493,24 @@ def show_contractnumbers():
         "Typ": ["Hardware"]*6
     })
 
-    df_products = pd.concat([df_sw, df_hw], ignore_index=True)
+    # ======================
+    # Sync mit Pricing
+    # ======================
+    for i in range(len(df_sw)):
+        if f"sw_{i}" in st.session_state:
+            st.session_state.setdefault(f"qty_sw_{i}", st.session_state[f"sw_{i}"])
+        else:
+            st.session_state.setdefault(f"qty_sw_{i}", 0)
 
-    # ====================== Eingaben ======================
+    for i in range(len(df_hw)):
+        if f"hw_{i}" in st.session_state:
+            st.session_state.setdefault(f"qty_hw_{i}", st.session_state[f"hw_{i}"])
+        else:
+            st.session_state.setdefault(f"qty_hw_{i}", 0)
+
+    # ======================
+    # Gesamt OTF / MRR
+    # ======================
     col1, col2 = st.columns(2)
     with col1:
         total_mrr = st.number_input("💶 Gesamt MRR (€)", min_value=0.0, step=50.0, key="total_mrr")
@@ -471,16 +520,18 @@ def show_contractnumbers():
     st.markdown("---")
     st.subheader("📦 Verkäufe pro Produkt")
 
-    # ====================== Eingabefelder nebeneinander ======================
+    # ======================
+    # Eingabefelder horizontal wie bei Pricing
+    # ======================
     st.markdown("### 💻 Software")
     sw_cols = st.columns(len(df_sw))
     for idx, row in df_sw.iterrows():
         with sw_cols[idx]:
-            st.session_state.setdefault(f"qty_sw_{idx}", 0)
             st.session_state[f"qty_sw_{idx}"] = st.number_input(
                 row["Produkt"],
                 min_value=0,
                 step=1,
+                value=st.session_state[f"qty_sw_{idx}"],
                 key=f"qty_sw_input_{idx}"
             )
 
@@ -488,19 +539,23 @@ def show_contractnumbers():
     hw_cols = st.columns(len(df_hw))
     for idx, row in df_hw.iterrows():
         with hw_cols[idx]:
-            st.session_state.setdefault(f"qty_hw_{idx}", 0)
             st.session_state[f"qty_hw_{idx}"] = st.number_input(
                 row["Produkt"],
                 min_value=0,
                 step=1,
+                value=st.session_state[f"qty_hw_{idx}"],
                 key=f"qty_hw_input_{idx}"
             )
 
-    # ====================== Berechnung OTF / MRR ======================
+    # ======================
+    # Mengen setzen
+    # ======================
     df_sw["Menge"] = [st.session_state[f"qty_sw_{i}"] for i in range(len(df_sw))]
     df_hw["Menge"] = [st.session_state[f"qty_hw_{i}"] for i in range(len(df_hw))]
 
-    # ====================== OTF ======================
+    # ======================
+    # OTF Berechnung
+    # ======================
     def proportional_round(values, total):
         total_float = sum(values)
         if total_float == 0:
@@ -521,73 +576,59 @@ def show_contractnumbers():
     df_sw["OTF"] = otf_values[:len(df_sw)]
     df_hw["OTF"] = otf_values[len(df_sw):]
 
-    # ====================== MRR ======================
-    # Fixe und pro Stück MRR
-    fixed_mrr = {
-        "Connect": 13.72
-    }
-    per_unit_mrr = {
-        "TSE": 12.0
-    }
+    # ======================
+    # MRR Berechnung
+    # ======================
+    fixed_mrr = {"Connect": 13.72}
+    per_unit_mrr = {"TSE": 12.0}
 
-    # Fix pro Vertrag nur wenn Menge > 0
-    fixed_active = {
-        prod: val
-        for prod, val in fixed_mrr.items()
-        if df_sw.loc[df_sw["Produkt"] == prod, "Menge"].iloc[0] > 0
-    }
+    fixed_active = {prod: val for prod, val in fixed_mrr.items() if df_sw.loc[df_sw["Produkt"]==prod,"Menge"].iloc[0]>0}
     fixed_total = sum(fixed_active.values())
 
-    # Pro Stück MRR (z.B. TSE)
-    per_unit_total = sum(
-        df_sw.loc[df_sw["Produkt"] == prod, "Menge"].iloc[0] * val
-        for prod, val in per_unit_mrr.items()
-    )
+    per_unit_total = sum(df_sw.loc[df_sw["Produkt"]==prod,"Menge"].iloc[0]*val for prod,val in per_unit_mrr.items())
+    total_mrr_rest = max(total_mrr - fixed_total - per_unit_total,0)
 
-    # Restliche MRR für andere Software-Produkte
-    total_mrr_rest = max(total_mrr - fixed_total - per_unit_total, 0)
-    variable_sw = df_sw[
-        ~df_sw["Produkt"].isin(list(fixed_mrr.keys()) + list(per_unit_mrr.keys()))
-    ]
+    variable_sw = df_sw[~df_sw["Produkt"].isin(list(fixed_mrr.keys()) + list(per_unit_mrr.keys()))]
     variable_values = variable_sw["Menge"] * variable_sw["List_MRR"]
 
     if variable_values.sum() > 0:
         prop = variable_values / variable_values.sum()
         mrr_rest_values = prop * total_mrr_rest
     else:
-        mrr_rest_values = [0] * len(variable_sw)
+        mrr_rest_values = [0]*len(variable_sw)
 
-    df_sw.loc[variable_sw.index, "MRR_Monat"] = mrr_rest_values
-    df_sw.loc[variable_sw.index, "MRR_Woche"] = [v/4 for v in mrr_rest_values]
+    df_sw.loc[variable_sw.index,"MRR_Monat"] = mrr_rest_values
+    df_sw.loc[variable_sw.index,"MRR_Woche"] = [v/4 for v in mrr_rest_values]
 
-    # Fixe MRR setzen
-    for prod, val in fixed_active.items():
-        df_sw.loc[df_sw["Produkt"] == prod, "MRR_Monat"] = val
-        df_sw.loc[df_sw["Produkt"] == prod, "MRR_Woche"] = val / 4
+    for prod,val in fixed_active.items():
+        df_sw.loc[df_sw["Produkt"]==prod,"MRR_Monat"] = val
+        df_sw.loc[df_sw["Produkt"]==prod,"MRR_Woche"] = val/4
 
-    # Pro Stück MRR setzen
-    for prod, val in per_unit_mrr.items():
-        qty = df_sw.loc[df_sw["Produkt"] == prod, "Menge"].iloc[0]
-        df_sw.loc[df_sw["Produkt"] == prod, "MRR_Monat"] = qty * val
-        df_sw.loc[df_sw["Produkt"] == prod, "MRR_Woche"] = (qty * val) / 4
+    for prod,val in per_unit_mrr.items():
+        qty = df_sw.loc[df_sw["Produkt"]==prod,"Menge"].iloc[0]
+        df_sw.loc[df_sw["Produkt"]==prod,"MRR_Monat"] = qty*val
+        df_sw.loc[df_sw["Produkt"]==prod,"MRR_Woche"] = (qty*val)/4
 
     df_hw["MRR_Monat"] = 0
     df_hw["MRR_Woche"] = 0
 
-    # ====================== Ergebnisse ======================
+    # ======================
+    # Ergebnisse
+    # ======================
     st.markdown("---")
     st.subheader("✅ Ergebnisse")
-
     df_result = pd.concat([df_sw, df_hw], ignore_index=True)
 
     for idx, row in df_result.iterrows():
-        cols = st.columns([2, 1, 1, 1])
+        cols = st.columns([2,1,1,1])
         cols[0].markdown(f"**{row['Produkt']}**")
         cols[1].markdown(f"OTF: {row['OTF']} €")
         cols[2].markdown(f"MRR/Monat: {row['MRR_Monat']:.2f} €")
         cols[3].markdown(f"MRR/Woche: {row['MRR_Woche']:.2f} €")
 
-    # ====================== Kontrolle ======================
+    # ======================
+    # Kontrollübersicht
+    # ======================
     st.subheader("📊 Kontrollübersicht")
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -599,7 +640,6 @@ def show_contractnumbers():
     with col3:
         st.metric("💰 MRR / Monat", f"{df_result['MRR_Monat'].sum():.2f} €")
         st.metric("📆 MRR / Woche", f"{df_result['MRR_Woche'].sum():.2f} €")
-
 
 # =====================================================
 # 🏗 Seitenlogik
