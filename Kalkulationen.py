@@ -164,10 +164,14 @@ def show_platform():
 # =====================================================
 # 💳 Cardpayment
 # =====================================================
+# =====================================================
+# 💳 Cardpayment
+# =====================================================
 def show_cardpayment():
     st.header("💳 Cardpayment Vergleich")
     col1, col2 = st.columns(2)
 
+    # --- Actual ---
     with col1:
         st.subheader("Actual")
         rev_a = persistent_number_input("Revenue (€)", "rev_a", 0.0, step=250.0)
@@ -176,18 +180,32 @@ def show_cardpayment():
         comm_a = persistent_number_input("Commission (%)", "comm_a", 1.39, step=0.01)
         auth_a = persistent_number_input("Authentification Fee (€)", "auth_a", 0.0)
 
+    # --- Offer ---
     with col2:
         st.subheader("Offer")
-        rev_o = persistent_number_input("Revenue (€)", "rev_o", rev_a, step=250.0)
-        sum_o = persistent_number_input("Sum of payments", "sum_o", sum_a, step=20.0)
+        # Spiegelung der Werte von Actual
+        rev_o_default = rev_a
+        sum_o_default = sum_a
+
+        # Wenn Offer noch nicht verändert wurde, wird automatisch Actual übernommen
+        rev_o = persistent_number_input("Revenue (€)", "rev_o", rev_o_default, step=250.0)
+        sum_o = persistent_number_input("Sum of payments", "sum_o", sum_o_default, step=20.0)
         mrr_o = persistent_number_input("Monthly Fee (€)", "mrr_o", 0.0, step=5.0)
         comm_o = persistent_number_input("Commission (%)", "comm_o", 1.19, step=0.01)
         auth_o = persistent_number_input("Authentification Fee (€)", "auth_o", 0.06)
 
+        # Automatische Spiegelung, falls Offer noch auf Default
+        if "rev_o" not in st.session_state or st.session_state["rev_o"] == rev_o_default:
+            rev_o = rev_a
+        if "sum_o" not in st.session_state or st.session_state["sum_o"] == sum_o_default:
+            sum_o = sum_a
+
+    # --- Berechnungen ---
     total_actual = rev_a*(comm_a/100) + sum_a*auth_a + mrr_a
     total_offer  = rev_o*(comm_o/100) + sum_o*auth_o + mrr_o
     saving = total_offer - total_actual
 
+    # --- Anzeige ---
     st.markdown("---")
     col3, col4, col5 = st.columns(3)
     col3.markdown(f"<div style='color:red; font-size:28px;'>💳 {total_actual:,.2f} €</div>", unsafe_allow_html=True)
