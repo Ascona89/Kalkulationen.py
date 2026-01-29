@@ -164,7 +164,9 @@ def show_platform():
 # =====================================================
 # 💳 Cardpayment
 # =====================================================
-
+# =====================================================
+# 💳 Cardpayment
+# =====================================================
 def show_cardpayment():
     st.header("💳 Cardpayment Vergleich")
     col1, col2 = st.columns(2)
@@ -182,33 +184,17 @@ def show_cardpayment():
     with col2:
         st.subheader("Offer")
 
-        # Wenn Offer-Werte noch nicht existieren oder auf Default, dann automatisch Actual übernehmen
-        if "rev_o" not in st.session_state or st.session_state.get("rev_o_user_changed") is False:
-            st.session_state["rev_o"] = rev_a
-            st.session_state["rev_o_user_changed"] = False
-        if "sum_o" not in st.session_state or st.session_state.get("sum_o_user_changed") is False:
-            st.session_state["sum_o"] = sum_a
-            st.session_state["sum_o_user_changed"] = False
+        # Offer wird immer direkt aus Actual-Werten übernommen
+        rev_o = rev_a
+        sum_o = sum_a
 
-        # Number inputs für Offer
-        rev_o = persistent_number_input("Revenue (€)", "rev_o", st.session_state["rev_o"], step=250.0)
-        sum_o = persistent_number_input("Sum of payments", "sum_o", st.session_state["sum_o"], step=20.0)
         mrr_o = persistent_number_input("Monthly Fee (€)", "mrr_o", 0.0, step=5.0)
         comm_o = persistent_number_input("Commission (%)", "comm_o", 1.19, step=0.01)
         auth_o = persistent_number_input("Authentification Fee (€)", "auth_o", 0.06)
 
-        # Prüfen, ob User die Offer-Werte verändert hat
-        if rev_o != rev_a:
-            st.session_state["rev_o_user_changed"] = True
-        else:
-            st.session_state["rev_o_user_changed"] = False
-            st.session_state["rev_o"] = rev_a
-
-        if sum_o != sum_a:
-            st.session_state["sum_o_user_changed"] = True
-        else:
-            st.session_state["sum_o_user_changed"] = False
-            st.session_state["sum_o"] = sum_a
+        # Anzeige der synchronisierten Offer-Werte
+        st.markdown(f"Revenue (€): {rev_o:,.2f}")
+        st.markdown(f"Sum of payments: {sum_o:,.2f}")
 
     # --- Berechnungen ---
     total_actual = rev_a*(comm_a/100) + sum_a*auth_a + mrr_a
@@ -224,6 +210,7 @@ def show_cardpayment():
     col4.caption("Total Offer")
     col5.markdown(f"<div style='color:green; font-size:28px;'>💰 {saving:,.2f} €</div>", unsafe_allow_html=True)
     col5.caption("Ersparnis (Offer - Actual)")
+
 
 # =====================================================
 # 💰 Pricing
