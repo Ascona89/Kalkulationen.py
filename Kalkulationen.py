@@ -494,22 +494,19 @@ def show_contractnumbers():
     })
 
     # ======================
-    # Sync mit Pricing
+    # Sync mit Pricing als Initialwert
     # ======================
     for i in range(len(df_sw)):
-        if f"sw_{i}" in st.session_state:
-            st.session_state.setdefault(f"qty_sw_{i}", st.session_state[f"sw_{i}"])
-        else:
-            st.session_state.setdefault(f"qty_sw_{i}", 0)
+        # Wenn Contract Numbers-Wert noch nicht gesetzt, nutze Pricing
+        if f"qty_sw_{i}" not in st.session_state:
+            st.session_state[f"qty_sw_{i}"] = st.session_state.get(f"sw_{i}", 0)
 
     for i in range(len(df_hw)):
-        if f"hw_{i}" in st.session_state:
-            st.session_state.setdefault(f"qty_hw_{i}", st.session_state[f"hw_{i}"])
-        else:
-            st.session_state.setdefault(f"qty_hw_{i}", 0)
+        if f"qty_hw_{i}" not in st.session_state:
+            st.session_state[f"qty_hw_{i}"] = st.session_state.get(f"hw_{i}", 0)
 
     # ======================
-    # Gesamt OTF / MRR
+    # Gesamt OTF / MRR Eingabe
     # ======================
     col1, col2 = st.columns(2)
     with col1:
@@ -521,7 +518,7 @@ def show_contractnumbers():
     st.subheader("📦 Verkäufe pro Produkt")
 
     # ======================
-    # Eingabefelder horizontal wie bei Pricing
+    # Software Eingabefelder horizontal
     # ======================
     st.markdown("### 💻 Software")
     sw_cols = st.columns(len(df_sw))
@@ -535,6 +532,9 @@ def show_contractnumbers():
                 key=f"qty_sw_input_{idx}"
             )
 
+    # ======================
+    # Hardware Eingabefelder horizontal
+    # ======================
     st.markdown("### 🖨️ Hardware")
     hw_cols = st.columns(len(df_hw))
     for idx, row in df_hw.iterrows():
