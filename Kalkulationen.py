@@ -509,7 +509,6 @@ def show_contractnumbers():
     # Sync mit Pricing als Initialwert
     # ======================
     for i in range(len(df_sw)):
-        # Wenn Contract Numbers-Wert noch nicht gesetzt, nutze Pricing
         if f"qty_sw_{i}" not in st.session_state:
             st.session_state[f"qty_sw_{i}"] = st.session_state.get(f"sw_{i}", 0)
 
@@ -565,30 +564,30 @@ def show_contractnumbers():
     df_sw["Menge"] = [st.session_state[f"qty_sw_{i}"] for i in range(len(df_sw))]
     df_hw["Menge"] = [st.session_state[f"qty_hw_{i}"] for i in range(len(df_hw))]
 
-# ======================
-# OTF Berechnung
-# ======================
-def proportional_round(values, total):
-    total_float = sum(values)
-    if total_float == 0:
-        return [0]*len(values)
-    scaled = [v/total_float * total for v in values]
-    floored = [math.floor(v) for v in scaled]
-    diff = int(round(total - sum(floored)))
-    for i in range(diff):
-        idx = scaled.index(max(scaled))
-        floored[idx] += 1
-        scaled[idx] = 0
-    return floored
+    # ======================
+    # OTF Berechnung
+    # ======================
+    def proportional_round(values, total):
+        total_float = sum(values)
+        if total_float == 0:
+            return [0]*len(values)
+        scaled = [v/total_float * total for v in values]
+        floored = [math.floor(v) for v in scaled]
+        diff = int(round(total - sum(floored)))
+        for i in range(diff):
+            idx = scaled.index(max(scaled))
+            floored[idx] += 1
+            scaled[idx] = 0
+        return floored
 
-# Menge * Listenpreis für Software und Hardware berücksichtigen
-otf_base_values = list(df_sw["Menge"] * df_sw["List_OTF"]) + list(df_hw["Menge"] * df_hw["List_OTF"])
+    # Menge * Listenpreis für Software und Hardware berücksichtigen
+    otf_base_values = list(df_sw["Menge"] * df_sw["List_OTF"]) + list(df_hw["Menge"] * df_hw["List_OTF"])
 
-# Proportional auf Gesamt-OTF skalieren
-otf_values = proportional_round(otf_base_values, total_otf)
+    # Proportional auf Gesamt-OTF skalieren
+    otf_values = proportional_round(otf_base_values, total_otf)
 
-df_sw["OTF"] = otf_values[:len(df_sw)]
-df_hw["OTF"] = otf_values[len(df_sw):]
+    df_sw["OTF"] = otf_values[:len(df_sw)]
+    df_hw["OTF"] = otf_values[len(df_sw):]
 
     # ======================
     # MRR Berechnung
