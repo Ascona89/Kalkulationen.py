@@ -164,18 +164,22 @@ def show_platform():
 # =====================================================
 # 💳 Cardpayment
 # =====================================================
-# =====================================================
-# 💳 Cardpayment
-# =====================================================
 def show_cardpayment():
     st.header("💳 Cardpayment Vergleich")
+
+    # --- Gemeinsame Inputs für Revenue und Sum of Payments ---
+    col_rev, col_sum = st.columns(2)
+    with col_rev:
+        revenue = persistent_number_input("Revenue (€)", "revenue", 0.0, step=250.0)
+    with col_sum:
+        sum_payments = persistent_number_input("Sum of payments", "sum_payments", 0.0, step=20.0)
+
+    # --- Actual und Offer Inputs ---
     col1, col2 = st.columns(2)
 
     # --- Actual ---
     with col1:
         st.subheader("Actual")
-        rev_a = persistent_number_input("Revenue (€)", "rev_a", 0.0, step=250.0)
-        sum_a = persistent_number_input("Sum of payments", "sum_a", 0.0, step=20.0)
         mrr_a = persistent_number_input("Monthly Fee (€)", "mrr_a", 0.0, step=5.0)
         comm_a = persistent_number_input("Commission (%)", "comm_a", 1.39, step=0.01)
         auth_a = persistent_number_input("Authentification Fee (€)", "auth_a", 0.0)
@@ -183,22 +187,13 @@ def show_cardpayment():
     # --- Offer ---
     with col2:
         st.subheader("Offer")
-
-        # Offer wird immer direkt aus Actual-Werten übernommen
-        rev_o = rev_a
-        sum_o = sum_a
-
         mrr_o = persistent_number_input("Monthly Fee (€)", "mrr_o", 0.0, step=5.0)
         comm_o = persistent_number_input("Commission (%)", "comm_o", 1.19, step=0.01)
         auth_o = persistent_number_input("Authentification Fee (€)", "auth_o", 0.06)
 
-        # Anzeige der synchronisierten Offer-Werte
-        st.markdown(f"Revenue (€): {rev_o:,.2f}")
-        st.markdown(f"Sum of payments: {sum_o:,.2f}")
-
     # --- Berechnungen ---
-    total_actual = rev_a*(comm_a/100) + sum_a*auth_a + mrr_a
-    total_offer  = rev_o*(comm_o/100) + sum_o*auth_o + mrr_o
+    total_actual = revenue * (comm_a/100) + sum_payments * auth_a + mrr_a
+    total_offer  = revenue * (comm_o/100) + sum_payments * auth_o + mrr_o
     saving = total_offer - total_actual
 
     # --- Anzeige ---
@@ -210,7 +205,6 @@ def show_cardpayment():
     col4.caption("Total Offer")
     col5.markdown(f"<div style='color:green; font-size:28px;'>💰 {saving:,.2f} €</div>", unsafe_allow_html=True)
     col5.caption("Ersparnis (Offer - Actual)")
-
 
 # =====================================================
 # 💰 Pricing
