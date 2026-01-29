@@ -195,16 +195,19 @@ def show_cardpayment():
     total_actual = revenue * (comm_a/100) + sum_payments * auth_a + mrr_a
     total_offer  = revenue * (comm_o/100) + sum_payments * auth_o + mrr_o
     saving = total_offer - total_actual
+    saving_per_year = saving * 12
 
     # --- Anzeige ---
     st.markdown("---")
-    col3, col4, col5 = st.columns(3)
+    col3, col4, col5, col6 = st.columns(4)
     col3.markdown(f"<div style='color:red; font-size:28px;'>💳 {total_actual:,.2f} €</div>", unsafe_allow_html=True)
     col3.caption("Total Actual")
     col4.markdown(f"<div style='color:blue; font-size:28px;'>💳 {total_offer:,.2f} €</div>", unsafe_allow_html=True)
     col4.caption("Total Offer")
     col5.markdown(f"<div style='color:green; font-size:28px;'>💰 {saving:,.2f} €</div>", unsafe_allow_html=True)
     col5.caption("Ersparnis (Offer - Actual)")
+    col6.markdown(f"<div style='color:orange; font-size:28px;'>💸 {saving_per_year:,.2f} €</div>", unsafe_allow_html=True)
+    col6.caption("Ersparnis pro Jahr")
 
 # =====================================================
 # 💰 Pricing
