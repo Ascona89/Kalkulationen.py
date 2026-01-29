@@ -541,14 +541,13 @@ def show_contractnumbers():
     zahlungswahl = st.selectbox("Wähle die Zahlungsoption (optional):",
                                 options=list(zahlungs_optionen.keys()), index=0)
     prozent = zahlungs_optionen[zahlungswahl]
-    otf_adjusted = total_otf * (1 - prozent)
 
-    st.markdown("---")
+    # ======================
+    # Verkäufe pro Produkt
+    # ======================
     st.subheader("📦 Verkäufe pro Produkt")
 
-    # ======================
-    # Eingabefelder Software
-    # ======================
+    # Software Eingabe
     st.markdown("### 💻 Software")
     sw_cols = st.columns(len(df_sw))
     for idx, row in df_sw.iterrows():
@@ -558,9 +557,7 @@ def show_contractnumbers():
                 value=st.session_state[f"qty_sw_{idx}"], key=f"qty_sw_input_{idx}"
             )
 
-    # ======================
-    # Eingabefelder Hardware
-    # ======================
+    # Hardware Eingabe
     st.markdown("### 🖨️ Hardware")
     hw_cols = st.columns(len(df_hw))
     for idx, row in df_hw.iterrows():
@@ -577,12 +574,31 @@ def show_contractnumbers():
     df_hw["Menge"] = [st.session_state[f"qty_hw_{i}"] for i in range(len(df_hw))]
 
     # ======================
-    # OTF Berechnung
+    # OTF Berechnung korrekt mit prozentualem Abzug
     # ======================
     total_base = (df_sw["Menge"]*df_sw["List_OTF"]).sum() + (df_hw["Menge"]*df_hw["List_OTF"]).sum()
-    scale_factor = otf_adjusted / total_base if total_base > 0 else 0
-    df_sw["OTF"] = (df_sw["Menge"]*df_sw["List_OTF"]*scale_factor).round(0).astype(int)
-    df_hw["OTF"] = (df_hw["Menge"]*df_hw["List_OTF"]*scale_factor).round(0).astype(int)
+    adjusted_total_otf = total_otf * (1 - prozent)  # Prozentualer Abzug
+    scale_factor = adjusted_total_otf / total_base if total_base > 0 else 0
+
+    def proportional_round(values, target_total):
+        if sum(values) == 0:
+            return [0]*len(values)
+        scaled = [v/sum(values)*target_total for v in values]
+        floored = [round(v,0) for v in scaled]
+        diff = int(round(target_total - sum(floored)))
+        for i in range(diff):
+            idx = scaled.index(max(scaled))
+            floored[idx] += 1
+            scaled[idx] = 0
+        return floored
+
+    otf_values = proportional_round(
+        list(df_sw["Menge"]*df_sw["List_OTF"]*scale_factor) +
+        list(df_hw["Menge"]*df_hw["List_OTF"]*scale_factor),
+        round(adjusted_total_otf)
+    )
+    df_sw["OTF"] = otf_values[:len(df_sw)]
+    df_hw["OTF"] = otf_values[len(df_sw):]
 
     # ======================
     # MRR Berechnung exakt
@@ -590,15 +606,13 @@ def show_contractnumbers():
     fixed_mrr = {"Connect": 13.72}
     per_unit_mrr = {"TSE": 12.0}
 
-    # feste Werte setzen
-    for prod, val in fixed_mrr.items():
+    for prod,val in fixed_mrr.items():
         df_sw.loc[df_sw["Produkt"]==prod, "MRR_Monat"] = round(val,2)
-    for prod, val in per_unit_mrr.items():
-        qty = df_sw.loc[df_sw["Produkt"]==prod,"Menge"].iloc[0]
+    for prod,val in per_unit_mrr.items():
+        qty = df_sw.loc[df_sw["Produkt"]==prod, "Menge"].iloc[0]
         df_sw.loc[df_sw["Produkt"]==prod, "MRR_Monat"] = round(qty*val,2)
 
-    # variable Produkte proportional verteilen, so dass Monats-MRR exakt total_mrr
-    variable_sw = df_sw[~df_sw["Produkt"].isin(list(fixed_mrr.keys()) + list(per_unit_mrr.keys()))]
+    variable_sw = df_sw[~df_sw["Produkt"].isin(list(fixed_mrr.keys())+list(per_unit_mrr.keys()))]
     variable_values = (variable_sw["Menge"]*variable_sw["List_MRR"]).tolist()
     total_variable = sum(variable_values)
     rest_mrr = total_mrr - df_sw.loc[df_sw["Produkt"].isin(list(fixed_mrr.keys())+list(per_unit_mrr.keys())), "MRR_Monat"].sum()
@@ -609,25 +623,25 @@ def show_contractnumbers():
         scaled = [v/sum(values)*target for v in values]
         floored = [round(v,2) for v in scaled]
         diff = round(target - sum(floored),2)
-        i = 0
-        while abs(diff) > 0.001:
+        i=0
+        while abs(diff)>0.001:
             idx = i % len(floored)
-            if diff > 0:
-                floored[idx] += 0.01
-                diff -= 0.01
-            elif diff < 0:
-                floored[idx] -= 0.01
-                diff += 0.01
-            i += 1
+            if diff>0:
+                floored[idx]+=0.01
+                diff-=0.01
+            else:
+                floored[idx]-=0.01
+                diff+=0.01
+            i+=1
         return [round(v,2) for v in floored]
 
     if total_variable>0:
         df_sw.loc[variable_sw.index, "MRR_Monat"] = proportional_round_exact(variable_values, rest_mrr)
 
-    # Wöchentliche MRR exakt: Summe = Monats-MRR / 4
+    # Wöchentliche MRR exakt
     week_mrr_values = df_sw["MRR_Monat"].tolist()
-    week_mrr = proportional_round_exact([v/4 for v in week_mrr_values], sum(week_mrr_values)/4)
-    df_sw["MRR_Woche"] = week_mrr
+    df_sw["MRR_Woche"] = proportional_round_exact([v/4 for v in week_mrr_values], sum(week_mrr_values)/4)
+
     df_hw["MRR_Monat"] = 0
     df_hw["MRR_Woche"] = 0
 
