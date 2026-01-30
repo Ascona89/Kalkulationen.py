@@ -574,10 +574,16 @@ def show_contractnumbers():
     st.markdown("---")
     st.subheader("🖨️ Hardware")
     for _, r in df_hw[df_hw["Menge"] > 0].iterrows():
-        st.write(
-            f"**{r['Produkt']}** | "
-            f"{r['Menge']} × {int(r['OTF']/r['Menge'])} € = {int(r['OTF'])} €"
-        )
+        einzelpreis = int(r["OTF"] / r["Menge"]) if r["Menge"] > 0 else 0
+
+        if r["Menge"] > 1:
+            st.write(
+                f"**{r['Produkt']}** | {r['Menge']} × {einzelpreis} € = {int(r['OTF'])} €"
+            )
+        else:
+            st.write(
+                f"**{r['Produkt']}** | 1 × {einzelpreis} € = {int(r['OTF'])} €"
+            )
 
     st.markdown("---")
     st.subheader("📊 Kontrollübersicht")
