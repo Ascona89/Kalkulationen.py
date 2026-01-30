@@ -588,6 +588,15 @@ def show_contractnumbers():
     # ======================
     st.markdown("---")
     st.subheader("💻 Software")
+
+    # Kopfzeile
+    c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
+    c1.write("Produkt")
+    c2.write("OTF")
+    c3.write("MRR")
+    c4.write("WRR")
+
+    # Daten
     for _, r in df_sw[df_sw["Menge"] > 0].iterrows():
         menge = int(r["Menge"])
         otf = int(r["OTF"])
@@ -612,6 +621,15 @@ def show_contractnumbers():
     # ======================
     st.markdown("---")
     st.subheader("🖨️ Hardware")
+
+    # Kopfzeile
+    c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
+    c1.write("Produkt")
+    c2.write("OTF")
+    c3.write("")
+    c4.write("")
+
+    # Daten
     for _, r in df_hw[df_hw["Menge"] > 0].iterrows():
         menge = int(r["Menge"])
         gesamt = int(r["OTF"])
@@ -620,14 +638,14 @@ def show_contractnumbers():
         c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
         if menge == 1:
             c1.write(f"**{r['Produkt']}**")
-            c2.write("")
+            c2.write(f"{gesamt} €")
             c3.write("")
-            c4.write(f"{gesamt} €")
+            c4.write("")
         else:
             c1.write(f"**{menge}x {r['Produkt']}**")
-            c2.write(f"{menge}x{einzelpreis} €")
-            c3.write("=")
-            c4.write(f"{gesamt} €")
+            c2.write(f"{menge}x{einzelpreis} € = {gesamt} €")
+            c3.write("")
+            c4.write("")
 
     # ======================
     # Kontrollübersicht
