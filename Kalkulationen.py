@@ -272,6 +272,13 @@ def show_pricing():
     df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
     df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
 
+    # 👉 Übergabe an Contractnumbers (nur schreiben)
+    for i in range(len(df_sw)):
+    st.session_state[f"contract_sw_{i}"] = st.session_state[f"sw_{i}"]
+
+    for i in range(len(df_hw)):
+    st.session_state[f"contract_hw_{i}"] = st.session_state[f"hw_{i}"]
+
     # ======================
     # LIST Preise
     # ======================
@@ -516,9 +523,17 @@ def show_contractnumbers():
     # Session State
     # ======================
     for i in range(len(df_sw)):
-        st.session_state.setdefault(f"qty_sw_{i}", 0)
+    st.session_state.setdefault(
+        f"qty_sw_{i}",
+        st.session_state.get(f"contract_sw_{i}", 0)
+    )
+
     for i in range(len(df_hw)):
-        st.session_state.setdefault(f"qty_hw_{i}", 0)
+    st.session_state.setdefault(
+        f"qty_hw_{i}",
+        st.session_state.get(f"contract_hw_{i}", 0)
+    )
+
 
     # ======================
     # Eingaben
