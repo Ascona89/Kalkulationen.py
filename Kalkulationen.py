@@ -576,19 +576,24 @@ def show_contractnumbers():
 
     st.markdown("---")
     st.subheader("🖨️ Hardware")
+
     for _, r in df_hw[df_hw["Menge"] > 0].iterrows():
         menge = int(r["Menge"])
         gesamt = int(r["OTF"])
         einzelpreis = int(gesamt / menge) if menge > 0 else 0
 
+        c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
+
         if menge == 1:
-            st.write(
-                f"**{r['Produkt']}**\t\t{gesamt} €"
-            )
+            c1.write(f"**{r['Produkt']}**")
+            c2.write("")
+            c3.write("")
+            c4.write(f"**{gesamt} €**")
         else:
-            st.write(
-                f"**{menge}x {r['Produkt']}.**\t\t{menge}x{einzelpreis}€\t= {gesamt} €"
-            )
+            c1.write(f"**{menge}x {r['Produkt']}**")
+            c2.write(f"{menge}x {einzelpreis} €")
+            c3.write("=")
+            c4.write(f"**{gesamt} €**")
 
     st.markdown("---")
     st.subheader("📊 Kontrollübersicht")
