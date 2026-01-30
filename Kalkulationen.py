@@ -471,6 +471,9 @@ def show_radien():
 
     st_folium(m, width=700, height=500)
 
+# =====================================================
+# Conract Numbers
+# =====================================================
 
 def show_contractnumbers():
     st.header("📑 Contract Numbers")
@@ -574,15 +577,17 @@ def show_contractnumbers():
     st.markdown("---")
     st.subheader("🖨️ Hardware")
     for _, r in df_hw[df_hw["Menge"] > 0].iterrows():
-        einzelpreis = int(r["OTF"] / r["Menge"]) if r["Menge"] > 0 else 0
+        menge = int(r["Menge"])
+        gesamt = int(r["OTF"])
+        einzelpreis = int(gesamt / menge) if menge > 0 else 0
 
-        if r["Menge"] > 1:
+        if menge == 1:
             st.write(
-                f"**{r['Produkt']}** | {r['Menge']} × {einzelpreis} € = {int(r['OTF'])} €"
+                f"**{r['Produkt']}**\t\t{gesamt} €"
             )
         else:
             st.write(
-                f"**{r['Produkt']}** | 1 × {einzelpreis} € = {int(r['OTF'])} €"
+                f"**{menge}x {r['Produkt']}.**\t\t{menge}x{einzelpreis}€\t= {gesamt} €"
             )
 
     st.markdown("---")
@@ -591,6 +596,7 @@ def show_contractnumbers():
     st.write(f"OTF verwendet: {round(otf_adjusted)} €")
     st.write(f"MRR Monat: {total_mrr:.2f} €")
     st.write(f"MRR Woche: {(total_mrr/4):.2f} €")
+
 
 # =====================================================
 # 🏗 Seitenlogik
