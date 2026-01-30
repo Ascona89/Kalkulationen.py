@@ -474,7 +474,6 @@ def show_radien():
 # =====================================================
 # Conract Numbers
 # =====================================================
-
 def show_contractnumbers():
     st.header("📑 Contract Numbers")
 
@@ -576,9 +575,11 @@ def show_contractnumbers():
     df_hw["OTF"] = (df_hw["Menge"] * df_hw["List_OTF"] * factor).round(0)
 
     # ======================
-    # MRR Berechnung (FIX CONNECT)
+    # MRR Berechnung korrekt proportional
     # ======================
-    df_sw["MRR_Monat"] = (df_sw["Menge"] * df_sw["List_MRR"]).round(2)
+    mrr_base = (df_sw["Menge"] * df_sw["List_MRR"]).sum()
+    mrr_factor = total_mrr / mrr_base if mrr_base > 0 else 0
+    df_sw["MRR_Monat"] = (df_sw["Menge"] * df_sw["List_MRR"] * mrr_factor).round(2)
     df_sw["MRR_Woche"] = (df_sw["MRR_Monat"] / 4).round(2)
     df_hw["MRR_Monat"] = 0.0
     df_hw["MRR_Woche"] = 0.0
