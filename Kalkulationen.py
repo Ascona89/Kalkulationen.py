@@ -10,7 +10,7 @@ from geopy.geocoders import Nominatim
 # =====================================================
 # 🔐 Passwörter
 # =====================================================
-USER_PASSWORD = "welovekb"
+USER_PASSWORD = "oyysouth"
 ADMIN_PASSWORD = "sebaforceo"
 
 # =====================================================
