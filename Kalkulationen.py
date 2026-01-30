@@ -209,9 +209,6 @@ def show_cardpayment():
     col6.markdown(f"<div style='color:orange; font-size:28px;'>💸 {saving_per_year:,.2f} €</div>", unsafe_allow_html=True)
     col6.caption("Ersparnis pro Jahr")
 
-# =====================================================
-# 💰 Pricing
-# =====================================================
 def show_pricing():
     st.header("💰 Pricing Kalkulation")
 
@@ -231,17 +228,11 @@ def show_pricing():
         "List_MRR":[0]*6
     })
 
-    # ======================
-    # Session-State Initialisierung
-    # ======================
     for i in range(len(df_sw)):
         st.session_state.setdefault(f"sw_{i}", 0)
     for i in range(len(df_hw)):
         st.session_state.setdefault(f"hw_{i}", 0)
 
-    # ======================
-    # Eingabefelder horizontal nebeneinander
-    # ======================
     st.subheader("💻 Software")
     sw_cols = st.columns(len(df_sw))
     for i, p in enumerate(df_sw["Produkt"]):
@@ -266,22 +257,15 @@ def show_pricing():
                 key=f"hw_ui_{i}"
             )
 
-    # ======================
-    # Mengen übernehmen
-    # ======================
     df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
     df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
 
-    # 👉 Übergabe an Contractnumbers (nur schreiben)
+    # 🔁 Übergabe an Contract Numbers
     for i in range(len(df_sw)):
-    st.session_state[f"contract_sw_{i}"] = st.session_state[f"sw_{i}"]
-
+        st.session_state[f"contract_sw_{i}"] = st.session_state[f"sw_{i}"]
     for i in range(len(df_hw)):
-    st.session_state[f"contract_hw_{i}"] = st.session_state[f"hw_{i}"]
+        st.session_state[f"contract_hw_{i}"] = st.session_state[f"hw_{i}"]
 
-    # ======================
-    # LIST Preise
-    # ======================
     list_otf = (df_sw["Menge"]*df_sw["List_OTF"]).sum() + (df_hw["Menge"]*df_hw["List_OTF"]).sum()
     min_otf = (df_sw["Menge"]*df_sw["Min_OTF"]).sum() + (df_hw["Menge"]*df_hw["Min_OTF"]).sum()
     list_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum()
@@ -292,9 +276,6 @@ def show_pricing():
     st.markdown(f"**MRR LIST gesamt:** {list_mrr:,.2f} €")
     st.markdown("---")
 
-    # ======================
-    # Rabattfunktion
-    # ======================
     col_otf, col_otf_reason = st.columns([1,3])
     with col_otf:
         st.session_state['discount_otf'] = st.selectbox(
@@ -331,7 +312,6 @@ def show_pricing():
     st.markdown("### 🔻 MIN PREISE")
     st.markdown(f"**OTF MIN gesamt:** {min_otf:,.2f} €")
     st.markdown(f"**MRR MIN gesamt:** {min_mrr:,.2f} €")
-
 
 # =====================================================
 # 🗺️ Radien
@@ -492,19 +472,9 @@ def show_radien():
     st_folium(m, width=700, height=500)
 
 
-# =====================================================
-# Contract Numbers
-# =====================================================
-
-import streamlit as st
-import pandas as pd
-
 def show_contractnumbers():
     st.header("📑 Contract Numbers")
 
-    # ======================
-    # Produkte
-    # ======================
     df_sw = pd.DataFrame({
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "TSE"],
         "List_OTF": [999, 49, 999, 49, 0, 0],
@@ -519,34 +489,24 @@ def show_contractnumbers():
         "Typ": ["Hardware"] * 6
     })
 
-    # ======================
-    # Session State
-    # ======================
     for i in range(len(df_sw)):
-    st.session_state.setdefault(
-        f"qty_sw_{i}",
-        st.session_state.get(f"contract_sw_{i}", 0)
-    )
+        st.session_state.setdefault(
+            f"qty_sw_{i}",
+            st.session_state.get(f"contract_sw_{i}", 0)
+        )
 
     for i in range(len(df_hw)):
-    st.session_state.setdefault(
-        f"qty_hw_{i}",
-        st.session_state.get(f"contract_hw_{i}", 0)
-    )
+        st.session_state.setdefault(
+            f"qty_hw_{i}",
+            st.session_state.get(f"contract_hw_{i}", 0)
+        )
 
-
-    # ======================
-    # Eingaben
-    # ======================
     col1, col2 = st.columns(2)
     with col1:
         total_mrr = st.number_input("💶 Gesamt MRR (€)", min_value=0.0, step=50.0)
     with col2:
         total_otf = st.number_input("💶 Gesamt OTF (€)", min_value=0.0, step=100.0)
 
-    # ======================
-    # Zahlungsoption
-    # ======================
     st.subheader("💳 Zahlungsoption (optional)")
     zahlung = st.selectbox(
         "Auswahl",
@@ -572,9 +532,6 @@ def show_contractnumbers():
 
     st.caption(f"Verwendete OTF für Kalkulation: **{round(otf_adjusted)} €**")
 
-    # ======================
-    # Mengen Software
-    # ======================
     st.subheader("💻 Software")
     cols = st.columns(len(df_sw))
     for i, row in df_sw.iterrows():
@@ -583,9 +540,6 @@ def show_contractnumbers():
                 row["Produkt"], min_value=0, step=1, value=st.session_state[f"qty_sw_{i}"]
             )
 
-    # ======================
-    # Mengen Hardware
-    # ======================
     st.subheader("🖨️ Hardware")
     cols = st.columns(len(df_hw))
     for i, row in df_hw.iterrows():
@@ -597,27 +551,18 @@ def show_contractnumbers():
     df_sw["Menge"] = [st.session_state[f"qty_sw_{i}"] for i in range(len(df_sw))]
     df_hw["Menge"] = [st.session_state[f"qty_hw_{i}"] for i in range(len(df_hw))]
 
-    # ======================
-    # OTF Verteilung
-    # ======================
     base = (df_sw["Menge"] * df_sw["List_OTF"]).sum() + (df_hw["Menge"] * df_hw["List_OTF"]).sum()
     factor = otf_adjusted / base if base > 0 else 0
 
     df_sw["OTF"] = (df_sw["Menge"] * df_sw["List_OTF"] * factor).round(0)
     df_hw["OTF"] = (df_hw["Menge"] * df_hw["List_OTF"] * factor).round(0)
 
-    # ======================
-    # MRR Berechnung (FIX CONNECT)
-    # ======================
     df_sw["MRR_Monat"] = (df_sw["Menge"] * df_sw["List_MRR"]).round(2)
     df_sw["MRR_Woche"] = (df_sw["MRR_Monat"] / 4).round(2)
 
     df_hw["MRR_Monat"] = 0.0
     df_hw["MRR_Woche"] = 0.0
 
-    # ======================
-    # Ergebnisse
-    # ======================
     st.markdown("---")
     st.subheader("💻 Software")
     for _, r in df_sw[df_sw["Menge"] > 0].iterrows():
@@ -634,9 +579,6 @@ def show_contractnumbers():
             f"{r['Menge']} × {int(r['OTF']/r['Menge'])} € = {int(r['OTF'])} €"
         )
 
-    # ======================
-    # Kontrolle
-    # ======================
     st.markdown("---")
     st.subheader("📊 Kontrollübersicht")
     st.write(f"OTF Eingabe: {total_otf} €")
