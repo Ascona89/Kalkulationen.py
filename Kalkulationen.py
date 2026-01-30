@@ -492,24 +492,20 @@ def show_contractnumbers():
         "Typ": ["Hardware"] * 6
     })
 
+    # Session-State Initialisierung
     for i in range(len(df_sw)):
-        st.session_state.setdefault(
-            f"qty_sw_{i}",
-            st.session_state.get(f"contract_sw_{i}", 0)
-        )
-
+        st.session_state.setdefault(f"qty_sw_{i}", st.session_state.get(f"contract_sw_{i}", 0))
     for i in range(len(df_hw)):
-        st.session_state.setdefault(
-            f"qty_hw_{i}",
-            st.session_state.get(f"contract_hw_{i}", 0)
-        )
+        st.session_state.setdefault(f"qty_hw_{i}", st.session_state.get(f"contract_hw_{i}", 0))
 
+    # Gesamt MRR & OTF Eingabe
     col1, col2 = st.columns(2)
     with col1:
         total_mrr = st.number_input("💶 Gesamt MRR (€)", min_value=0.0, step=50.0)
     with col2:
         total_otf = st.number_input("💶 Gesamt OTF (€)", min_value=0.0, step=100.0)
 
+    # Zahlungsoption
     st.subheader("💳 Zahlungsoption (optional)")
     zahlung = st.selectbox(
         "Auswahl",
@@ -521,7 +517,6 @@ def show_contractnumbers():
             "Online-Umsatz (25% + 12 Wochen) 15%"
         ]
     )
-
     prozent_map = {
         "Keine": 0,
         "Gemischte Zahlung (25% + 12 Wochen) 10%": 0.10,
@@ -529,12 +524,11 @@ def show_contractnumbers():
         "Monatliche Raten (12 Monate) 35%": 0.35,
         "Online-Umsatz (25% + 12 Wochen) 15%": 0.15
     }
-
     prozent = prozent_map[zahlung]
     otf_adjusted = total_otf * (1 - prozent)
-
     st.caption(f"Verwendete OTF für Kalkulation: **{round(otf_adjusted)} €**")
 
+    # Eingaben Software
     st.subheader("💻 Software")
     cols = st.columns(len(df_sw))
     for i, row in df_sw.iterrows():
@@ -543,6 +537,7 @@ def show_contractnumbers():
                 row["Produkt"], min_value=0, step=1, value=st.session_state[f"qty_sw_{i}"]
             )
 
+    # Eingaben Hardware
     st.subheader("🖨️ Hardware")
     cols = st.columns(len(df_hw))
     for i, row in df_hw.iterrows():
@@ -551,49 +546,62 @@ def show_contractnumbers():
                 row["Produkt"], min_value=0, step=1, value=st.session_state[f"qty_hw_{i}"]
             )
 
+    # Menge und OTF berechnen
     df_sw["Menge"] = [st.session_state[f"qty_sw_{i}"] for i in range(len(df_sw))]
     df_hw["Menge"] = [st.session_state[f"qty_hw_{i}"] for i in range(len(df_hw))]
-
     base = (df_sw["Menge"] * df_sw["List_OTF"]).sum() + (df_hw["Menge"] * df_hw["List_OTF"]).sum()
     factor = otf_adjusted / base if base > 0 else 0
-
     df_sw["OTF"] = (df_sw["Menge"] * df_sw["List_OTF"] * factor).round(0)
     df_hw["OTF"] = (df_hw["Menge"] * df_hw["List_OTF"] * factor).round(0)
-
     df_sw["MRR_Monat"] = (df_sw["Menge"] * df_sw["List_MRR"]).round(2)
     df_sw["MRR_Woche"] = (df_sw["MRR_Monat"] / 4).round(2)
-
     df_hw["MRR_Monat"] = 0.0
     df_hw["MRR_Woche"] = 0.0
 
+    # -----------------------------
+    # Ergebnisse Software
+    # -----------------------------
     st.markdown("---")
     st.subheader("💻 Software")
     for _, r in df_sw[df_sw["Menge"] > 0].iterrows():
-        st.write(
-            f"**{r['Produkt']}** | OTF: {int(r['OTF'])} € | "
-            f"MRR: {r['MRR_Monat']:.2f} € / {r['MRR_Woche']:.2f} €"
-        )
+        menge = int(r["Menge"])
+        otf = int(r["OTF"])
+        mrr_mon = r["MRR_Monat"]
+        mrr_woche = r["MRR_Woche"]
 
+        c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
+        if menge == 1:
+            c1.write(f"**{r['Produkt']}**")
+            c2.write("")
+            c3.write("")
+            c4.write(f"OTF: {otf} € | MRR: {mrr_mon:.2f} €/ {mrr_woche:.2f} €")
+        else:
+            c1.write(f"**{menge}x {r['Produkt']}**")
+            c2.write(f"{menge}x {int(otf/menge)} €")
+            c3.write("=")
+            c4.write(f"OTF: {otf} € | MRR: {mrr_mon:.2f} €/ {mrr_woche:.2f} €")
+
+    # -----------------------------
+    # Ergebnisse Hardware
+    # -----------------------------
     st.markdown("---")
     st.subheader("🖨️ Hardware")
-
     for _, r in df_hw[df_hw["Menge"] > 0].iterrows():
         menge = int(r["Menge"])
         gesamt = int(r["OTF"])
         einzelpreis = int(gesamt / menge) if menge > 0 else 0
 
         c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
-
         if menge == 1:
             c1.write(f"**{r['Produkt']}**")
             c2.write("")
             c3.write("")
-            c4.write(f"**{gesamt} €**")
+            c4.write(f"{gesamt} €")
         else:
             c1.write(f"**{menge}x {r['Produkt']}**")
-            c2.write(f"{menge}x {einzelpreis} €")
+            c2.write(f"{menge}x{einzelpreis}€")
             c3.write("=")
-            c4.write(f"**{gesamt} €**")
+            c4.write(f"{gesamt} €")
 
     st.markdown("---")
     st.subheader("📊 Kontrollübersicht")
@@ -601,7 +609,6 @@ def show_contractnumbers():
     st.write(f"OTF verwendet: {round(otf_adjusted)} €")
     st.write(f"MRR Monat: {total_mrr:.2f} €")
     st.write(f"MRR Woche: {(total_mrr/4):.2f} €")
-
 
 # =====================================================
 # 🏗 Seitenlogik
