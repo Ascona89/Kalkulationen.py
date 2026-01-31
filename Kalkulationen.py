@@ -96,6 +96,16 @@ if st.session_state.is_admin:
     st.stop()
 
 # =====================================================
+# 🔐 Login Abfrage
+# =====================================================
+if not st.session_state.get("logged_in", False):
+    st.header("🔐 Login")
+    pw = st.text_input("Passwort eingeben", type="password")
+    if st.button("Login"):
+        login(pw)
+    st.stop()
+
+# =====================================================
 # 🔧 App Setup
 # =====================================================
 st.set_page_config(page_title="Kalkulations-App", layout="wide")
