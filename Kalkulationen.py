@@ -382,12 +382,26 @@ def show_radien():
 
         plz_list = [p.strip() for p in user_input.split(",") if p.strip()]
         found = False
+        all_coords = []
+
         for i, feature in enumerate(geojson_data.get("features", [])):
             props = feature.get("properties", {})
             plz_val = props.get("plz") or props.get("POSTCODE") or ""
             if plz_val in plz_list:
                 found = True
                 color = colors[i % len(colors)]
+
+                # Polygon-Koordinaten sammeln für fit_bounds
+                geom_type = feature["geometry"]["type"]
+                coords = feature["geometry"]["coordinates"]
+                if geom_type == "Polygon":
+                    for ring in coords:
+                        all_coords.extend([[lat, lon] for lon, lat in ring])
+                elif geom_type == "MultiPolygon":
+                    for poly in coords:
+                        for ring in poly:
+                            all_coords.extend([[lat, lon] for lon, lat in ring])
+
                 folium.GeoJson(
                     feature,
                     style_function=lambda x, c=color: {
@@ -398,10 +412,15 @@ def show_radien():
                     },
                     tooltip=folium.GeoJsonTooltip(fields=["plz"], aliases=["PLZ"])
                 ).add_to(m)
+
         if not found:
             st.warning("Keine PLZ-Flächen gefunden.")
         else:
             st.success(f"✅ {len(plz_list)} PLZ-Flächen dargestellt")
+
+        # Karte automatisch auf alle PLZ-Flächen zoomen
+        if all_coords:
+            m.fit_bounds(all_coords)
 
     # -----------------------------
     # Radien
@@ -449,17 +468,27 @@ def show_radien():
             icon=folium.Icon(color="red")
         ).add_to(m)
 
+        all_coords = [[lat_c, lon_c]]  # Zentrum für fit_bounds
         for i, r in enumerate(radien):
             color = colors[i % len(colors)]
-            folium.Circle(
+            circle = folium.Circle(
                 [lat_c, lon_c],
                 radius=r*1000,
                 color=color,
                 fill=True,
                 fill_opacity=0.2,
                 tooltip=f"{r} km"
-            ).add_to(m)
+            )
+            circle.add_to(m)
 
+            # Eckpunkte des Kreises approximieren für fit_bounds
+            all_coords.append([lat_c + r/110.574, lon_c + r/(111.320*math.cos(math.radians(lat_c)))])
+            all_coords.append([lat_c - r/110.574, lon_c - r/(111.320*math.cos(math.radians(lat_c)))])
+
+        # Karte automatisch auf alle Radien zoomen
+        m.fit_bounds(all_coords)
+
+        # Haversine Entfernungstabelle
         def haversine(lat1, lon1, lat2, lon2):
             R = 6371
             phi1, phi2 = math.radians(lat1), math.radians(lat2)
@@ -475,6 +504,7 @@ def show_radien():
         st.dataframe(df_result[["plz","lat","lon","distance_km"]])
 
     st_folium(m, width=700, height=500)
+
 
 # =====================================================
 # Conract Numbers
