@@ -11,6 +11,7 @@ from geopy.geocoders import Nominatim
 # 🔐 Passwörter
 # =====================================================
 USER_PASSWORD = "oyysouth"
+SILENT_USER_PASSWORD = "silentlogin"
 ADMIN_PASSWORD = "sebaforceo"
 
 # =====================================================
@@ -41,27 +42,28 @@ st.session_state.setdefault("show_map", False)
 # =====================================================
 def login(password):
     user_pw = st.session_state.get("USER_PASSWORD", USER_PASSWORD)
+
     if password == user_pw:
         st.session_state.logged_in = True
         st.session_state.is_admin = False
         log_login("User", True)
         st.rerun()
+
+    elif password == SILENT_USER_PASSWORD:
+        st.session_state.logged_in = True
+        st.session_state.is_admin = False
+        # bewusst KEIN log_login
+        st.rerun()
+
     elif password == ADMIN_PASSWORD:
         st.session_state.logged_in = True
         st.session_state.is_admin = True
         log_login("Admin", True)
         st.rerun()
+
     else:
         log_login("Unknown", False)
         st.error("❌ Falsches Passwort")
-
-if not st.session_state.logged_in:
-    st.title("🔐 Login erforderlich")
-    pw = st.text_input("Passwort", type="password")
-    if st.button("Login"):
-        login(pw)
-    st.stop()
-
 # =====================================================
 # 👑 Admin Backend
 # =====================================================
