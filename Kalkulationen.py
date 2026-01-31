@@ -333,17 +333,18 @@ def show_radien():
     import folium
     import pandas as pd
     from streamlit_folium import st_folium
+    import json
     import requests
 
-    st.header("🗺️ Radien oder PLZ-Flächen anzeigen")
+    st.header("🗺️ Radien oder PLZ‑Flächen anzeigen")
 
-    # CSV für PLZ-Koordinaten
+    # CSV mit PLZ-Koordinaten (für Radien)
     CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
-    
+
     @st.cache_data
     def load_plz_data():
         df = pd.read_csv(CSV_URL, dtype=str)
-        for col in ["plz","lat","lon"]:
+        for col in ["plz", "lat", "lon"]:
             if col not in df.columns:
                 st.error(f"Spalte '{col}' fehlt in der CSV!")
                 st.stop()
@@ -359,24 +360,22 @@ def show_radien():
             "📍 Adresse, Stadt oder PLZ eingeben (z.B. Berlin, Alexanderplatz 1 oder 10115)"
         )
     with col_mode:
-        mode = st.selectbox("Anzeige-Modus", ["Radien","PLZ-Flächen"])
+        mode = st.selectbox("Anzeige‑Modus", ["Radien", "PLZ‑Flächen"])
 
     if not user_input.strip():
         return
 
-    m = folium.Map(location=[51.1657,10.4515], zoom_start=6)
+    m = folium.Map(location=[51.1657, 10.4515], zoom_start=6)
     colors = ["blue","green","red","orange","purple","darkred","darkblue",
               "darkgreen","cadetblue","pink","lightblue","lightgreen"]
 
     # -----------------------------
     # PLZ-Flächen
     # -----------------------------
-    if mode == "PLZ-Flächen":
-        GEOJSON_URL = "https://raw.githubusercontent.com/yetzt/postleitzahlen/master/plz_5_stellig.geojson"
+    if mode == "PLZ‑Flächen":
         try:
-            response = requests.get(GEOJSON_URL)
-            response.raise_for_status()
-            geojson_data = response.json()
+            with open("plz-5stellig.geojson", "r", encoding="utf-8") as f:
+                geojson_data = json.load(f)
         except Exception as e:
             st.error(f"GeoJSON konnte nicht geladen werden: {e}")
             return
@@ -385,13 +384,13 @@ def show_radien():
         found = False
         for i, feature in enumerate(geojson_data.get("features", [])):
             props = feature.get("properties", {})
-            plz_val = props.get("plz") or props.get("ZIP") or props.get("postcode") or ""
+            plz_val = props.get("plz") or props.get("POSTCODE") or ""
             if plz_val in plz_list:
                 found = True
                 color = colors[i % len(colors)]
                 folium.GeoJson(
                     feature,
-                    style_function=lambda x,c=color: {
+                    style_function=lambda x, c=color: {
                         "fillColor": c,
                         "color": "black",
                         "weight": 1,
@@ -408,22 +407,25 @@ def show_radien():
     # Radien
     # -----------------------------
     else:
-        radien_input = st.text_input("📏 Radien eingeben (km, durch Komma getrennt, z.B. 5,10)", value="5,10")
-        lat_c, lon_c, location_name = None,None,""
+        radien_input = st.text_input(
+            "📏 Radien eingeben (km, durch Komma getrennt, z.B. 5,10)",
+            value="5,10"
+        )
+        lat_c, lon_c, location_name = None, None, ""
 
         # PLZ aus CSV
-        if user_input.strip().isdigit() and len(user_input.strip())==5:
-            match = df_plz[df_plz["plz"]==user_input.strip()]
+        if user_input.strip().isdigit() and len(user_input.strip()) == 5:
+            match = df_plz[df_plz["plz"] == user_input.strip()]
             if not match.empty:
                 lat_c = match.iloc[0]["lat"]
                 lon_c = match.iloc[0]["lon"]
                 location_name = f"PLZ: {user_input.strip()}"
         else:
-            headers = {"User-Agent":"kalkulations-app/1.0"}
+            headers = {"User-Agent": "kalkulations-app/1.0"}
             try:
                 response = requests.get(
                     "https://photon.komoot.io/api/",
-                    params={"q":user_input,"limit":1,"lang":"de"},
+                    params={"q": user_input, "limit": 1, "lang": "de"},
                     headers=headers,
                     timeout=10
                 )
@@ -431,18 +433,23 @@ def show_radien():
                 coords = data["features"][0]["geometry"]["coordinates"]
                 lon_c, lat_c = coords[0], coords[1]
                 location_name = user_input.strip()
-            except:
+            except Exception:
                 st.error("🌍 Geocoding fehlgeschlagen.")
                 return
 
         try:
             radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
-        except:
+        except ValueError:
             st.error("Ungültige Radien.")
             return
 
-        folium.Marker([lat_c, lon_c], tooltip=location_name, icon=folium.Icon(color="red")).add_to(m)
-        for i,r in enumerate(radien):
+        folium.Marker(
+            [lat_c, lon_c],
+            tooltip=location_name,
+            icon=folium.Icon(color="red")
+        ).add_to(m)
+
+        for i, r in enumerate(radien):
             color = colors[i % len(colors)]
             folium.Circle(
                 [lat_c, lon_c],
@@ -461,12 +468,13 @@ def show_radien():
             a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
             return R*2*math.atan2(math.sqrt(a), math.sqrt(1-a))
 
-        df_plz["distance_km"] = df_plz.apply(lambda r2: haversine(lat_c, lon_c, r2["lat"], r2["lon"]), axis=1)
+        df_plz["distance_km"] = df_plz.apply(
+            lambda r2: haversine(lat_c, lon_c, r2["lat"], r2["lon"]), axis=1
+        )
         df_result = df_plz[df_plz["distance_km"] <= max(radien)].sort_values("distance_km")
         st.dataframe(df_result[["plz","lat","lon","distance_km"]])
 
     st_folium(m, width=700, height=500)
-
 
 # =====================================================
 # Conract Numbers
