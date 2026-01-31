@@ -328,28 +328,22 @@ def show_pricing():
 # =====================================================
 # 🗺️ Radien
 # =====================================================
-# =====================================================
-# 🗺️ Radien / PLZ-Flächen wahlweise mit Farben
-# =====================================================
 def show_radien():
-    import requests
     import math
     import folium
     import pandas as pd
     from streamlit_folium import st_folium
-    import random
+    import requests
 
     st.header("🗺️ Radien oder PLZ-Flächen anzeigen")
 
+    # CSV für PLZ-Koordinaten
     CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
-
-    # ======================
-    # PLZ CSV laden (für Kreise)
-    # ======================
+    
     @st.cache_data
     def load_plz_data():
         df = pd.read_csv(CSV_URL, dtype=str)
-        for col in ["plz", "lat", "lon"]:
+        for col in ["plz","lat","lon"]:
             if col not in df.columns:
                 st.error(f"Spalte '{col}' fehlt in der CSV!")
                 st.stop()
@@ -359,155 +353,96 @@ def show_radien():
 
     df_plz = load_plz_data()
 
-    # ======================
-    # Eingaben
-    # ======================
     col_input, col_mode = st.columns([3,1])
     with col_input:
         user_input = st.text_input(
             "📍 Adresse, Stadt oder PLZ eingeben (z.B. Berlin, Alexanderplatz 1 oder 10115)"
         )
     with col_mode:
-        mode = st.selectbox("Anzeige-Modus", ["Radien", "PLZ-Flächen"])
+        mode = st.selectbox("Anzeige-Modus", ["Radien","PLZ-Flächen"])
 
     if not user_input.strip():
         return
 
-    # ======================
-    # Karte initialisieren
-    # ======================
-    m = folium.Map(location=[51.1657, 10.4515], zoom_start=6)
+    m = folium.Map(location=[51.1657,10.4515], zoom_start=6)
+    colors = ["blue","green","red","orange","purple","darkred","darkblue",
+              "darkgreen","cadetblue","pink","lightblue","lightgreen"]
 
-    # ======================
-    # Farbpalette
-    # ======================
-    colors = [
-        "blue", "green", "red", "orange", "purple", "darkred", "darkblue",
-        "darkgreen", "cadetblue", "pink", "lightblue", "lightgreen"
-    ]
-
-    # ======================
-    # Modus: PLZ-Flächen
-    # ======================
+    # -----------------------------
+    # PLZ-Flächen
+    # -----------------------------
     if mode == "PLZ-Flächen":
-        GEOJSON_URL = "https://raw.githubusercontent.com/isellsoap/deutschlandGeoJSON/main/2_bundeslaender/2_0_plz.geo.json"
+        GEOJSON_URL = "https://raw.githubusercontent.com/yetzt/postleitzahlen/master/plz_5_stellig.geojson"
         try:
-            geojson_data = requests.get(GEOJSON_URL).json()
+            response = requests.get(GEOJSON_URL)
+            response.raise_for_status()
+            geojson_data = response.json()
         except Exception as e:
             st.error(f"GeoJSON konnte nicht geladen werden: {e}")
             return
 
-        # Mehrere PLZs möglich
         plz_list = [p.strip() for p in user_input.split(",") if p.strip()]
-
-        selected_features = []
-        for feature in geojson_data["features"]:
-            plz_value = feature["properties"].get("plz") or feature["properties"].get("PLZ") or ""
-            if plz_value in plz_list:
-                selected_features.append(feature)
-
-        if not selected_features:
-            st.warning("Keine PLZs gefunden!")
-        else:
-            for i, feature in enumerate(selected_features):
+        found = False
+        for i, feature in enumerate(geojson_data.get("features", [])):
+            props = feature.get("properties", {})
+            plz_val = props.get("plz") or props.get("ZIP") or props.get("postcode") or ""
+            if plz_val in plz_list:
+                found = True
                 color = colors[i % len(colors)]
                 folium.GeoJson(
-                    {"type": "FeatureCollection", "features":[feature]},
-                    style_function=lambda x, c=color: {
+                    feature,
+                    style_function=lambda x,c=color: {
                         "fillColor": c,
                         "color": "black",
                         "weight": 1,
-                        "fillOpacity": 0.3,
+                        "fillOpacity": 0.3
                     },
                     tooltip=folium.GeoJsonTooltip(fields=["plz"], aliases=["PLZ"])
                 ).add_to(m)
-            st.success(f"✅ {len(selected_features)} PLZ-Flächen dargestellt")
-
-    # ======================
-    # Modus: Radien (Kreise)
-    # ======================
-    else:
-        radien_input = st.text_input(
-            "📏 Radien eingeben (km, durch Komma getrennt, z.B. 5,10)",
-            value="5,10"
-        )
-
-        # ======================
-        # Koordinaten ermitteln
-        # ======================
-        lat_c, lon_c, location_name = None, None, ""
-
-        # 1️⃣ PLZ direkt aus CSV
-        if user_input.strip().isdigit() and len(user_input.strip()) == 5:
-            plz_match = df_plz[df_plz["plz"] == user_input.strip()]
-            if plz_match.empty:
-                st.error("❌ PLZ nicht in Datenbank gefunden.")
-                return
-            lat_c = plz_match.iloc[0]["lat"]
-            lon_c = plz_match.iloc[0]["lon"]
-            location_name = f"PLZ: {user_input.strip()}"
-
-        # 2️⃣ Photon Geocoding
+        if not found:
+            st.warning("Keine PLZ-Flächen gefunden.")
         else:
-            headers = {"User-Agent": "kalkulations-app/1.0 (contact: support@example.com)"}
+            st.success(f"✅ {len(plz_list)} PLZ-Flächen dargestellt")
+
+    # -----------------------------
+    # Radien
+    # -----------------------------
+    else:
+        radien_input = st.text_input("📏 Radien eingeben (km, durch Komma getrennt, z.B. 5,10)", value="5,10")
+        lat_c, lon_c, location_name = None,None,""
+
+        # PLZ aus CSV
+        if user_input.strip().isdigit() and len(user_input.strip())==5:
+            match = df_plz[df_plz["plz"]==user_input.strip()]
+            if not match.empty:
+                lat_c = match.iloc[0]["lat"]
+                lon_c = match.iloc[0]["lon"]
+                location_name = f"PLZ: {user_input.strip()}"
+        else:
+            headers = {"User-Agent":"kalkulations-app/1.0"}
             try:
                 response = requests.get(
                     "https://photon.komoot.io/api/",
-                    params={"q": user_input, "limit": 1, "lang": "de"},
+                    params={"q":user_input,"limit":1,"lang":"de"},
                     headers=headers,
                     timeout=10
                 )
-                if response.status_code != 200:
-                    st.error(f"🌍 Geocoding fehlgeschlagen (Status {response.status_code})")
-                    return
                 data = response.json()
-                if "features" not in data or len(data["features"]) == 0:
-                    st.error("❌ Adresse/Stadt/PLZ konnte nicht gefunden werden.")
-                    return
                 coords = data["features"][0]["geometry"]["coordinates"]
                 lon_c, lat_c = coords[0], coords[1]
                 location_name = user_input.strip()
-            except requests.exceptions.RequestException:
-                st.error("🌍 Geocoding-Service aktuell nicht erreichbar.")
+            except:
+                st.error("🌍 Geocoding fehlgeschlagen.")
                 return
 
-        # ======================
-        # Radien parsen
-        # ======================
         try:
             radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
-        except ValueError:
-            st.error("Bitte nur Zahlen für Radien eingeben, getrennt durch Komma.")
+        except:
+            st.error("Ungültige Radien.")
             return
 
-        if len(radien) == 0:
-            st.error("Mindestens ein Radius erforderlich.")
-            return
-
-        # ======================
-        # Haversine Funktion
-        # ======================
-        def haversine(lat1, lon1, lat2, lon2):
-            R = 6371
-            phi1, phi2 = math.radians(lat1), math.radians(lat2)
-            dphi = math.radians(lat2 - lat1)
-            dlambda = math.radians(lon2 - lon1)
-            a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
-            return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-        df_plz["distance_km"] = df_plz.apply(
-            lambda r: haversine(lat_c, lon_c, r["lat"], r["lon"]), axis=1
-        )
-
-        df_result = df_plz[df_plz["distance_km"] <= max(radien)].sort_values("distance_km")
-        st.success(f"✅ {len(df_result)} PLZ im Umkreis (bis {max(radien)} km)")
-        st.dataframe(df_result[["plz","lat","lon","distance_km"]], use_container_width=True)
-
-        # ======================
-        # Marker + Radien (Farben)
-        # ======================
         folium.Marker([lat_c, lon_c], tooltip=location_name, icon=folium.Icon(color="red")).add_to(m)
-        for i, r in enumerate(radien):
+        for i,r in enumerate(radien):
             color = colors[i % len(colors)]
             folium.Circle(
                 [lat_c, lon_c],
@@ -518,7 +453,20 @@ def show_radien():
                 tooltip=f"{r} km"
             ).add_to(m)
 
+        def haversine(lat1, lon1, lat2, lon2):
+            R = 6371
+            phi1, phi2 = math.radians(lat1), math.radians(lat2)
+            dphi = math.radians(lat2 - lat1)
+            dlambda = math.radians(lon2 - lon1)
+            a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
+            return R*2*math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+        df_plz["distance_km"] = df_plz.apply(lambda r2: haversine(lat_c, lon_c, r2["lat"], r2["lon"]), axis=1)
+        df_result = df_plz[df_plz["distance_km"] <= max(radien)].sort_values("distance_km")
+        st.dataframe(df_result[["plz","lat","lon","distance_km"]])
+
     st_folium(m, width=700, height=500)
+
 
 # =====================================================
 # Conract Numbers
