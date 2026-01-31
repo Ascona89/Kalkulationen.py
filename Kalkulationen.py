@@ -514,12 +514,14 @@ def show_contractnumbers():
     })
 
     # =====================================================
-    # Session State Mengen (aus Pricing übernehmen)
+    # Session State Mengen (aus Pricing übernehmen, falls noch nicht gesetzt)
     # =====================================================
     for i in range(len(df_sw)):
-        st.session_state.setdefault(f"qty_sw_{i}", st.session_state.get(f"contract_sw_{i}", 0))
+        if f"qty_sw_{i}" not in st.session_state:
+            st.session_state[f"qty_sw_{i}"] = st.session_state.get(f"contract_sw_{i}", 0)
     for i in range(len(df_hw)):
-        st.session_state.setdefault(f"qty_hw_{i}", st.session_state.get(f"contract_hw_{i}", 0))
+        if f"qty_hw_{i}" not in st.session_state:
+            st.session_state[f"qty_hw_{i}"] = st.session_state.get(f"contract_hw_{i}", 0)
 
     # =====================================================
     # Eingabe Gesamtpreise
