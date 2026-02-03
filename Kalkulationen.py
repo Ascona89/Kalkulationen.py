@@ -381,7 +381,6 @@ def show_radien():
 
         st.subheader("📦 Liefergebiete (PLZ-Flächen)")
 
-        # Dynamische Eingabefelder
         for idx, block in enumerate(st.session_state["plz_blocks"]):
             col_plz, col_min, col_del = st.columns([3, 1.5, 1.5])
 
@@ -419,12 +418,11 @@ def show_radien():
         all_coords = []
         download_rows = []
 
-        for i, block in enumerate(st.session_state["plz_blocks"]):
+        for block in st.session_state["plz_blocks"]:
             if not block["plz"].strip():
                 continue
 
             plz_list = [p.strip() for p in block["plz"].split(",") if p.strip()]
-            color = colors[i % len(colors)]
 
             for feature in geojson_data.get("features", []):
                 props = feature.get("properties", {})
@@ -444,7 +442,7 @@ def show_radien():
 
                     folium.GeoJson(
                         feature,
-                        style_function=lambda x, c=color: {
+                        style_function=lambda x, c=colors[st.session_state["plz_blocks"].index(block) % len(colors)]: {
                             "fillColor": c,
                             "color": "black",
                             "weight": 1,
@@ -460,8 +458,7 @@ def show_radien():
                     download_rows.append({
                         "PLZ": plz_val,
                         "Mindestbestellwert": block["min_order"],
-                        "Lieferkosten": block["delivery_cost"],
-                        "Farbe": color
+                        "Lieferkosten": block["delivery_cost"]
                     })
 
         if all_coords:
@@ -472,6 +469,7 @@ def show_radien():
         if download_rows:
             df_download = pd.DataFrame(download_rows)
             csv = df_download.to_csv(index=False).encode("utf-8")
+
             st.download_button(
                 "📥 PLZ-Liefergebiete herunterladen",
                 csv,
@@ -480,7 +478,7 @@ def show_radien():
             )
 
     # =====================================================
-    # RADIEN (inkl. PLZ-Liste)
+    # RADIEN (unverändert)
     # =====================================================
     else:
         CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
@@ -511,22 +509,11 @@ def show_radien():
             st.error("🌍 Geocoding fehlgeschlagen.")
             return
 
-        radien_input = st.text_input(
-            "📏 Radien eingeben (km, Komma getrennt)",
-            value="5,10"
-        )
+        radien_input = st.text_input("📏 Radien eingeben (km, Komma getrennt)", value="5,10")
 
-        try:
-            radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
-        except ValueError:
-            st.error("Ungültige Radien.")
-            return
+        radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
 
-        folium.Marker(
-            [lat_c, lon_c],
-            tooltip=user_input,
-            icon=folium.Icon(color="red")
-        ).add_to(m)
+        folium.Marker([lat_c, lon_c], tooltip=user_input, icon=folium.Icon(color="red")).add_to(m)
 
         all_coords = [[lat_c, lon_c]]
 
@@ -546,9 +533,6 @@ def show_radien():
         m.fit_bounds(all_coords)
         st_folium(m, width=700, height=500)
 
-        # -----------------------------
-        # PLZ-Liste im Radius
-        # -----------------------------
         def haversine(lat1, lon1, lat2, lon2):
             R = 6371
             phi1, phi2 = math.radians(lat1), math.radians(lat2)
@@ -565,10 +549,8 @@ def show_radien():
         df_result = df_plz[df_plz["distance_km"] <= max(radien)].sort_values("distance_km")
 
         st.subheader("📋 PLZ im Radius")
-        st.dataframe(
-            df_result[["plz", "lat", "lon", "distance_km"]],
-            use_container_width=True
-        )
+        st.dataframe(df_result[["plz", "lat", "lon", "distance_km"]], use_container_width=True)
+
 
 # =====================================================
 # Conract Numbers
