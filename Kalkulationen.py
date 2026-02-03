@@ -339,17 +339,17 @@ def show_radien():
 
     st.header("🗺️ Radien oder PLZ-Flächen anzeigen")
 
-    # =============================
-    # Session State Initialisierung
-    # =============================
+    # =====================================================
+    # Session State für PLZ-Flächen
+    # =====================================================
     if "plz_blocks" not in st.session_state:
         st.session_state["plz_blocks"] = [
             {"plz": "", "min_order": 0.0, "delivery_cost": 0.0}
         ]
 
-    # =============================
+    # =====================================================
     # Eingabe & Modus
-    # =============================
+    # =====================================================
     col_input, col_mode = st.columns([3, 1])
     with col_input:
         user_input = st.text_input(
@@ -358,23 +358,20 @@ def show_radien():
     with col_mode:
         mode = st.selectbox("Anzeige-Modus", ["Radien", "PLZ-Flächen"])
 
-    # =============================
+    # =====================================================
     # Karte vorbereiten
-    # =============================
+    # =====================================================
     m = folium.Map(location=[51.1657, 10.4515], zoom_start=6)
     colors = [
         "blue", "green", "red", "orange", "purple",
         "darkred", "darkblue", "darkgreen", "cadetblue", "pink"
     ]
 
-    # =============================
-    # =============================
+    # =====================================================
     # PLZ-FLÄCHEN
-    # =============================
-    # =============================
+    # =====================================================
     if mode == "PLZ-Flächen":
 
-        # GeoJSON laden
         try:
             with open("plz-5stellig.geojson", "r", encoding="utf-8") as f:
                 geojson_data = json.load(f)
@@ -413,16 +410,12 @@ def show_radien():
                     key=f"del_{idx}"
                 )
 
-        # Button zum Hinzufügen
         if len(st.session_state["plz_blocks"]) < 10:
             if st.button("➕ Eingabefeld hinzufügen"):
                 st.session_state["plz_blocks"].append(
                     {"plz": "", "min_order": 0.0, "delivery_cost": 0.0}
                 )
 
-        # =============================
-        # PLZ-Flächen zeichnen
-        # =============================
         all_coords = []
         download_rows = []
 
@@ -476,13 +469,9 @@ def show_radien():
 
         st_folium(m, width=700, height=500)
 
-        # =============================
-        # Download
-        # =============================
         if download_rows:
             df_download = pd.DataFrame(download_rows)
             csv = df_download.to_csv(index=False).encode("utf-8")
-
             st.download_button(
                 "📥 PLZ-Liefergebiete herunterladen",
                 csv,
@@ -490,12 +479,21 @@ def show_radien():
                 "text/csv"
             )
 
-    # =============================
-    # =============================
-    # RADIEN (UNVERÄNDERT)
-    # =============================
-    # =============================
+    # =====================================================
+    # RADIEN (inkl. PLZ-Liste)
+    # =====================================================
     else:
+        CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
+
+        @st.cache_data
+        def load_plz_data():
+            df = pd.read_csv(CSV_URL, dtype=str)
+            df["lat"] = df["lat"].astype(float)
+            df["lon"] = df["lon"].astype(float)
+            return df
+
+        df_plz = load_plz_data()
+
         if not user_input.strip():
             return
 
@@ -547,6 +545,30 @@ def show_radien():
 
         m.fit_bounds(all_coords)
         st_folium(m, width=700, height=500)
+
+        # -----------------------------
+        # PLZ-Liste im Radius
+        # -----------------------------
+        def haversine(lat1, lon1, lat2, lon2):
+            R = 6371
+            phi1, phi2 = math.radians(lat1), math.radians(lat2)
+            dphi = math.radians(lat2 - lat1)
+            dlambda = math.radians(lon2 - lon1)
+            a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+            return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+        df_plz["distance_km"] = df_plz.apply(
+            lambda r: haversine(lat_c, lon_c, r["lat"], r["lon"]),
+            axis=1
+        )
+
+        df_result = df_plz[df_plz["distance_km"] <= max(radien)].sort_values("distance_km")
+
+        st.subheader("📋 PLZ im Radius")
+        st.dataframe(
+            df_result[["plz", "lat", "lon", "distance_km"]],
+            use_container_width=True
+        )
 
 # =====================================================
 # Conract Numbers
