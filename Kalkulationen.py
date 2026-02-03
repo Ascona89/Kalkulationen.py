@@ -150,6 +150,20 @@ def show_platform():
         service_fee = persistent_number_input("Service Fee (€)", "service_fee", 0.69, step=0.1)
         toprank_per_order = persistent_number_input("TopRank per Order (€)", "toprank_per_order", 0.0, step=0.1)
 
+        # ==============================
+        # 🧮 Berechnung Cost on Platform direkt nach Eingaben
+        # ==============================
+        cost_platform = revenue * (commission_pct / 100) + \
+                        (0.7 * revenue / avg_order_value if avg_order_value else 0) * service_fee
+
+        sum_of_orders = revenue / avg_order_value if avg_order_value else 0
+        toprank_cost = sum_of_orders * toprank_per_order
+
+        total_cost = cost_platform + toprank_cost
+
+        st.markdown("### 💶 Cost on Platform")
+        st.markdown(f"<div style='color:red; font-size:28px;'>{total_cost:,.2f} €</div>", unsafe_allow_html=True)
+
         st.markdown("---")
         st.subheader("Vertragsdetails")
         OTF = persistent_number_input("One Time Fee (OTF) (€)", "OTF", 0.0, step=100.0)
@@ -157,19 +171,8 @@ def show_platform():
         contract_length = persistent_number_input("Contract length (Monate)", "contract_length", 24, step=12)
 
     # ==============================
-    # 🧮 Berechnungen
-    # ==============================
-    # Basis Kosten
-    cost_platform = revenue * (commission_pct / 100) + \
-                    (0.7 * revenue / avg_order_value if avg_order_value else 0) * service_fee
-
-    # TopRank Berechnung
-    sum_of_orders = revenue / avg_order_value if avg_order_value else 0
-    toprank_cost = sum_of_orders * toprank_per_order
-
-    total_cost = cost_platform + toprank_cost
-
     # Transaktion & monatliche Kosten
+    # ==============================
     transaction = 0.7 * revenue / 5 * 0.35
     cost_monthly = MRR + transaction
     saving_monthly = total_cost - cost_monthly
