@@ -148,12 +148,7 @@ def show_platform():
         commission_pct = persistent_number_input("Commission (%)", "commission_pct", 14.0, step=1.0)
         avg_order_value = persistent_number_input("Average order value (€)", "avg_order_value", 25.0, step=5.0)
         service_fee = persistent_number_input("Service Fee (€)", "service_fee", 0.69, step=0.1)
-
-        total_cost = revenue*(commission_pct/100) + \
-                     (0.7*revenue/avg_order_value if avg_order_value else 0)*service_fee
-
-        st.markdown("### 💶 Cost on Platform")
-        st.markdown(f"<div style='color:red; font-size:28px;'>{total_cost:,.2f} €</div>", unsafe_allow_html=True)
+        toprank_per_order = persistent_number_input("TopRank per Order (€)", "toprank_per_order", 0.0, step=0.1)
 
         st.markdown("---")
         st.subheader("Vertragsdetails")
@@ -161,17 +156,43 @@ def show_platform():
         MRR = persistent_number_input("Monthly Recurring Revenue (MRR) (€)", "MRR", 0.0, step=10.0)
         contract_length = persistent_number_input("Contract length (Monate)", "contract_length", 24, step=12)
 
-    transaction = 0.7*revenue/5*0.35
+    # ==============================
+    # 🧮 Berechnungen
+    # ==============================
+    # Basis Kosten
+    cost_platform = revenue * (commission_pct / 100) + \
+                    (0.7 * revenue / avg_order_value if avg_order_value else 0) * service_fee
+
+    # TopRank Berechnung
+    sum_of_orders = revenue / avg_order_value if avg_order_value else 0
+    toprank_cost = sum_of_orders * toprank_per_order
+
+    total_cost = cost_platform + toprank_cost
+
+    # Transaktion & monatliche Kosten
+    transaction = 0.7 * revenue / 5 * 0.35
     cost_monthly = MRR + transaction
     saving_monthly = total_cost - cost_monthly
-    saving_over_contract = saving_monthly*contract_length
+    saving_over_contract = saving_monthly * contract_length
 
+    # ==============================
+    # 📊 Kennzahlen farbig dargestellt (wie Cardpayment)
+    # ==============================
+    st.markdown("---")
     st.subheader("📊 Kennzahlen")
-    st.info(
-        f"- Cost monthly: {cost_monthly:,.2f} €\n"
-        f"- Saving monthly: {saving_monthly:,.2f} €\n"
-        f"- Saving over contract length: {saving_over_contract:,.2f} €"
-    )
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.markdown(f"<div style='color:red; font-size:28px;'>💶 {total_cost:,.2f} €</div>", unsafe_allow_html=True)
+    col1.caption("Total Platform Cost")
+
+    col2.markdown(f"<div style='color:blue; font-size:28px;'>💳 {cost_monthly:,.2f} €</div>", unsafe_allow_html=True)
+    col2.caption("Cost Monthly (MRR + Transaction)")
+
+    col3.markdown(f"<div style='color:green; font-size:28px;'>💰 {saving_monthly:,.2f} €</div>", unsafe_allow_html=True)
+    col3.caption("Saving Monthly")
+
+    col4.markdown(f"<div style='color:orange; font-size:28px;'>💸 {saving_over_contract:,.2f} €</div>", unsafe_allow_html=True)
+    col4.caption("Saving over Contract Length")
 
 # =====================================================
 # 💳 Cardpayment
