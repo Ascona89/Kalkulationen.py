@@ -360,7 +360,6 @@ def show_radien():
     import json
     import requests
     import streamlit as st
-    from geopy.geocoders import Nominatim
 
     st.header("🗺️ Radien oder PLZ-Flächen anzeigen")
 
@@ -573,29 +572,8 @@ def show_radien():
 
         df_result = df_plz[df_plz["distance_km"] <= max(radien)].sort_values("distance_km")
 
-        # =====================================================
-        # Stadt über Nominatim ermitteln
-        # =====================================================
-        geolocator = Nominatim(user_agent="kalkulations-app")
-
-        def get_city_from_plz(plz):
-            try:
-                location = geolocator.geocode({"postalcode": plz, "country": "Germany"}, timeout=10)
-                if location:
-                    address = location.raw.get("display_name", "")
-                    city = address.split(",")[0]
-                    return city
-            except Exception:
-                return ""
-            return ""
-
-        df_result["stadt"] = df_result["plz"].apply(get_city_from_plz)
-
-        # =====================================================
-        # Tabelle anzeigen
-        # =====================================================
         st.subheader("📋 PLZ im Radius")
-        st.dataframe(df_result[["plz","stadt","lat","lon","distance_km"]], use_container_width=True)
+        st.dataframe(df_result[["plz", "lat", "lon", "distance_km"]], use_container_width=True)
 
 # =====================================================
 # Conract Numbers
