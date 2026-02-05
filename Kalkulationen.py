@@ -931,10 +931,14 @@ def show_pipeline():
     data = query.order("created_at", desc=True).execute()
     df = pd.DataFrame(data.data)
 
-    # Absicherung gegen KeyError
     if df.empty:
         st.info("Noch keine Leads vorhanden.")
+        # Leere Karte trotzdem anzeigen
+        m = folium.Map(location=[51.1657,10.4515], zoom_start=6)
+        st_folium(m, width=700, height=500)
         return
+
+    # Absicherung fehlender lat/lon
     for col in ["lat","lon"]:
         if col not in df.columns:
             df[col] = None
@@ -942,12 +946,10 @@ def show_pipeline():
     st.dataframe(df[['last_contact','generated_by','am_nb','name','adresse','ergebnis','next_action','notes']], use_container_width=True)
 
     # ===============================
-    # Karte mit Statusfarben
+    # Karte erstellen
     # ===============================
     st.markdown("---")
     st.subheader("🗺️ Leads Karte (Status-Farben)")
-
-    m = folium.Map(location=[51.1657,10.4515], zoom_start=6)
 
     def get_marker_color(status):
         if status.lower() == "hot":
@@ -959,6 +961,10 @@ def show_pipeline():
         else:
             return "blue"
 
+    # Karte Basis
+    m = folium.Map(location=[51.1657, 10.4515], zoom_start=6)
+
+    # Alle Leads mit Koordinaten
     lead_coords = df.dropna(subset=["lat","lon"])
     for _, r in lead_coords.iterrows():
         color = get_marker_color(r["ergebnis"])
@@ -975,46 +981,49 @@ def show_pipeline():
     search_address = st.text_input("Adresse oder PLZ")
     search_radius = st.number_input("Radius (km)", min_value=0.0, value=5.0, step=1.0)
 
-    if st.button("Filter Radius"):
-        if search_address.strip():
-            geolocator = Nominatim(user_agent="pipeline_app")
-            loc = geolocator.geocode(search_address)
-            if loc:
-                search_lat, search_lon = loc.latitude, loc.longitude
-                folium.Circle(
-                    [search_lat, search_lon],
-                    radius=search_radius*1000,
-                    color='blue',
-                    fill=True,
-                    fill_opacity=0.2,
-                    tooltip=f"{search_radius} km Radius"
+    if search_address.strip():
+        geolocator = Nominatim(user_agent="pipeline_app")
+        loc = geolocator.geocode(search_address)
+        if loc:
+            search_lat, search_lon = loc.latitude, loc.longitude
+            folium.Circle(
+                [search_lat, search_lon],
+                radius=search_radius*1000,
+                color='blue',
+                fill=True,
+                fill_opacity=0.2,
+                tooltip=f"{search_radius} km Radius"
+            ).add_to(m)
+
+            # Filter Leads innerhalb Radius
+            filtered = []
+            R = 6371
+            for _, r in lead_coords.iterrows():
+                dlat = math.radians(r['lat']-search_lat)
+                dlon = math.radians(r['lon']-search_lon)
+                a = math.sin(dlat/2)**2 + math.cos(math.radians(search_lat))*math.cos(math.radians(r['lat']))*math.sin(dlon/2)**2
+                c = 2*math.atan2(math.sqrt(a), math.sqrt(1-a))
+                distance = R*c
+                if distance <= search_radius:
+                    filtered.append(r)
+
+            # Neue Karte für Filter Leads
+            m = folium.Map(location=[search_lat, search_lon], zoom_start=10)
+            folium.Circle([search_lat, search_lon], radius=search_radius*1000,
+                          color='blue', fill=True, fill_opacity=0.2).add_to(m)
+            for r in filtered:
+                color = get_marker_color(r["ergebnis"])
+                folium.Marker(
+                    [r['lat'], r['lon']],
+                    tooltip=f"{r['name']} ({r['ergebnis']})",
+                    icon=folium.Icon(color=color)
                 ).add_to(m)
 
-                # Filter Leads innerhalb Radius
-                filtered = []
-                R = 6371
-                for _, r in lead_coords.iterrows():
-                    dlat = math.radians(r['lat']-search_lat)
-                    dlon = math.radians(r['lon']-search_lon)
-                    a = math.sin(dlat/2)**2 + math.cos(math.radians(search_lat))*math.cos(math.radians(r['lat']))*math.sin(dlon/2)**2
-                    c = 2*math.atan2(math.sqrt(a), math.sqrt(1-a))
-                    distance = R*c
-                    if distance <= search_radius:
-                        filtered.append(r)
-
-                # Neue Karte für Filter
-                m = folium.Map(location=[search_lat, search_lon], zoom_start=10)
-                folium.Circle([search_lat, search_lon], radius=search_radius*1000,
-                              color='blue', fill=True, fill_opacity=0.2).add_to(m)
-                for r in filtered:
-                    color = get_marker_color(r["ergebnis"])
-                    folium.Marker(
-                        [r['lat'], r['lon']],
-                        tooltip=f"{r['name']} ({r['ergebnis']})",
-                        icon=folium.Icon(color=color)
-                    ).add_to(m)
-
+    # ===============================
+    # Karte rendern
+    # ===============================
     st_folium(m, width=700, height=500)
+
 
 # =====================================================
 # 🏗 Seitenlogik
