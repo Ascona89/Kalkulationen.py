@@ -121,7 +121,6 @@ page = st.sidebar.radio(
     "Wähle eine Kalkulation:",
     ["Platform", "Cardpayment", "Pricing", "Radien", "Contractnumbers", "Pipeline"]
 )
-)
 
 # ==========================
 # Hilfsfunktionen für persistente Inputs
