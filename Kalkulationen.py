@@ -804,9 +804,6 @@ def show_contractnumbers():
     st.write(f"MRR Woche: {(total_mrr / 4):,.2f} €")
 
 
-# =====================================================
-# 🏗 Pipeline
-# =====================================================
 def show_pipeline():
     import streamlit as st
     import pandas as pd
@@ -815,6 +812,8 @@ def show_pipeline():
     from streamlit_folium import st_folium
     from geopy.geocoders import Nominatim
     import math
+
+    PIPELINE_PASSWORDS = ["south", "mids", "east", "north"]
 
     # ===============================
     # Session Defaults
@@ -826,7 +825,7 @@ def show_pipeline():
     if "show_lead_form" not in st.session_state:
         st.session_state.show_lead_form = False
     if "employees" not in st.session_state:
-        st.session_state.employees = {"south": 1, "mids": 1, "east": 1, "north": 1}
+        st.session_state.employees = {pw: 1 for pw in PIPELINE_PASSWORDS}
 
     # ===============================
     # Pipeline Login
@@ -935,15 +934,31 @@ def show_pipeline():
     st.dataframe(df[['last_contact','generated_by','am_nb','name','adresse','ergebnis','next_action','notes']], use_container_width=True)
 
     # ===============================
-    # Karte mit Leads
+    # Karte mit Statusfarben
     # ===============================
     st.markdown("---")
-    st.subheader("🗺️ Leads Karte")
+    st.subheader("🗺️ Leads Karte (Status-Farben)")
 
     m = folium.Map(location=[51.1657,10.4515], zoom_start=6)
+
+    def get_marker_color(status):
+        if status.lower() == "hot":
+            return "green"
+        elif status.lower() in ["follow up booked", "book follow up"]:
+            return "orange"
+        elif status.lower() == "lost":
+            return "red"
+        else:
+            return "blue"
+
     lead_coords = df.dropna(subset=["lat","lon"])
     for _, r in lead_coords.iterrows():
-        folium.Marker([r['lat'], r['lon']], tooltip=r['name']).add_to(m)
+        color = get_marker_color(r["ergebnis"])
+        folium.Marker(
+            [r['lat'], r['lon']],
+            tooltip=f"{r['name']} ({r['ergebnis']})",
+            icon=folium.Icon(color=color)
+        ).add_to(m)
 
     # ===============================
     # Radius Filter
@@ -958,9 +973,14 @@ def show_pipeline():
             loc = geolocator.geocode(search_address)
             if loc:
                 search_lat, search_lon = loc.latitude, loc.longitude
-                folium.Circle([search_lat, search_lon], radius=search_radius*1000,
-                              color='blue', fill=True, fill_opacity=0.2,
-                              tooltip=f"{search_radius} km Radius").add_to(m)
+                folium.Circle(
+                    [search_lat, search_lon],
+                    radius=search_radius*1000,
+                    color='blue',
+                    fill=True,
+                    fill_opacity=0.2,
+                    tooltip=f"{search_radius} km Radius"
+                ).add_to(m)
 
                 # Filter Leads innerhalb Radius
                 filtered = []
@@ -972,14 +992,19 @@ def show_pipeline():
                     c = 2*math.atan2(math.sqrt(a), math.sqrt(1-a))
                     distance = R*c
                     if distance <= search_radius:
-                        filtered.append((r['lat'], r['lon'], r['name']))
+                        filtered.append(r)
 
-                # Neue Karte
+                # Neue Karte für Filter
                 m = folium.Map(location=[search_lat, search_lon], zoom_start=10)
                 folium.Circle([search_lat, search_lon], radius=search_radius*1000,
                               color='blue', fill=True, fill_opacity=0.2).add_to(m)
-                for lat, lon, name in filtered:
-                    folium.Marker([lat, lon], tooltip=name, icon=folium.Icon(color='red')).add_to(m)
+                for r in filtered:
+                    color = get_marker_color(r["ergebnis"])
+                    folium.Marker(
+                        [r['lat'], r['lon']],
+                        tooltip=f"{r['name']} ({r['ergebnis']})",
+                        icon=folium.Icon(color=color)
+                    ).add_to(m)
 
     st_folium(m, width=700, height=500)
 
