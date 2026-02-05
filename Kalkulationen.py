@@ -902,6 +902,7 @@ def show_pipeline():
             except:
                 st.warning("⚠️ Adresse konnte nicht geocodet werden. Karte kann ungenau sein.")
 
+            # Insert in Supabase
             supabase.table("pipeline_leads").insert({
                 "region": region,
                 "employee": int(assign_ma.split()[1]),
@@ -933,7 +934,6 @@ def show_pipeline():
 
     if df.empty:
         st.info("Noch keine Leads vorhanden.")
-        # Leere Karte trotzdem anzeigen
         m = folium.Map(location=[51.1657,10.4515], zoom_start=6)
         st_folium(m, width=700, height=500)
         return
@@ -1023,7 +1023,6 @@ def show_pipeline():
     # Karte rendern
     # ===============================
     st_folium(m, width=700, height=500)
-
 
 # =====================================================
 # 🏗 Seitenlogik
