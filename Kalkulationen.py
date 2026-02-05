@@ -813,19 +813,19 @@ def show_pipeline():
     from geopy.geocoders import Nominatim
     import math
 
+    # ======================================
+    # Login-Passwörter pro Region
+    # ======================================
     PIPELINE_PASSWORDS = ["south", "mids", "east", "north"]
 
-    # ===============================
-    # Session Defaults
-    # ===============================
     st.session_state.setdefault("pipeline_logged_in", False)
     st.session_state.setdefault("pipeline_region", None)
     st.session_state.setdefault("show_lead_form", False)
     st.session_state.setdefault("employees", {pw: 1 for pw in PIPELINE_PASSWORDS})
 
-    # ===============================
-    # Pipeline Login
-    # ===============================
+    # ======================================
+    # Login
+    # ======================================
     if not st.session_state.pipeline_logged_in:
         st.header("📈 Pipeline Login")
         pw = st.text_input("Passwort eingeben", type="password")
@@ -841,9 +841,9 @@ def show_pipeline():
     region = st.session_state.pipeline_region
     st.header(f"📈 Pipeline – Region {region.upper()}")
 
-    # ===============================
+    # ======================================
     # Mitarbeiter Auswahl
-    # ===============================
+    # ======================================
     st.subheader("👥 Mitarbeiter")
     ma_count = st.session_state.employees[region]
     ma_options = ["Alle anzeigen"] + [f"MA {i}" for i in range(1, ma_count + 1)]
@@ -855,9 +855,9 @@ def show_pipeline():
             st.session_state.employees[region] += 1
             st.rerun()
 
-    # ===============================
+    # ======================================
     # Lead hinzufügen
-    # ===============================
+    # ======================================
     st.markdown("---")
     if st.button("➕ Lead hinzufügen"):
         st.session_state.show_lead_form = True
@@ -874,7 +874,6 @@ def show_pipeline():
             next_action = st.date_input("Next action", value=date.today())
             notes = st.text_area("Notes")
 
-            # MA-Zuweisung für neuen Lead
             assign_ma = st.selectbox(
                 "Lead zuweisen an MA",
                 [f"MA {i}" for i in range(1, ma_count + 1)],
@@ -890,9 +889,9 @@ def show_pipeline():
             st.rerun()
 
         if submit:
-            # ===============================
+            # ======================================
             # Geocode Adresse
-            # ===============================
+            # ======================================
             geolocator = Nominatim(user_agent="pipeline_app")
             lat, lon = None, None
             try:
@@ -902,7 +901,9 @@ def show_pipeline():
             except:
                 st.warning("⚠️ Adresse konnte nicht geocodet werden. Karte kann ungenau sein.")
 
+            # ======================================
             # Insert in Supabase
+            # ======================================
             supabase.table("pipeline_leads").insert({
                 "region": region,
                 "employee": int(assign_ma.split()[1]),
@@ -921,9 +922,9 @@ def show_pipeline():
             st.session_state.show_lead_form = False
             st.rerun()
 
-    # ===============================
+    # ======================================
     # Leads Tabelle
-    # ===============================
+    # ======================================
     st.markdown("---")
     st.subheader("📋 Leads")
     query = supabase.table("pipeline_leads").select("*").eq("region", region)
@@ -938,16 +939,15 @@ def show_pipeline():
         st_folium(m, width=700, height=500)
         return
 
-    # Absicherung fehlender lat/lon
     for col in ["lat","lon"]:
         if col not in df.columns:
             df[col] = None
 
     st.dataframe(df[['last_contact','generated_by','am_nb','name','adresse','ergebnis','next_action','notes']], use_container_width=True)
 
-    # ===============================
+    # ======================================
     # Karte erstellen
-    # ===============================
+    # ======================================
     st.markdown("---")
     st.subheader("🗺️ Leads Karte (Status-Farben)")
 
@@ -961,22 +961,18 @@ def show_pipeline():
         else:
             return "blue"
 
-    # Karte Basis
     m = folium.Map(location=[51.1657, 10.4515], zoom_start=6)
-
-    # Alle Leads mit Koordinaten
     lead_coords = df.dropna(subset=["lat","lon"])
     for _, r in lead_coords.iterrows():
-        color = get_marker_color(r["ergebnis"])
         folium.Marker(
             [r['lat'], r['lon']],
             tooltip=f"{r['name']} ({r['ergebnis']})",
-            icon=folium.Icon(color=color)
+            icon=folium.Icon(color=get_marker_color(r["ergebnis"]))
         ).add_to(m)
 
-    # ===============================
+    # ======================================
     # Radius Filter
-    # ===============================
+    # ======================================
     st.subheader("🔎 Radius Filter")
     search_address = st.text_input("Adresse oder PLZ")
     search_radius = st.number_input("Radius (km)", min_value=0.0, value=5.0, step=1.0)
@@ -1012,16 +1008,12 @@ def show_pipeline():
             folium.Circle([search_lat, search_lon], radius=search_radius*1000,
                           color='blue', fill=True, fill_opacity=0.2).add_to(m)
             for r in filtered:
-                color = get_marker_color(r["ergebnis"])
                 folium.Marker(
                     [r['lat'], r['lon']],
                     tooltip=f"{r['name']} ({r['ergebnis']})",
-                    icon=folium.Icon(color=color)
+                    icon=folium.Icon(color=get_marker_color(r["ergebnis"]))
                 ).add_to(m)
 
-    # ===============================
-    # Karte rendern
-    # ===============================
     st_folium(m, width=700, height=500)
 
 # =====================================================
