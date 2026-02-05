@@ -818,14 +818,10 @@ def show_pipeline():
     # ===============================
     # Session Defaults
     # ===============================
-    if "pipeline_logged_in" not in st.session_state:
-        st.session_state.pipeline_logged_in = False
-    if "pipeline_region" not in st.session_state:
-        st.session_state.pipeline_region = None
-    if "show_lead_form" not in st.session_state:
-        st.session_state.show_lead_form = False
-    if "employees" not in st.session_state:
-        st.session_state.employees = {pw: 1 for pw in PIPELINE_PASSWORDS}
+    st.session_state.setdefault("pipeline_logged_in", False)
+    st.session_state.setdefault("pipeline_region", None)
+    st.session_state.setdefault("show_lead_form", False)
+    st.session_state.setdefault("employees", {pw: 1 for pw in PIPELINE_PASSWORDS})
 
     # ===============================
     # Pipeline Login
@@ -877,6 +873,14 @@ def show_pipeline():
             ergebnis = st.selectbox("Ergebnis", ["Lost", "Hot", "Follow up booked", "Book follow up"])
             next_action = st.date_input("Next action", value=date.today())
             notes = st.text_area("Notes")
+
+            # MA-Zuweisung für neuen Lead
+            assign_ma = st.selectbox(
+                "Lead zuweisen an MA",
+                [f"MA {i}" for i in range(1, ma_count + 1)],
+                index=0
+            )
+
             col_save, col_cancel = st.columns(2)
             submit = col_save.form_submit_button("💾 Speichern")
             cancel = col_cancel.form_submit_button("❌ Abbrechen")
@@ -900,7 +904,7 @@ def show_pipeline():
 
             supabase.table("pipeline_leads").insert({
                 "region": region,
-                "employee": None if selected_ma=="Alle anzeigen" else int(selected_ma.split()[1]),
+                "employee": int(assign_ma.split()[1]),
                 "last_contact": last_contact.isoformat(),
                 "generated_by": generated_by,
                 "am_nb": am_nb,
@@ -927,9 +931,13 @@ def show_pipeline():
     data = query.order("created_at", desc=True).execute()
     df = pd.DataFrame(data.data)
 
+    # Absicherung gegen KeyError
     if df.empty:
         st.info("Noch keine Leads vorhanden.")
         return
+    for col in ["lat","lon"]:
+        if col not in df.columns:
+            df[col] = None
 
     st.dataframe(df[['last_contact','generated_by','am_nb','name','adresse','ergebnis','next_action','notes']], use_container_width=True)
 
