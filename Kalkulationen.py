@@ -6,6 +6,8 @@ import math
 import folium
 from streamlit_folium import st_folium
 from geopy.geocoders import Nominatim
+import requests
+import json
 
 # =====================================================
 # 🔐 Passwörter
@@ -148,46 +150,77 @@ if not COUNTRIES[country]["features"]:
 
 # =====================================================
 # ===================== CALCULATION FUNCTIONS =====================
-# Hier kommen deine aktuellen DE-Kalkulationen rein
-# Du kannst sie 1:1 kopieren, auch GB bekommt sie gleich
+# Hier kommt dein alter, kompletter DE-Code 1:1
+# DE & GB bekommen exakt die gleiche Logik
 # =====================================================
 
-# ------------------- Platform -------------------
+# ==========================================
+# Platform
+# ==========================================
 def show_platform():
     st.header(f"🏁 Platform Kalkulation ({country})")
-    # Hier DE/GB Funktionen eins zu eins übernehmen
-    # … DE/GB Logik bleibt unverändert …
-    # (alles aus deinem alten show_platform() Code)
+    col1, col2 = st.columns([2, 1.5])
+    with col1:
+        st.subheader("Eingaben")
+        revenue = st.number_input("Revenue on platform (€)", 0.0, step=250.0)
+        commission_pct = st.number_input("Commission (%)", 14.0, step=1.0)
+        avg_order_value = st.number_input("Average order value (€)", 25.0, step=5.0)
+        service_fee = st.number_input("Service Fee (€)", 0.69, step=0.1)
+        toprank_per_order = st.number_input("TopRank per Order (€)", 0.0, step=0.1)
 
-# ------------------- Cardpayment -------------------
+        cost_platform = revenue * (commission_pct / 100) + (0.7 * revenue / avg_order_value if avg_order_value else 0) * service_fee
+        sum_of_orders = revenue / avg_order_value if avg_order_value else 0
+        toprank_cost = sum_of_orders * toprank_per_order
+        total_cost = cost_platform + toprank_cost
+
+        st.markdown(f"### 💶 Cost on Platform: {total_cost:,.2f} €")
+
+# ==========================================
+# Cardpayment
+# ==========================================
 def show_cardpayment():
     st.header(f"💳 Cardpayment Vergleich ({country})")
-    # Hier DE/GB Funktionen eins zu eins übernehmen
-    # … DE/GB Logik bleibt unverändert …
+    revenue = st.number_input("Revenue (€)", 0.0, step=250.0)
+    sum_payments = st.number_input("Sum of payments", 0.0, step=20.0)
+    mrr_a = st.number_input("Monthly Fee (€) Actual", 0.0, step=5.0)
+    comm_a = st.number_input("Commission (%) Actual", 1.39, step=0.01)
+    auth_a = st.number_input("Authentification Fee (€) Actual", 0.0)
+    mrr_o = st.number_input("Monthly Fee (€) Offer", 0.0, step=5.0)
+    comm_o = st.number_input("Commission (%) Offer", 1.19, step=0.01)
+    auth_o = st.number_input("Authentification Fee (€) Offer", 0.06)
 
-# ------------------- Pricing -------------------
+    total_actual = revenue*(comm_a/100) + sum_payments*auth_a + mrr_a
+    total_offer = revenue*(comm_o/100) + sum_payments*auth_o + mrr_o
+    saving = total_offer - total_actual
+    st.markdown(f"**Saving:** {saving:,.2f} €")
+
+# ==========================================
+# Pricing
+# ==========================================
 def show_pricing():
     st.header(f"💰 Pricing Kalkulation ({country})")
-    # Hier DE/GB Funktionen eins zu eins übernehmen
-    # … DE/GB Logik bleibt unverändert …
+    st.write("Hier kommt dein alter Pricing-Code 1:1 rein.")
 
-# ------------------- Radien -------------------
+# ==========================================
+# Radien
+# ==========================================
 def show_radien():
-    st.header(f"🗺️ Radien oder PLZ-Flächen anzeigen ({country})")
-    # Hier DE/GB Funktionen eins zu eins übernehmen
-    # … DE/GB Logik bleibt unverändert …
+    st.header(f"🗺️ Radien oder PLZ-Flächen ({country})")
+    st.write("Hier kommt dein alter Radien-Code 1:1 rein.")
 
-# ------------------- Contract Numbers -------------------
+# ==========================================
+# Contract Numbers
+# ==========================================
 def show_contractnumbers():
     st.header(f"📑 Contract Numbers ({country})")
-    # Hier DE/GB Funktionen eins zu eins übernehmen
-    # … DE/GB Logik bleibt unverändert …
+    st.write("Hier kommt dein alter Contract Numbers-Code 1:1 rein.")
 
-# ------------------- Pipeline -------------------
+# ==========================================
+# Pipeline
+# ==========================================
 def show_pipeline():
     st.header(f"📈 Pipeline ({country})")
-    # Hier DE/GB Funktionen eins zu eins übernehmen
-    # … DE/GB Logik bleibt unverändert …
+    st.write("Hier kommt dein alter Pipeline-Code 1:1 rein.")
 
 # =====================================================
 # Seitenlogik
@@ -209,5 +242,3 @@ elif page == "Contractnumbers":
     show_contractnumbers()
 elif page == "Pipeline":
     show_pipeline()
-
-
