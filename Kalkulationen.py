@@ -220,7 +220,187 @@ def show_cardpayment():
 # =====================================================
 def show_contractnumbers():
     st.header("📑 Contract Numbers")
-    # ... (Code wie vorher) ...
+
+    # ======================
+    # Produkte
+    # ======================
+    df_sw = pd.DataFrame({
+        "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "TSE"],
+        "List_OTF": [999, 49, 999, 49, 0, 0],
+        "List_MRR": [119, 49, 89, 25, 13.72, 12],
+        "Typ": ["Software"] * 6
+    })
+
+    df_hw = pd.DataFrame({
+        "Produkt": ["Ordermanager", "POS inkl 1 Printer", "Cash Drawer", "Extra Printer", "Additional Display", "PAX"],
+        "List_OTF": [299, 1699, 149, 199, 100, 299],
+        "List_MRR": [0] * 6,
+        "Typ": ["Hardware"] * 6
+    })
+
+    # ======================
+    # Session State
+    # ======================
+    for i in range(len(df_sw)):
+        st.session_state.setdefault(f"qty_sw_{i}", st.session_state.get(f"contract_sw_{i}", 0))
+    for i in range(len(df_hw)):
+        st.session_state.setdefault(f"qty_hw_{i}", st.session_state.get(f"contract_hw_{i}", 0))
+
+    # ======================
+    # Eingaben Gesamt MRR / OTF
+    # ======================
+    col1, col2 = st.columns(2)
+    with col1:
+        total_mrr = st.number_input("💶 Gesamt MRR (€)", min_value=0.0, step=50.0)
+    with col2:
+        total_otf = st.number_input("💶 Gesamt OTF (€)", min_value=0.0, step=100.0)
+
+    # ======================
+    # Zahlungsoption
+    # ======================
+    st.subheader("💳 Zahlungsoption (optional)")
+    zahlung = st.selectbox(
+        "Auswahl",
+        [
+            "Keine",
+            "Gemischte Zahlung (25% + 12 Wochen) 10%",
+            "Online-Umsatz (100%) 10%",
+            "Monatliche Raten (12 Monate) 35%",
+            "Online-Umsatz (25% + 12 Wochen) 15%"
+        ]
+    )
+
+    prozent_map = {
+        "Keine": 0,
+        "Gemischte Zahlung (25% + 12 Wochen) 10%": 0.10,
+        "Online-Umsatz (100%) 10%": 0.10,
+        "Monatliche Raten (12 Monate) 35%": 0.35,
+        "Online-Umsatz (25% + 12 Wochen) 15%": 0.15
+    }
+
+    prozent = prozent_map[zahlung]
+    otf_adjusted = total_otf * (1 - prozent)
+    st.caption(f"Verwendete OTF für Kalkulation: **{round(otf_adjusted)} €**")
+
+    # ======================
+    # Mengen Software
+    # ======================
+    st.subheader("💻 Software")
+    cols = st.columns(len(df_sw))
+    for i, row in df_sw.iterrows():
+        with cols[i]:
+            st.session_state[f"qty_sw_{i}"] = st.number_input(
+                row["Produkt"], min_value=0, step=1, value=st.session_state[f"qty_sw_{i}"]
+            )
+
+    # ======================
+    # Mengen Hardware
+    # ======================
+    st.subheader("🖨️ Hardware")
+    cols = st.columns(len(df_hw))
+    for i, row in df_hw.iterrows():
+        with cols[i]:
+            st.session_state[f"qty_hw_{i}"] = st.number_input(
+                row["Produkt"], min_value=0, step=1, value=st.session_state[f"qty_hw_{i}"]
+            )
+
+    # ======================
+    # Mengen übernehmen
+    # ======================
+    df_sw["Menge"] = [st.session_state[f"qty_sw_{i}"] for i in range(len(df_sw))]
+    df_hw["Menge"] = [st.session_state[f"qty_hw_{i}"] for i in range(len(df_hw))]
+
+    # ======================
+    # OTF Verteilung
+    # ======================
+    base = (df_sw["Menge"] * df_sw["List_OTF"]).sum() + (df_hw["Menge"] * df_hw["List_OTF"]).sum()
+    factor = otf_adjusted / base if base > 0 else 0
+    df_sw["OTF"] = (df_sw["Menge"] * df_sw["List_OTF"] * factor).round(0)
+    df_hw["OTF"] = (df_hw["Menge"] * df_hw["List_OTF"] * factor).round(0)
+
+    # ======================
+    # MRR Berechnung korrekt proportional
+    # ======================
+    mrr_base = (df_sw["Menge"] * df_sw["List_MRR"]).sum()
+    mrr_factor = total_mrr / mrr_base if mrr_base > 0 else 0
+    df_sw["MRR_Monat"] = (df_sw["Menge"] * df_sw["List_MRR"] * mrr_factor).round(2)
+    df_sw["MRR_Woche"] = (df_sw["MRR_Monat"] / 4).round(2)
+    df_hw["MRR_Monat"] = 0.0
+    df_hw["MRR_Woche"] = 0.0
+
+    # ======================
+    # Ergebnisse Software
+    # ======================
+    st.markdown("---")
+    st.subheader("💻 Software")
+
+    # Kopfzeile
+    c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
+    c1.write("Produkt")
+    c2.write("OTF")
+    c3.write("MRR")
+    c4.write("WRR")
+
+    # Daten
+    for _, r in df_sw[df_sw["Menge"] > 0].iterrows():
+        menge = int(r["Menge"])
+        otf = int(r["OTF"])
+        einzel_otf = int(otf / menge) if menge > 0 else 0
+        mrr_mon = r["MRR_Monat"]
+        mrr_woche = r["MRR_Woche"]
+
+        c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
+        if menge == 1:
+            c1.write(f"**{r['Produkt']}**")
+            c2.write(f"{otf} €")
+            c3.write(f"{mrr_mon:.2f} €")
+            c4.write(f"{mrr_woche:.2f} €")
+        else:
+            c1.write(f"**{r['Produkt']}** ({menge}x)")
+            c2.write(f"{menge}x{einzel_otf} € = {otf} €")
+            c3.write(f"{mrr_mon:.2f} €")
+            c4.write(f"{mrr_woche:.2f} €")
+
+    # ======================
+    # Ergebnisse Hardware
+    # ======================
+    st.markdown("---")
+    st.subheader("🖨️ Hardware")
+
+    # Kopfzeile
+    c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
+    c1.write("Produkt")
+    c2.write("OTF")
+    c3.write("")
+    c4.write("")
+
+    # Daten
+    for _, r in df_hw[df_hw["Menge"] > 0].iterrows():
+        menge = int(r["Menge"])
+        gesamt = int(r["OTF"])
+        einzelpreis = int(gesamt / menge) if menge > 0 else 0
+
+        c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
+        if menge == 1:
+            c1.write(f"**{r['Produkt']}**")
+            c2.write(f"{gesamt} €")
+            c3.write("")
+            c4.write("")
+        else:
+            c1.write(f"**{menge}x {r['Produkt']}**")
+            c2.write(f"{menge}x{einzelpreis} € = {gesamt} €")
+            c3.write("")
+            c4.write("")
+
+    # ======================
+    # Kontrollübersicht
+    # ======================
+    st.markdown("---")
+    st.subheader("📊 Kontrollübersicht")
+    st.write(f"OTF Eingabe: {total_otf} €")
+    st.write(f"OTF verwendet: {round(otf_adjusted)} €")
+    st.write(f"MRR Monat: {total_mrr:.2f} €")
+    st.write(f"MRR Woche: {(total_mrr/4):.2f} €")
 
 # =====================================================
 # 💰 Pricing
