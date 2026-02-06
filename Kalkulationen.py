@@ -405,7 +405,7 @@ def show_contractnumbers():
 # =====================================================
 # 💰 Pricing
 # =====================================================
-elif page == "Pricing":
+def show_pricing():
     st.header("💰 Pricing Kalkulation")
 
     software_data = {
@@ -429,11 +429,12 @@ elif page == "Pricing":
 
     # Session State initialisieren
     for i in range(len(df_sw)):
-        if f"sw_{i}" not in st.session_state: st.session_state[f"sw_{i}"]=0
+        st.session_state.setdefault(f"sw_{i}", 0)
     for i in range(len(df_hw)):
-        if f"hw_{i}" not in st.session_state: st.session_state[f"hw_{i}"]=0
-    if "gaw_value" not in st.session_state: st.session_state["gaw_value"]=50.0
-    if "gaw_qty" not in st.session_state: st.session_state["gaw_qty"]=1
+        st.session_state.setdefault(f"hw_{i}", 0)
+    st.session_state.setdefault("gaw_value", 50.0)
+    st.session_state.setdefault("gaw_qty", 1)
+    st.session_state.setdefault("pricing_discount", 0)
 
     col_sw, col_hw = st.columns(2)
 
@@ -442,30 +443,38 @@ elif page == "Pricing":
         st.subheader("🧩 Software")
         for i in range(len(df_sw)):
             if df_sw["Produkt"][i] != "GAW":
-                st.number_input(df_sw["Produkt"][i], min_value=0, step=1, key=f"sw_{i}")
-        st.number_input("GAW Menge", step=1, key="gaw_qty")
-        st.number_input("GAW Betrag (€)", min_value=0.0, step=25.0, key="gaw_value")
+                persistent_number_input(df_sw["Produkt"][i], f"sw_{i}", value=0, step=1)
+        persistent_number_input("GAW Menge", "gaw_qty", value=1, step=1)
+        persistent_number_input("GAW Betrag (€)", "gaw_value", value=50.0, step=25.0)
         df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
 
     # --- Hardware Eingaben ---
     with col_hw:
         st.subheader("🖥️ Hardware")
         for i in range(len(df_hw)):
-            st.number_input(df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}")
+            persistent_number_input(df_hw["Produkt"][i], f"hw_{i}", value=0, step=1)
         df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
+
+    # --- Rabatt ---
+    discount = persistent_number_input("Rabatt (%)", "pricing_discount", value=0, step=1)
 
     # --- Berechnung List Prices & GAW ---
     list_mrr = (df_sw[df_sw["Produkt"]!="GAW"]["Menge"]*df_sw[df_sw["Produkt"]!="GAW"]["List_MRR"]).sum()
     list_otf = (df_hw["Menge"]*df_hw["List_OTF"]).sum()
     gaw_total = st.session_state["gaw_qty"]*st.session_state["gaw_value"]
 
+    # Rabatt anwenden
+    list_mrr_discounted = list_mrr * (1 - discount/100)
+    list_otf_discounted = list_otf * (1 - discount/100)
+    gaw_total_discounted = gaw_total * (1 - discount/100)
+
     # --- Anzeige List Prices ---
     col_list1, col_list2 = st.columns(2)
-    col_list1.markdown(f"### 🧩 Software MRR List: {list_mrr:,.2f} €", unsafe_allow_html=True)
-    col_list2.markdown(f"### 🖥️ Hardware OTF List: {list_otf:,.2f} €", unsafe_allow_html=True)
+    col_list1.markdown(f"### 🧩 Software MRR List: {list_mrr_discounted:,.2f} €", unsafe_allow_html=True)
+    col_list2.markdown(f"### 🖥️ Hardware OTF List: {list_otf_discounted:,.2f} €", unsafe_allow_html=True)
 
     # --- GAW Gesamt ---
-    st.markdown(f"### 💰 GAW Gesamt: {gaw_total:,.2f} €", unsafe_allow_html=True)
+    st.markdown(f"### 💰 GAW Gesamt: {gaw_total_discounted:,.2f} €", unsafe_allow_html=True)
 
     # --- Min Prices unten ---
     min_mrr = (df_sw[df_sw["Produkt"]!="GAW"]["Menge"]*df_sw[df_sw["Produkt"]!="GAW"]["Min_MRR"]).sum()
@@ -483,16 +492,6 @@ elif page == "Pricing":
             "Min_MRR":"{:,.0f} €",
             "List_MRR":"{:,.0f} €",
         }), hide_index=True, use_container_width=True)
-
-# -------------------------------
-# Footer
-# -------------------------------
-st.markdown("""
-<hr style="margin:20px 0;">
-<p style='text-align:center; font-size:0.8rem; color:gray;'>
-😉 Traue niemals Zahlen, die du nicht selbst gefälscht hast 😉
-</p>
-""", unsafe_allow_html=True)
 
 # =====================================================
 # 📍 Radien
