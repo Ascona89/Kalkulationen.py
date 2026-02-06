@@ -421,11 +421,182 @@ def show_pricing():
 # 📍 Radien
 # =====================================================
 def show_radien():
-    st.header("📍 Radien Berechnung")
-    distance = persistent_number_input("Entfernung (km)", "radius_distance", 5)
-    radius_cost = persistent_number_input("Kosten pro km (€)", "radius_cost", 2)
-    total_cost = distance * radius_cost
-    st.markdown(f"Gesamtkosten: **{total_cost:,.2f} €**")
+    import math
+    import folium
+    import pandas as pd
+    from streamlit_folium import st_folium
+    import json
+    import requests
+
+    st.header("🗺️ Radien oder PLZ‑Flächen anzeigen")
+
+    # CSV mit PLZ-Koordinaten (für Radien)
+    CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
+
+    @st.cache_data
+    def load_plz_data():
+        df = pd.read_csv(CSV_URL, dtype=str)
+        for col in ["plz", "lat", "lon"]:
+            if col not in df.columns:
+                st.error(f"Spalte '{col}' fehlt in der CSV!")
+                st.stop()
+        df["lat"] = df["lat"].astype(float)
+        df["lon"] = df["lon"].astype(float)
+        return df
+
+    df_plz = load_plz_data()
+
+    col_input, col_mode = st.columns([3,1])
+    with col_input:
+        user_input = st.text_input(
+            "📍 Adresse, Stadt oder PLZ eingeben (z.B. Berlin, Alexanderplatz 1 oder 10115)"
+        )
+    with col_mode:
+        mode = st.selectbox("Anzeige‑Modus", ["Radien", "PLZ‑Flächen"])
+
+    if not user_input.strip():
+        return
+
+    m = folium.Map(location=[51.1657, 10.4515], zoom_start=6)
+    colors = ["blue","green","red","orange","purple","darkred","darkblue",
+              "darkgreen","cadetblue","pink","lightblue","lightgreen"]
+
+    # -----------------------------
+    # PLZ-Flächen
+    # -----------------------------
+    if mode == "PLZ‑Flächen":
+        try:
+            with open("plz-5stellig.geojson", "r", encoding="utf-8") as f:
+                geojson_data = json.load(f)
+        except Exception as e:
+            st.error(f"GeoJSON konnte nicht geladen werden: {e}")
+            return
+
+        plz_list = [p.strip() for p in user_input.split(",") if p.strip()]
+        found = False
+        all_coords = []
+
+        for i, feature in enumerate(geojson_data.get("features", [])):
+            props = feature.get("properties", {})
+            plz_val = props.get("plz") or props.get("POSTCODE") or ""
+            if plz_val in plz_list:
+                found = True
+                color = colors[i % len(colors)]
+
+                # Polygon-Koordinaten sammeln für fit_bounds
+                geom_type = feature["geometry"]["type"]
+                coords = feature["geometry"]["coordinates"]
+                if geom_type == "Polygon":
+                    for ring in coords:
+                        all_coords.extend([[lat, lon] for lon, lat in ring])
+                elif geom_type == "MultiPolygon":
+                    for poly in coords:
+                        for ring in poly:
+                            all_coords.extend([[lat, lon] for lon, lat in ring])
+
+                folium.GeoJson(
+                    feature,
+                    style_function=lambda x, c=color: {
+                        "fillColor": c,
+                        "color": "black",
+                        "weight": 1,
+                        "fillOpacity": 0.3
+                    },
+                    tooltip=folium.GeoJsonTooltip(fields=["plz"], aliases=["PLZ"])
+                ).add_to(m)
+
+        if not found:
+            st.warning("Keine PLZ-Flächen gefunden.")
+        else:
+            st.success(f"✅ {len(plz_list)} PLZ-Flächen dargestellt")
+
+        # Karte automatisch auf alle PLZ-Flächen zoomen
+        if all_coords:
+            m.fit_bounds(all_coords)
+
+    # -----------------------------
+    # Radien
+    # -----------------------------
+    else:
+        radien_input = st.text_input(
+            "📏 Radien eingeben (km, durch Komma getrennt, z.B. 5,10)",
+            value="5,10"
+        )
+        lat_c, lon_c, location_name = None, None, ""
+
+        # PLZ aus CSV
+        if user_input.strip().isdigit() and len(user_input.strip()) == 5:
+            match = df_plz[df_plz["plz"] == user_input.strip()]
+            if not match.empty:
+                lat_c = match.iloc[0]["lat"]
+                lon_c = match.iloc[0]["lon"]
+                location_name = f"PLZ: {user_input.strip()}"
+        else:
+            headers = {"User-Agent": "kalkulations-app/1.0"}
+            try:
+                response = requests.get(
+                    "https://photon.komoot.io/api/",
+                    params={"q": user_input, "limit": 1, "lang": "de"},
+                    headers=headers,
+                    timeout=10
+                )
+                data = response.json()
+                coords = data["features"][0]["geometry"]["coordinates"]
+                lon_c, lat_c = coords[0], coords[1]
+                location_name = user_input.strip()
+            except Exception:
+                st.error("🌍 Geocoding fehlgeschlagen.")
+                return
+
+        try:
+            radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
+        except ValueError:
+            st.error("Ungültige Radien.")
+            return
+
+        folium.Marker(
+            [lat_c, lon_c],
+            tooltip=location_name,
+            icon=folium.Icon(color="red")
+        ).add_to(m)
+
+        all_coords = [[lat_c, lon_c]]  # Zentrum für fit_bounds
+        for i, r in enumerate(radien):
+            color = colors[i % len(colors)]
+            circle = folium.Circle(
+                [lat_c, lon_c],
+                radius=r*1000,
+                color=color,
+                fill=True,
+                fill_opacity=0.2,
+                tooltip=f"{r} km"
+            )
+            circle.add_to(m)
+
+            # Eckpunkte des Kreises approximieren für fit_bounds
+            all_coords.append([lat_c + r/110.574, lon_c + r/(111.320*math.cos(math.radians(lat_c)))])
+            all_coords.append([lat_c - r/110.574, lon_c - r/(111.320*math.cos(math.radians(lat_c)))])
+
+        # Karte automatisch auf alle Radien zoomen
+        m.fit_bounds(all_coords)
+
+        # Haversine Entfernungstabelle
+        def haversine(lat1, lon1, lat2, lon2):
+            R = 6371
+            phi1, phi2 = math.radians(lat1), math.radians(lat2)
+            dphi = math.radians(lat2 - lat1)
+            dlambda = math.radians(lon2 - lon1)
+            a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
+            return R*2*math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+        df_plz["distance_km"] = df_plz.apply(
+            lambda r2: haversine(lat_c, lon_c, r2["lat"], r2["lon"]), axis=1
+        )
+        df_result = df_plz[df_plz["distance_km"] <= max(radien)].sort_values("distance_km")
+        st.dataframe(df_result[["plz","lat","lon","distance_km"]])
+
+    st_folium(m, width=700, height=500)
+
 
 # =====================================================
 # 🚀 Pipeline
