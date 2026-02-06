@@ -6,8 +6,8 @@ import math
 import folium
 from streamlit_folium import st_folium
 from geopy.geocoders import Nominatim
-import requests
 import json
+import requests
 
 # =====================================================
 # 🔐 Passwörter
@@ -41,7 +41,7 @@ st.session_state.setdefault("USER_PASSWORD", USER_PASSWORD)
 st.session_state.setdefault("show_map", False)
 
 # =====================================================
-# 🔐 Login
+# 🔐 Login Funktion
 # =====================================================
 def login(password):
     user_pw = st.session_state.get("USER_PASSWORD", USER_PASSWORD)
@@ -64,7 +64,7 @@ def login(password):
         st.error("❌ Falsches Passwort")
 
 # =====================================================
-# 👑 Admin Backend
+# 👑 Admin Dashboard
 # =====================================================
 if st.session_state.is_admin:
     st.header("👑 Admin Dashboard")
@@ -145,8 +145,7 @@ def show_platform():
         service_fee = persistent_number_input("Service Fee (€)", "service_fee", 0.69, step=0.1)
         toprank_per_order = persistent_number_input("TopRank per Order (€)", "toprank_per_order", 0.0, step=0.1)
 
-    cost_platform = revenue * (commission_pct / 100) + \
-        (0.7 * revenue / avg_order_value if avg_order_value else 0) * service_fee
+    cost_platform = revenue * (commission_pct / 100) + (0.7 * revenue / avg_order_value if avg_order_value else 0) * service_fee
     sum_of_orders = revenue / avg_order_value if avg_order_value else 0
     toprank_cost = sum_of_orders * toprank_per_order
     total_cost = cost_platform + toprank_cost
@@ -238,219 +237,28 @@ def show_pricing():
 
     for i in range(len(df_sw)):
         st.session_state.setdefault(f"sw_{i}", 0)
+    for i in range(len(df_hw)):
+        st.session_state.setdefault(f"hw_{i}", 0)
+
     st.subheader("💻 Software")
     sw_cols = st.columns(len(df_sw))
     for i, p in enumerate(df_sw["Produkt"]):
         with sw_cols[i]:
             st.session_state[f"sw_{i}"] = st.number_input(
-                p, min_value=0, step=1, value=st.session_state[f"sw_{i}"], key=f"sw_ui_{i}"
+                p, min_value=0, step=1,
+                value=st.session_state[f"sw_{i}"],
+                key=f"sw_ui_{i}"
             )
 
-    for i in range(len(df_hw)):
-        st.session_state.setdefault(f"hw_{i}", 0)
     st.subheader("🖨️ Hardware")
     hw_cols = st.columns(len(df_hw))
     for i, p in enumerate(df_hw["Produkt"]):
         with hw_cols[i]:
             st.session_state[f"hw_{i}"] = st.number_input(
-                p, min_value=0, step=1, value=st.session_state[f"hw_{i}"], key=f"hw_ui_{i}"
+                p, min_value=0, step=1,
+                value=st.session_state[f"hw_{i}"],
+                key=f"hw_ui_{i}"
             )
 
     df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
     df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
-
-    list_otf = (df_sw["Menge"]*df_sw["List_OTF"]).sum() + (df_hw["Menge"]*df_hw["List_OTF"]).sum()
-    min_otf = (df_sw["Menge"]*df_sw["Min_OTF"]).sum() + (df_hw["Menge"]*df_hw["Min_OTF"]).sum()
-    list_mrr = (df_sw["Menge"]*df_sw["List_MRR"]).sum() + (df_hw["Menge"]*df_hw["List_MRR"]).sum()
-    min_mrr = (df_sw["Menge"]*df_sw["Min_MRR"]).sum() + (df_hw["Menge"]*df_hw["Min_MRR"]).sum()
-
-    st.markdown("### 🧾 LIST PREISE")
-    st.markdown(f"**OTF LIST gesamt:** {list_otf:,.2f} €")
-    st.markdown(f"**MRR LIST gesamt:** {list_mrr:,.2f} €")
-
-# =====================================================
-# 🗺️ Radien
-# =====================================================
-def show_radien():
-    st.header("🗺️ Radien oder PLZ-Flächen anzeigen")
-
-    # Session State für PLZ-Flächen
-    if "plz_blocks" not in st.session_state:
-        st.session_state["plz_blocks"] = [{"plz": "", "min_order": 0.0, "delivery_cost": 0.0}]
-
-    col_input, col_mode = st.columns([3, 1])
-    with col_input:
-        user_input = st.text_input("📍 Adresse, Stadt oder PLZ eingeben (nur für Radien)")
-    with col_mode:
-        mode = st.selectbox("Anzeige-Modus", ["Radien", "PLZ-Flächen"])
-
-    m = folium.Map(location=[51.1657, 10.4515], zoom_start=6)
-    colors = ["blue", "green", "red", "orange", "purple", "darkred", "darkblue", "darkgreen", "cadetblue", "pink"]
-
-    if mode == "PLZ-Flächen":
-        try:
-            with open("plz-5stellig.geojson", "r", encoding="utf-8") as f:
-                geojson_data = json.load(f)
-        except Exception as e:
-            st.error(f"GeoJSON konnte nicht geladen werden: {e}")
-            return
-
-        st.subheader("📦 Liefergebiete (PLZ-Flächen)")
-        for idx, block in enumerate(st.session_state["plz_blocks"]):
-            col_plz, col_min, col_del = st.columns([3, 1.5, 1.5])
-            with col_plz:
-                block["plz"] = st.text_input(f"PLZ-Gruppe {idx+1} (Komma getrennt)", value=block["plz"], key=f"plz_{idx}")
-            with col_min:
-                block["min_order"] = st.number_input("Mindestbestellwert (€)", min_value=0.0, step=1.0, value=block["min_order"], key=f"min_{idx}")
-            with col_del:
-                block["delivery_cost"] = st.number_input("Lieferkosten (€)", min_value=0.0, step=0.5, value=block["delivery_cost"], key=f"del_{idx}")
-
-        if len(st.session_state["plz_blocks"]) < 10:
-            if st.button("➕ Eingabefeld hinzufügen"):
-                st.session_state["plz_blocks"].append({"plz": "", "min_order": 0.0, "delivery_cost": 0.0})
-
-        all_coords = []
-        download_rows = []
-
-        for block in st.session_state["plz_blocks"]:
-            if not block["plz"].strip():
-                continue
-            plz_list = [p.strip() for p in block["plz"].split(",") if p.strip()]
-            for feature in geojson_data.get("features", []):
-                props = feature.get("properties", {})
-                plz_val = props.get("plz") or props.get("POSTCODE")
-                if plz_val in plz_list:
-                    geom = feature["geometry"]
-                    coords = geom["coordinates"]
-                    if geom["type"] == "Polygon":
-                        for ring in coords:
-                            all_coords.extend([[lat, lon] for lon, lat in ring])
-                    elif geom["type"] == "MultiPolygon":
-                        for poly in coords:
-                            for ring in poly:
-                                all_coords.extend([[lat, lon] for lon, lat in ring])
-                    folium.GeoJson(
-                        feature,
-                        style_function=lambda x, c=colors[st.session_state["plz_blocks"].index(block) % len(colors)]: {
-                            "fillColor": c, "color": "black", "weight": 1, "fillOpacity": 0.3
-                        },
-                        tooltip=f"PLZ: {plz_val}<br>Mindestbestellwert: {block['min_order']} €<br>Lieferkosten: {block['delivery_cost']} €"
-                    ).add_to(m)
-                    download_rows.append({"PLZ": plz_val, "Mindestbestellwert": block["min_order"], "Lieferkosten": block["delivery_cost"]})
-
-        if all_coords:
-            m.fit_bounds(all_coords)
-        st_folium(m, width=700, height=500)
-
-        if download_rows:
-            df_download = pd.DataFrame(download_rows)
-            csv = df_download.to_csv(index=False).encode("utf-8")
-            st.download_button("📥 PLZ-Liefergebiete herunterladen", csv, "plz_liefergebiete.csv", "text/csv")
-
-    else:
-        CSV_URL = "https://raw.githubusercontent.com/Ascona89/Kalkulationen.py/main/plz_geocoord.csv"
-        @st.cache_data
-        def load_plz_data():
-            df = pd.read_csv(CSV_URL, dtype=str)
-            df["lat"] = df["lat"].astype(float)
-            df["lon"] = df["lon"].astype(float)
-            return df
-        df_plz = load_plz_data()
-
-        if not user_input.strip():
-            return
-
-        headers = {"User-Agent": "kalkulations-app/1.0"}
-        try:
-            response = requests.get("https://photon.komoot.io/api/", params={"q": user_input, "limit": 1, "lang": "de"}, headers=headers, timeout=10)
-            data = response.json()
-            lon_c, lat_c = data["features"][0]["geometry"]["coordinates"]
-        except Exception:
-            st.error("🌍 Geocoding fehlgeschlagen.")
-            return
-
-        radien_input = st.text_input("📏 Radien eingeben (km, Komma getrennt)", value="5,10")
-        radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
-
-        folium.Marker([lat_c, lon_c], tooltip=user_input, icon=folium.Icon(color="red")).add_to(m)
-        all_coords = [[lat_c, lon_c]]
-        for i, r in enumerate(radien):
-            folium.Circle([lat_c, lon_c], radius=r*1000, color=colors[i % len(colors)], fill=True, fill_opacity=0.2, tooltip=f"{r} km").add_to(m)
-            all_coords.append([lat_c + r/110.574, lon_c + r/110.574])
-            all_coords.append([lat_c - r/110.574, lon_c - r/110.574])
-
-        m.fit_bounds(all_coords)
-        st_folium(m, width=700, height=500)
-
-        def haversine(lat1, lon1, lat2, lon2):
-            R = 6371
-            phi1, phi2 = math.radians(lat1), math.radians(lat2)
-            dphi = math.radians(lat2 - lat1)
-            dlambda = math.radians(lon2 - lon1)
-            a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
-            return R*2*math.atan2(math.sqrt(a), math.sqrt(1-a))
-
-        df_plz["distance_km"] = df_plz.apply(lambda r: haversine(lat_c, lon_c, r["lat"], r["lon"]), axis=1)
-        df_result = df_plz[df_plz["distance_km"] <= max(radien)].sort_values("distance_km")
-        st.subheader("📋 PLZ im Radius")
-        st.dataframe(df_result[["plz","lat","lon","distance_km"]], use_container_width=True)
-
-# =====================================================
-# 📑 Contract Numbers
-# =====================================================
-def show_contractnumbers():
-    st.header("📑 Contract Numbers")
-
-    df_sw = pd.DataFrame({
-        "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "TSE"],
-        "List_OTF": [999, 49, 999, 49, 0, 0],
-        "Min_OTF": [365, 15, 365, 35, 0, 0],
-        "List_MRR": [119, 49, 89, 25, 13.72, 12],
-        "Min_MRR": [50, 15, 49, 5, 13.72, 12],
-        "Typ": ["Software"]*6
-    })
-
-    df_hw = pd.DataFrame({
-        "Produkt": ["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX"],
-        "List_OTF": [299,1699,149,199,100,299],
-        "Min_OTF": [135,350,50,99,100,225],
-        "List_MRR": [0]*6,
-        "Min_MRR": [0]*6,
-        "Typ": ["Hardware"]*6
-    })
-
-    for i in range(len(df_sw)):
-        if f"qty_sw_{i}" not in st.session_state:
-            st.session_state[f"qty_sw_{i}"] = st.session_state.get(f"contract_sw_{i}",0)
-    for i in range(len(df_hw)):
-        if f"qty_hw_{i}" not in st.session_state:
-            st.session_state[f"qty_hw_{i}"] = st.session_state.get(f"contract_hw_{i}",0)
-
-    col1, col2 = st.columns(2)
-    with col1:
-        total_mrr = st.number_input("💶 Gesamt MRR (€)", min_value=0.0, step=50.0)
-    with col2:
-        total_otf = st.number_input("💶 Gesamt OTF (€)", min_value=0.0, step=100.0)
-
-    st.subheader("💻 Software")
-    cols = st.columns(len(df_sw))
-    for i, row in df_sw.iterrows():
-        with cols[i]:
-            st.session_state[f"qty_sw_{i}"] = st.number_input(row["Produkt"], min_value=0, step=1, value=st.session_state[f"qty_sw_{i}"])
-
-    st.subheader("🖨️ Hardware")
-    cols = st.columns(len(df_hw))
-    for i, row in df_hw.iterrows():
-        with cols[i]:
-            st.session_state[f"qty_hw_{i}"] = st.number_input(row["Produkt"], min_value=0, step=1, value=st.session_state[f"qty_hw_{i}"])
-
-    df_sw["Menge"] = [st.session_state[f"qty_sw_{i}"] for i in range(len(df_sw))]
-    df_hw["Menge"] = [st.session_state[f"qty_hw_{i}"] for i in range(len(df_hw))]
-
-# =====================================================
-# 📈 Pipeline
-# =====================================================
-def show_pipeline():
-    st.header("📈 Pipeline")
-    st.info("Pipeline-Modul hier einfügen wie im alten Code")
-
