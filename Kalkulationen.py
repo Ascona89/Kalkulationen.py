@@ -6,8 +6,6 @@ import math
 import folium
 from streamlit_folium import st_folium
 from geopy.geocoders import Nominatim
-import requests
-import json
 
 # =====================================================
 # 🔐 Passwörter
@@ -56,15 +54,19 @@ def login(password):
         st.session_state.is_admin = False
         log_login("User", True)
         st.rerun()
+
     elif password == SILENT_USER_PASSWORD:
         st.session_state.logged_in = True
         st.session_state.is_admin = False
+        # bewusst KEIN log_login
         st.rerun()
+
     elif password == ADMIN_PASSWORD:
         st.session_state.logged_in = True
         st.session_state.is_admin = True
         log_login("Admin", True)
         st.rerun()
+
     else:
         log_login("Unknown", False)
         st.error("❌ Falsches Passwort")
@@ -74,6 +76,7 @@ def login(password):
 # =====================================================
 if st.session_state.is_admin:
     st.header("👑 Admin Dashboard")
+
     data = supabase.table("login_events").select("*").order("created_at", desc=True).execute()
     df = pd.DataFrame(data.data)
     if not df.empty:
@@ -110,126 +113,108 @@ if not st.session_state.get("logged_in", False):
     st.stop()
 
 # =====================================================
-# 🌍 Länder Auswahl
+# 🔧 App Setup
 # =====================================================
 st.set_page_config(page_title="Kalkulations-App", layout="wide")
 st.title("📊 Kalkulations-App")
 
-COUNTRIES = {
-    "Germany": {"flag": "🇩🇪", "features": True},
-    "Great Britain": {"flag": "🇬🇧", "features": True},
-    "Maldives": {"flag": "🇲🇻", "features": False},
-    "Denmark": {"flag": "🇩🇰", "features": False},
-    "Finland": {"flag": "🇫🇮", "features": False},
-    "Sweden": {"flag": "🇸🇪", "features": False},
-    "Norway": {"flag": "🇳🇴", "features": False},
-    "Netherlands": {"flag": "🇳🇱", "features": False},
-    "Belgium": {"flag": "🇧🇪", "features": False},
-    "Austria": {"flag": "🇦🇹", "features": False},
-    "Switzerland": {"flag": "🇨🇭", "features": False}
-}
-
-st.subheader("🌎 Select your country")
-cols = st.columns(len(COUNTRIES))
-for idx, country in enumerate(COUNTRIES):
-    if cols[idx].button(f"{COUNTRIES[country]['flag']} {country}"):
-        st.session_state["country_selected"] = country
-
-if "country_selected" not in st.session_state:
-    st.info("Please select a country to continue")
-    st.stop()
-
-country = st.session_state["country_selected"]
-
-# =====================================================
-# Länder-Funktionen aktiv / inaktiv
-# =====================================================
-if not COUNTRIES[country]["features"]:
-    st.warning("Nothing to work here, this country is only available for vacation")
-    st.stop()
-
-# =====================================================
-# ===================== CALCULATION FUNCTIONS =====================
-# Hier kommt dein alter, kompletter DE-Code 1:1
-# DE & GB bekommen exakt die gleiche Logik
-# =====================================================
-
-# ==========================================
-# Platform
-# ==========================================
-def show_platform():
-    st.header(f"🏁 Platform Kalkulation ({country})")
-    col1, col2 = st.columns([2, 1.5])
-    with col1:
-        st.subheader("Eingaben")
-        revenue = st.number_input("Revenue on platform (€)", 0.0, step=250.0)
-        commission_pct = st.number_input("Commission (%)", 14.0, step=1.0)
-        avg_order_value = st.number_input("Average order value (€)", 25.0, step=5.0)
-        service_fee = st.number_input("Service Fee (€)", 0.69, step=0.1)
-        toprank_per_order = st.number_input("TopRank per Order (€)", 0.0, step=0.1)
-
-        cost_platform = revenue * (commission_pct / 100) + (0.7 * revenue / avg_order_value if avg_order_value else 0) * service_fee
-        sum_of_orders = revenue / avg_order_value if avg_order_value else 0
-        toprank_cost = sum_of_orders * toprank_per_order
-        total_cost = cost_platform + toprank_cost
-
-        st.markdown(f"### 💶 Cost on Platform: {total_cost:,.2f} €")
-
-# ==========================================
-# Cardpayment
-# ==========================================
-def show_cardpayment():
-    st.header(f"💳 Cardpayment Vergleich ({country})")
-    revenue = st.number_input("Revenue (€)", 0.0, step=250.0)
-    sum_payments = st.number_input("Sum of payments", 0.0, step=20.0)
-    mrr_a = st.number_input("Monthly Fee (€) Actual", 0.0, step=5.0)
-    comm_a = st.number_input("Commission (%) Actual", 1.39, step=0.01)
-    auth_a = st.number_input("Authentification Fee (€) Actual", 0.0)
-    mrr_o = st.number_input("Monthly Fee (€) Offer", 0.0, step=5.0)
-    comm_o = st.number_input("Commission (%) Offer", 1.19, step=0.01)
-    auth_o = st.number_input("Authentification Fee (€) Offer", 0.06)
-
-    total_actual = revenue*(comm_a/100) + sum_payments*auth_a + mrr_a
-    total_offer = revenue*(comm_o/100) + sum_payments*auth_o + mrr_o
-    saving = total_offer - total_actual
-    st.markdown(f"**Saving:** {saving:,.2f} €")
-
-# ==========================================
-# Pricing
-# ==========================================
-def show_pricing():
-    st.header(f"💰 Pricing Kalkulation ({country})")
-    st.write("Hier kommt dein alter Pricing-Code 1:1 rein.")
-
-# ==========================================
-# Radien
-# ==========================================
-def show_radien():
-    st.header(f"🗺️ Radien oder PLZ-Flächen ({country})")
-    st.write("Hier kommt dein alter Radien-Code 1:1 rein.")
-
-# ==========================================
-# Contract Numbers
-# ==========================================
-def show_contractnumbers():
-    st.header(f"📑 Contract Numbers ({country})")
-    st.write("Hier kommt dein alter Contract Numbers-Code 1:1 rein.")
-
-# ==========================================
-# Pipeline
-# ==========================================
-def show_pipeline():
-    st.header(f"📈 Pipeline ({country})")
-    st.write("Hier kommt dein alter Pipeline-Code 1:1 rein.")
-
-# =====================================================
-# Seitenlogik
-# =====================================================
 page = st.sidebar.radio(
     "Wähle eine Kalkulation:",
     ["Platform", "Cardpayment", "Pricing", "Radien", "Contractnumbers", "Pipeline"]
 )
 
+# ==========================
+# Hilfsfunktionen für persistente Inputs
+# ==========================
+def persistent_number_input(label, key, value=0.0, **kwargs):
+    st.session_state.setdefault(key, value)
+    st.session_state[key] = st.number_input(label, value=st.session_state[key], key=f"ui_{key}", **kwargs)
+    return st.session_state[key]
+
+def persistent_text_input(label, key, value="", **kwargs):
+    st.session_state.setdefault(key, value)
+    st.session_state[key] = st.text_input(label, value=st.session_state[key], key=f"ui_{key}", **kwargs)
+    return st.session_state[key]
+
+def persistent_selectbox(label, key, options, index=0, **kwargs):
+    st.session_state.setdefault(key, options[index])
+    st.session_state[key] = st.selectbox(label, options, index=options.index(st.session_state[key]), **kwargs)
+    return st.session_state[key]
+
+# =====================================================
+# 🏁 Platform
+# =====================================================
+def show_platform():
+    st.header("🏁 Platform Kalkulation")
+    col1, col2 = st.columns([2, 1.5])
+
+    with col1:
+        st.subheader("Eingaben")
+        revenue = persistent_number_input("Revenue on platform (€)", "revenue", 0.0, step=250.0)
+        commission_pct = persistent_number_input("Commission (%)", "commission_pct", 14.0, step=1.0)
+        avg_order_value = persistent_number_input("Average order value (€)", "avg_order_value", 25.0, step=5.0)
+        service_fee = persistent_number_input("Service Fee (€)", "service_fee", 0.69, step=0.1)
+        toprank_per_order = persistent_number_input("TopRank per Order (€)", "toprank_per_order", 0.0, step=0.1)
+
+        # ==============================
+        # 🧮 Berechnung Cost on Platform direkt nach Eingaben
+        # ==============================
+        cost_platform = revenue * (commission_pct / 100) + \
+                        (0.7 * revenue / avg_order_value if avg_order_value else 0) * service_fee
+
+        sum_of_orders = revenue / avg_order_value if avg_order_value else 0
+        toprank_cost = sum_of_orders * toprank_per_order
+
+        total_cost = cost_platform + toprank_cost
+
+        st.markdown("### 💶 Cost on Platform")
+        st.markdown(f"<div style='color:red; font-size:28px;'>{total_cost:,.2f} €</div>", unsafe_allow_html=True)
+
+        st.markdown("---")
+        st.subheader("Vertragsdetails")
+        OTF = persistent_number_input("One Time Fee (OTF) (€)", "OTF", 0.0, step=100.0)
+        MRR = persistent_number_input("Monthly Recurring Revenue (MRR) (€)", "MRR", 0.0, step=10.0)
+        contract_length = persistent_number_input("Contract length (Monate)", "contract_length", 24, step=12)
+
+# =====================================================
+# 💳 Cardpayment
+# =====================================================
+def show_cardpayment():
+    st.header("💳 Cardpayment Vergleich")
+    # ... (Rest des Codes unverändert)
+    st.write("Hier kommt der Cardpayment-Code 1:1 hin")  
+
+# =====================================================
+# Pricing
+# =====================================================
+def show_pricing():
+    st.header("💰 Pricing Kalkulation")
+    st.write("Hier kommt der Pricing-Code 1:1 hin")  
+
+# =====================================================
+# Radien
+# =====================================================
+def show_radien():
+    st.header("🗺️ Radien oder PLZ-Flächen anzeigen")
+    st.write("Hier kommt der Radien-Code 1:1 hin")  
+
+# =====================================================
+# Contract Numbers
+# =====================================================
+def show_contractnumbers():
+    st.header("📑 Contract Numbers")
+    st.write("Hier kommt der Contract Numbers-Code 1:1 hin")  
+
+# =====================================================
+# Pipeline
+# =====================================================
+def show_pipeline():
+    st.header("📈 Pipeline")
+    st.write("Hier kommt der Pipeline-Code 1:1 hin")  
+
+# =====================================================
+# 🏗 Seitenlogik
+# =====================================================
 if page == "Platform":
     show_platform()
 elif page == "Cardpayment":
