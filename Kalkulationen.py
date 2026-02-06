@@ -357,115 +357,45 @@ def show_pricing():
 # =====================================================
 # 🗺️ Radien
 # =====================================================
+# =====================================================
+# 🗺️ Radien
+# =====================================================
+def show_radien():
+    import math
+    import folium
+    import pandas as pd
+    from streamlit_folium import st_folium
+    import json
+    import requests
+    import streamlit as st
 
-    else:
-        import requests
-        import pandas as pd
-        import math
+    st.header("🗺️ Radien oder PLZ-Flächen anzeigen")
 
-        # -------------------------------------
-        # Eurostat GISCO – Postal Code Points
-        # -------------------------------------
-        GISCO_URL = "https://gisco-services.ec.europa.eu/distribution/v1/pcode-2024/PCODE_PT_2024_4326.geojson"
+    # =====================================================
+    # Session State für PLZ-Flächen
+    # =====================================================
+    if "plz_blocks" not in st.session_state:
+        st.session_state["plz_blocks"] = [
+            {"plz": "", "min_order": 0.0, "delivery_cost": 0.0}
+        ]
 
-        @st.cache_data
-        def load_eu_plz_points():
-            r = requests.get(GISCO_URL, timeout=20)
-            data = r.json()
+    # =====================================================
+    # Eingabe & Modus
+    # =====================================================
+    col_input, col_mode = st.columns([3, 1])
+    with col_input:
+        user_input = st.text_input("📍 Adresse, Stadt oder PLZ eingeben (nur für Radien)")
+    with col_mode:
+        mode = st.selectbox("Anzeige-Modus", ["Radien", "PLZ-Flächen"])
 
-            rows = []
-            for f in data["features"]:
-                props = f["properties"]
-                lon, lat = f["geometry"]["coordinates"]
-                rows.append({
-                    "country": props.get("CNTR_CODE"),
-                    "plz": props.get("PCODE"),
-                    "lat": lat,
-                    "lon": lon
-                })
-            return pd.DataFrame(rows)
-
-        df_plz = load_eu_plz_points()
-
-        if not user_input.strip():
-            return
-
-        # -------------------------------------
-        # Geocoding (Adresse / PLZ / Stadt)
-        # -------------------------------------
-        try:
-            response = requests.get(
-                "https://photon.komoot.io/api/",
-                params={"q": user_input, "limit": 1, "lang": "en"},
-                headers={"User-Agent": "kalkulations-app"},
-                timeout=10
-            )
-            geo = response.json()
-            lon_c, lat_c = geo["features"][0]["geometry"]["coordinates"]
-        except Exception:
-            st.error("🌍 Adresse konnte nicht gefunden werden.")
-            return
-
-        radien_input = st.text_input("📏 Radien eingeben (km, Komma getrennt)", value="5,10")
-        radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
-
-        folium.Marker(
-            [lat_c, lon_c],
-            tooltip=user_input,
-            icon=folium.Icon(color="red")
-        ).add_to(m)
-
-        # -------------------------------------
-        # Haversine
-        # -------------------------------------
-        def haversine(lat1, lon1, lat2, lon2):
-            R = 6371
-            phi1, phi2 = math.radians(lat1), math.radians(lat2)
-            dphi = math.radians(lat2 - lat1)
-            dlambda = math.radians(lon2 - lon1)
-            a = math.sin(dphi / 2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda / 2)**2
-            return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-        df_plz["distance_km"] = df_plz.apply(
-            lambda r: haversine(lat_c, lon_c, r["lat"], r["lon"]),
-            axis=1
-        )
-
-        # -------------------------------------
-        # Kreise & Karte
-        # -------------------------------------
-        all_coords = [[lat_c, lon_c]]
-
-        for i, r in enumerate(radien):
-            folium.Circle(
-                [lat_c, lon_c],
-                radius=r * 1000,
-                color=colors[i % len(colors)],
-                fill=True,
-                fill_opacity=0.2,
-                tooltip=f"{r} km"
-            ).add_to(m)
-
-            all_coords.append([lat_c + r / 110, lon_c + r / 110])
-            all_coords.append([lat_c - r / 110, lon_c - r / 110])
-
-        m.fit_bounds(all_coords)
-        st_folium(m, width=700, height=500)
-
-        # -------------------------------------
-        # Ergebnis Tabelle
-        # -------------------------------------
-        df_result = (
-            df_plz[df_plz["distance_km"] <= max(radien)]
-            .sort_values("distance_km")
-            .reset_index(drop=True)
-        )
-
-        st.subheader("📋 PLZ im Radius (EU-weit)")
-        st.dataframe(
-            df_result[["country", "plz", "distance_km"]],
-            use_container_width=True
-        )
+    # =====================================================
+    # Karte vorbereiten
+    # =====================================================
+    m = folium.Map(location=[51.1657, 10.4515], zoom_start=6)
+    colors = [
+        "blue", "green", "red", "orange", "purple",
+        "darkred", "darkblue", "darkgreen", "cadetblue", "pink"
+    ]
 
     # =====================================================
     # PLZ-FLÄCHEN
@@ -569,7 +499,6 @@ def show_pricing():
         if download_rows:
             df_download = pd.DataFrame(download_rows)
             csv = df_download.to_csv(index=False).encode("utf-8")
-
             st.download_button(
                 "📥 PLZ-Liefergebiete herunterladen",
                 csv,
@@ -610,7 +539,6 @@ def show_pricing():
             return
 
         radien_input = st.text_input("📏 Radien eingeben (km, Komma getrennt)", value="5,10")
-
         radien = [float(r.strip()) for r in radien_input.split(",") if r.strip()]
 
         folium.Marker([lat_c, lon_c], tooltip=user_input, icon=folium.Icon(color="red")).add_to(m)
@@ -633,6 +561,9 @@ def show_pricing():
         m.fit_bounds(all_coords)
         st_folium(m, width=700, height=500)
 
+        # =====================================================
+        # PLZ im Radius anzeigen
+        # =====================================================
         def haversine(lat1, lon1, lat2, lon2):
             R = 6371
             phi1, phi2 = math.radians(lat1), math.radians(lat2)
