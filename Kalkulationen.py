@@ -405,17 +405,94 @@ def show_contractnumbers():
 # =====================================================
 # 💰 Pricing
 # =====================================================
-def show_pricing():
+elif page == "Pricing":
     st.header("💰 Pricing Kalkulation")
-    base_price = persistent_number_input("Basispreis (€)", "pricing_base", 100)
-    discount = persistent_number_input("Rabatt (%)", "pricing_discount", 0, step=1.0)
-    qty = persistent_number_input("Menge", "pricing_qty", 1, step=1)
 
-    price_after_discount = base_price * (1 - discount/100)
-    total_price = price_after_discount * qty
+    software_data = {
+        "Produkt": ["Shop","App","POS","Pay","GAW"],
+        "Min_OTF": [365,15,365,35,50],
+        "List_OTF": [999,49,999,49,100],
+        "Min_MRR": [50,15,49,5,100],
+        "List_MRR": [119,49,89,25,100]
+    }
 
-    st.markdown(f"Preis nach Rabatt: **{price_after_discount:,.2f} €**")
-    st.markdown(f"Gesamtpreis: **{total_price:,.2f} €**")
+    hardware_data = {
+        "Produkt":["Ordermanager","POS inkl 1 Printer","Cash Drawer","Extra Printer","Additional Display","PAX"],
+        "Min_OTF":[135,350,50,99,100,225],
+        "List_OTF":[299,1699,149,199,100,299],
+        "Min_MRR":[0,0,0,0,0,0],
+        "List_MRR":[0,0,0,0,0,0]
+    }
+
+    df_sw = pd.DataFrame(software_data)
+    df_hw = pd.DataFrame(hardware_data)
+
+    # Session State initialisieren
+    for i in range(len(df_sw)):
+        if f"sw_{i}" not in st.session_state: st.session_state[f"sw_{i}"]=0
+    for i in range(len(df_hw)):
+        if f"hw_{i}" not in st.session_state: st.session_state[f"hw_{i}"]=0
+    if "gaw_value" not in st.session_state: st.session_state["gaw_value"]=50.0
+    if "gaw_qty" not in st.session_state: st.session_state["gaw_qty"]=1
+
+    col_sw, col_hw = st.columns(2)
+
+    # --- Software Eingaben ---
+    with col_sw:
+        st.subheader("🧩 Software")
+        for i in range(len(df_sw)):
+            if df_sw["Produkt"][i] != "GAW":
+                st.number_input(df_sw["Produkt"][i], min_value=0, step=1, key=f"sw_{i}")
+        st.number_input("GAW Menge", step=1, key="gaw_qty")
+        st.number_input("GAW Betrag (€)", min_value=0.0, step=25.0, key="gaw_value")
+        df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
+
+    # --- Hardware Eingaben ---
+    with col_hw:
+        st.subheader("🖥️ Hardware")
+        for i in range(len(df_hw)):
+            st.number_input(df_hw["Produkt"][i], min_value=0, step=1, key=f"hw_{i}")
+        df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
+
+    # --- Berechnung List Prices & GAW ---
+    list_mrr = (df_sw[df_sw["Produkt"]!="GAW"]["Menge"]*df_sw[df_sw["Produkt"]!="GAW"]["List_MRR"]).sum()
+    list_otf = (df_hw["Menge"]*df_hw["List_OTF"]).sum()
+    gaw_total = st.session_state["gaw_qty"]*st.session_state["gaw_value"]
+
+    # --- Anzeige List Prices ---
+    col_list1, col_list2 = st.columns(2)
+    col_list1.markdown(f"### 🧩 Software MRR List: {list_mrr:,.2f} €", unsafe_allow_html=True)
+    col_list2.markdown(f"### 🖥️ Hardware OTF List: {list_otf:,.2f} €", unsafe_allow_html=True)
+
+    # --- GAW Gesamt ---
+    st.markdown(f"### 💰 GAW Gesamt: {gaw_total:,.2f} €", unsafe_allow_html=True)
+
+    # --- Min Prices unten ---
+    min_mrr = (df_sw[df_sw["Produkt"]!="GAW"]["Menge"]*df_sw[df_sw["Produkt"]!="GAW"]["Min_MRR"]).sum()
+    min_otf = (df_hw["Menge"]*df_hw["Min_OTF"]).sum()
+    st.markdown("---")
+    st.markdown(f"### 🔻 MRR Min: {min_mrr:,.2f} €")
+    st.markdown(f"### 🔻 OTF Min: {min_otf:,.2f} €")
+
+    # --- Tabelle ---
+    with st.expander("Preisdetails anzeigen"):
+        df_show = pd.concat([df_sw, df_hw])[["Produkt","Min_OTF","List_OTF","Min_MRR","List_MRR"]]
+        st.dataframe(df_show.style.format({
+            "Min_OTF":"{:,.0f} €",
+            "List_OTF":"{:,.0f} €",
+            "Min_MRR":"{:,.0f} €",
+            "List_MRR":"{:,.0f} €",
+        }), hide_index=True, use_container_width=True)
+
+# -------------------------------
+# Footer
+# -------------------------------
+st.markdown("""
+<hr style="margin:20px 0;">
+<p style='text-align:center; font-size:0.8rem; color:gray;'>
+😉 Traue niemals Zahlen, die du nicht selbst gefälscht hast 😉
+</p>
+""", unsafe_allow_html=True)
 
 # =====================================================
 # 📍 Radien
