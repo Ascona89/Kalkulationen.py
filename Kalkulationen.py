@@ -431,11 +431,11 @@ def show_pricing():
     st.header("💰 Pricing Kalkulation")
 
     software_data = {
-        "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW"],
-        "Min_OTF": [365, 15, 365, 35, 0, 50],
-        "List_OTF": [999, 49, 999, 49, 0, 100],
-        "Min_MRR": [50, 15, 49, 5, 15, 100],
-        "List_MRR": [119, 49, 89, 25, 15, 100]
+        "Produkt": ["Shop", "App", "POS", "Pay", "Connect"],
+        "Min_OTF": [365, 15, 365, 35, 0],
+        "List_OTF": [999, 49, 999, 49, 0],
+        "Min_MRR": [50, 15, 49, 5, 15],
+        "List_MRR": [119, 49, 89, 25, 15]
     }
 
     hardware_data = {
@@ -460,31 +460,17 @@ def show_pricing():
     for i in range(len(df_hw)):
         st.session_state.setdefault(f"hw_{i}", 0)
 
-    st.session_state.setdefault("gaw_qty", 1)
-    st.session_state.setdefault("gaw_value", 50.0)
     st.session_state.setdefault("pricing_discount", 0)
 
     # -------------------------------
     # Software Inputs
     # -------------------------------
     st.subheader("💻 Software")
-    cols = st.columns(len(df_sw) - 1)
+    cols = st.columns(len(df_sw))
 
-    col_idx = 0
     for i, row in df_sw.iterrows():
-        if row["Produkt"] == "GAW":
-            continue
-        with cols[col_idx]:
+        with cols[i]:
             st.number_input(row["Produkt"], min_value=0, step=1, key=f"sw_{i}")
-        col_idx += 1
-
-    # GAW separat
-    st.markdown("#### 📢 Google Ads (GAW)")
-    col_g1, col_g2 = st.columns(2)
-    with col_g1:
-        st.number_input("GAW Menge", min_value=0, step=1, key="gaw_qty")
-    with col_g2:
-        st.number_input("GAW Betrag (€)", min_value=0.0, step=25.0, key="gaw_value")
 
     df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
 
@@ -506,85 +492,82 @@ def show_pricing():
     discount_factor = 1 - discount / 100
 
     # -------------------------------
-    # Berechnungen (wie vorher)
+    # Berechnungen
     # -------------------------------
 
-    # Software OTF (ohne GAW)
-    software_otf = (
-        df_sw[df_sw["Produkt"] != "GAW"]["Menge"]
-        * df_sw[df_sw["Produkt"] != "GAW"]["List_OTF"]
-    ).sum() * discount_factor
+    # Software OTF
+    software_otf_list = (df_sw["Menge"] * df_sw["List_OTF"]).sum() * discount_factor
+    software_otf_min = (df_sw["Menge"] * df_sw["Min_OTF"]).sum() * discount_factor
 
     # Hardware OTF
-    hardware_otf = (
-        df_hw["Menge"] * df_hw["List_OTF"]
-    ).sum() * discount_factor
+    hardware_otf_list = (df_hw["Menge"] * df_hw["List_OTF"]).sum() * discount_factor
+    hardware_otf_min = (df_hw["Menge"] * df_hw["Min_OTF"]).sum() * discount_factor
 
     # Gesamt OTF
-    total_otf = software_otf + hardware_otf
+    total_otf_list = software_otf_list + hardware_otf_list
+    total_otf_min = software_otf_min + hardware_otf_min
 
-    # Software MRR (ohne GAW)
-    list_mrr = (
-        df_sw[df_sw["Produkt"] != "GAW"]["Menge"]
-        * df_sw[df_sw["Produkt"] != "GAW"]["List_MRR"]
-    ).sum() * discount_factor
-
-    # GAW
-    gaw_total = (
-        st.session_state["gaw_qty"]
-        * st.session_state["gaw_value"]
-    ) * discount_factor
+    # Software MRR
+    list_mrr = (df_sw["Menge"] * df_sw["List_MRR"]).sum() * discount_factor
+    min_mrr = (df_sw["Menge"] * df_sw["Min_MRR"]).sum() * discount_factor
 
     # -------------------------------
-    # Anzeige wie bisher
+    # Anzeige oben
     # -------------------------------
+    st.subheader("📊 Übersicht")
     col1, col2, col3 = st.columns(3)
     col1.markdown(f"### 🧩 Software MRR List: {list_mrr:,.2f} €")
-    col2.markdown(f"### 🖥️ Gesamt OTF (Software + Hardware): {total_otf:,.2f} €")
-    col2.caption(f"Software OTF: {software_otf:,.2f} € | Hardware OTF: {hardware_otf:,.2f} €")
-    col3.markdown(f"### 💰 GAW Gesamt: {gaw_total:,.2f} €")
+    col2.markdown(f"### 🖥️ Gesamt OTF List (Software + Hardware): {total_otf_list:,.2f} €")
+    col2.caption(f"Software OTF List: {software_otf_list:,.2f} € | Hardware OTF List: {hardware_otf_list:,.2f} €")
+    col3.markdown(f"### 🖥️ Gesamt OTF Min (Software + Hardware): {total_otf_min:,.2f} €")
+    col3.caption(f"Software OTF Min: {software_otf_min:,.2f} € | Hardware OTF Min: {hardware_otf_min:,.2f} €")
 
     # =====================================================
-    # 💳 Leasing Zusatzbereich (NEU)
+    # 💳 Leasing Zusatzbereich (List & Min)
     # =====================================================
-
     st.markdown("---")
     st.subheader("💳 Leasing Berechnung (Hardware)")
 
-    leasing = (hardware_otf / 12) * 1.15 if hardware_otf > 0 else 0
-    mrr_incl_leasing = list_mrr + leasing
+    # Leasing
+    leasing_list = (hardware_otf_list / 12) * 1.15 if hardware_otf_list > 0 else 0
+    leasing_min = (hardware_otf_min / 12) * 1.15 if hardware_otf_min > 0 else 0
+
+    mrr_incl_leasing_list = list_mrr + leasing_list
+    mrr_incl_leasing_min = min_mrr + leasing_min
 
     col_l1, col_l2, col_l3, col_l4 = st.columns(4)
-
-    col_l1.markdown(f"### 💶 MRR (Software): {list_mrr:,.2f} €")
-    col_l2.markdown(f"### 🖥️ Leasing: {leasing:,.2f} €")
-    col_l3.markdown(f"### 💰 MRR inkl. Leasing: {mrr_incl_leasing:,.2f} €")
-    col_l4.markdown(f"### 🧩 OTF Software: {software_otf:,.2f} €")
+    col_l1.markdown(f"### 💶 MRR (Software) List: {list_mrr:,.2f} €")
+    col_l2.markdown(f"### 🖥️ Leasing List: {leasing_list:,.2f} €")
+    col_l3.markdown(f"### 💰 MRR inkl. Leasing List: {mrr_incl_leasing_list:,.2f} €")
+    col_l4.markdown(f"### 🧩 OTF Software List: {software_otf_list:,.2f} €")
 
     st.caption(
-        f"Leasing Formel: (Hardware OTF / 12) × 1,15 | "
-        f"Hardware OTF Basis: {hardware_otf:,.2f} €"
+        f"Leasing Formel List: (Hardware List-OTF / 12) × 1,15 | "
+        f"Hardware List-OTF Basis: {hardware_otf_list:,.2f} €"
+    )
+
+    st.markdown("---")
+
+    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+    col_m1.markdown(f"### 💶 MRR (Software) Min: {min_mrr:,.2f} €")
+    col_m2.markdown(f"### 🖥️ Leasing Min: {leasing_min:,.2f} €")
+    col_m3.markdown(f"### 💰 MRR inkl. Leasing Min: {mrr_incl_leasing_min:,.2f} €")
+    col_m4.markdown(f"### 🧩 OTF Software Min: {software_otf_min:,.2f} €")
+
+    st.caption(
+        f"Leasing Formel Min: (Hardware Min-OTF / 12) × 1,15 | "
+        f"Hardware Min-OTF Basis: {hardware_otf_min:,.2f} €"
     )
 
     # -------------------------------
-    # Minimalpreise (wie vorher)
+    # Minimalpreise
     # -------------------------------
     st.markdown("---")
+    min_mrr_total = (df_sw["Menge"] * df_sw["Min_MRR"]).sum()
+    min_otf_total = (df_sw["Menge"] * df_sw["Min_OTF"]).sum() + (df_hw["Menge"] * df_hw["Min_OTF"]).sum()
 
-    min_mrr = (
-        df_sw[df_sw["Produkt"] != "GAW"]["Menge"]
-        * df_sw[df_sw["Produkt"] != "GAW"]["Min_MRR"]
-    ).sum()
-
-    min_otf = (
-        df_hw["Menge"] * df_hw["Min_OTF"]
-    ).sum() + (
-        df_sw[df_sw["Produkt"] != "GAW"]["Menge"]
-        * df_sw[df_sw["Produkt"] != "GAW"]["Min_OTF"]
-    ).sum()
-
-    st.markdown(f"### 🔻 MRR Min: {min_mrr:,.2f} €")
-    st.markdown(f"### 🔻 OTF Min: {min_otf:,.2f} €")
+    st.markdown(f"### 🔻 MRR Min: {min_mrr_total:,.2f} €")
+    st.markdown(f"### 🔻 OTF Min: {min_otf_total:,.2f} €")
 
     # -------------------------------
     # Preistabelle
