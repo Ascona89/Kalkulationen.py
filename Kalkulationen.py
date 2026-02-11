@@ -506,7 +506,7 @@ def show_pricing():
     discount_factor = 1 - discount / 100
 
     # -------------------------------
-    # Berechnungen
+    # Berechnungen (wie vorher)
     # -------------------------------
 
     # Software OTF (ohne GAW)
@@ -520,8 +520,11 @@ def show_pricing():
         df_hw["Menge"] * df_hw["List_OTF"]
     ).sum() * discount_factor
 
+    # Gesamt OTF
+    total_otf = software_otf + hardware_otf
+
     # Software MRR (ohne GAW)
-    software_mrr = (
+    list_mrr = (
         df_sw[df_sw["Produkt"] != "GAW"]["Menge"]
         * df_sw[df_sw["Produkt"] != "GAW"]["List_MRR"]
     ).sum() * discount_factor
@@ -532,32 +535,39 @@ def show_pricing():
         * st.session_state["gaw_value"]
     ) * discount_factor
 
-    # 🔥 LEASING BERECHNUNG
-    leasing = (hardware_otf / 12) * 1.15 if hardware_otf > 0 else 0
-
-    # MRR inkl Leasing
-    mrr_incl_leasing = software_mrr + leasing
-
     # -------------------------------
-    # Anzeige Hauptwerte
+    # Anzeige wie bisher
     # -------------------------------
+    col1, col2, col3 = st.columns(3)
+    col1.markdown(f"### 🧩 Software MRR List: {list_mrr:,.2f} €")
+    col2.markdown(f"### 🖥️ Gesamt OTF (Software + Hardware): {total_otf:,.2f} €")
+    col2.caption(f"Software OTF: {software_otf:,.2f} € | Hardware OTF: {hardware_otf:,.2f} €")
+    col3.markdown(f"### 💰 GAW Gesamt: {gaw_total:,.2f} €")
+
+    # =====================================================
+    # 💳 Leasing Zusatzbereich (NEU)
+    # =====================================================
+
     st.markdown("---")
+    st.subheader("💳 Leasing Berechnung (Hardware)")
 
-    col1, col2, col3, col4 = st.columns(4)
+    leasing = (hardware_otf / 12) * 1.15 if hardware_otf > 0 else 0
+    mrr_incl_leasing = list_mrr + leasing
 
-    col1.markdown(f"### 💶 MRR Software: {software_mrr:,.2f} €")
-    col2.markdown(f"### 🖥️ Leasing: {leasing:,.2f} €")
-    col3.markdown(f"### 💰 MRR inkl. Leasing: {mrr_incl_leasing:,.2f} €")
-    col4.markdown(f"### 🧩 OTF Software: {software_otf:,.2f} €")
+    col_l1, col_l2, col_l3, col_l4 = st.columns(4)
 
-    # Zusatzinfos
+    col_l1.markdown(f"### 💶 MRR (Software): {list_mrr:,.2f} €")
+    col_l2.markdown(f"### 🖥️ Leasing: {leasing:,.2f} €")
+    col_l3.markdown(f"### 💰 MRR inkl. Leasing: {mrr_incl_leasing:,.2f} €")
+    col_l4.markdown(f"### 🧩 OTF Software: {software_otf:,.2f} €")
+
     st.caption(
-        f"Hardware OTF Basis: {hardware_otf:,.2f} € | "
-        f"GAW Gesamt: {gaw_total:,.2f} €"
+        f"Leasing Formel: (Hardware OTF / 12) × 1,15 | "
+        f"Hardware OTF Basis: {hardware_otf:,.2f} €"
     )
 
     # -------------------------------
-    # Minimalpreise
+    # Minimalpreise (wie vorher)
     # -------------------------------
     st.markdown("---")
 
@@ -594,7 +604,6 @@ def show_pricing():
             hide_index=True,
             use_container_width=True
         )
-
 
 # =====================================================
 # 📍 Radien
