@@ -522,43 +522,6 @@ def show_pricing():
     col3.markdown(f"### 🖥️ Gesamt OTF Min (Software + Hardware): {total_otf_min:,.2f} €")
     col3.caption(f"Software OTF Min: {software_otf_min:,.2f} € | Hardware OTF Min: {hardware_otf_min:,.2f} €")
 
-    # =====================================================
-    # 💳 Leasing Zusatzbereich (List & Min)
-    # =====================================================
-    st.markdown("---")
-    st.subheader("💳 Leasing Berechnung (Hardware)")
-
-    # Leasing
-    leasing_list = (hardware_otf_list / 12) * 1.15 if hardware_otf_list > 0 else 0
-    leasing_min = (hardware_otf_min / 12) * 1.15 if hardware_otf_min > 0 else 0
-
-    mrr_incl_leasing_list = list_mrr + leasing_list
-    mrr_incl_leasing_min = min_mrr + leasing_min
-
-    col_l1, col_l2, col_l3, col_l4 = st.columns(4)
-    col_l1.markdown(f"### 💶 MRR (Software) List: {list_mrr:,.2f} €")
-    col_l2.markdown(f"### 🖥️ Leasing List: {leasing_list:,.2f} €")
-    col_l3.markdown(f"### 💰 MRR inkl. Leasing List: {mrr_incl_leasing_list:,.2f} €")
-    col_l4.markdown(f"### 🧩 OTF Software List: {software_otf_list:,.2f} €")
-
-    st.caption(
-        f"Leasing Formel List: (Hardware List-OTF / 12) × 1,15 | "
-        f"Hardware List-OTF Basis: {hardware_otf_list:,.2f} €"
-    )
-
-    st.markdown("---")
-
-    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-    col_m1.markdown(f"### 💶 MRR (Software) Min: {min_mrr:,.2f} €")
-    col_m2.markdown(f"### 🖥️ Leasing Min: {leasing_min:,.2f} €")
-    col_m3.markdown(f"### 💰 MRR inkl. Leasing Min: {mrr_incl_leasing_min:,.2f} €")
-    col_m4.markdown(f"### 🧩 OTF Software Min: {software_otf_min:,.2f} €")
-
-    st.caption(
-        f"Leasing Formel Min: (Hardware Min-OTF / 12) × 1,15 | "
-        f"Hardware Min-OTF Basis: {hardware_otf_min:,.2f} €"
-    )
-
     # -------------------------------
     # Minimalpreise
     # -------------------------------
