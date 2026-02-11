@@ -495,42 +495,38 @@ def show_pricing():
     # Berechnungen
     # -------------------------------
 
-    # Software OTF
-    software_otf_list = (df_sw["Menge"] * df_sw["List_OTF"]).sum() * discount_factor
-    software_otf_min = (df_sw["Menge"] * df_sw["Min_OTF"]).sum() * discount_factor
+    # Software OTF & MRR
+    otf_software_list = (df_sw["Menge"] * df_sw["List_OTF"]).sum() * discount_factor
+    mrr_list = (df_sw["Menge"] * df_sw["List_MRR"]).sum() * discount_factor
 
     # Hardware OTF
-    hardware_otf_list = (df_hw["Menge"] * df_hw["List_OTF"]).sum() * discount_factor
-    hardware_otf_min = (df_hw["Menge"] * df_hw["Min_OTF"]).sum() * discount_factor
+    otf_hardware_list = (df_hw["Menge"] * df_hw["List_OTF"]).sum() * discount_factor
 
     # Gesamt OTF
-    total_otf_list = software_otf_list + hardware_otf_list
-    total_otf_min = software_otf_min + hardware_otf_min
+    total_otf_list = otf_software_list + otf_hardware_list
 
-    # Software MRR
-    list_mrr = (df_sw["Menge"] * df_sw["List_MRR"]).sum() * discount_factor
-    min_mrr = (df_sw["Menge"] * df_sw["Min_MRR"]).sum() * discount_factor
+    # Minimalpreise
+    min_mrr_total = (df_sw["Menge"] * df_sw["Min_MRR"]).sum()
+    min_otf_total = (df_sw["Menge"] * df_sw["Min_OTF"]).sum() + (df_hw["Menge"] * df_hw["Min_OTF"]).sum()
 
     # -------------------------------
     # Anzeige oben
     # -------------------------------
-    st.subheader("📊 Übersicht")
-    col1, col2, col3 = st.columns(3)
-    col1.markdown(f"### 🧩 Software MRR List: {list_mrr:,.2f} €")
-    col2.markdown(f"### 🖥️ Gesamt OTF List (Software + Hardware): {total_otf_list:,.2f} €")
-    col2.caption(f"Software OTF List: {software_otf_list:,.2f} € | Hardware OTF List: {hardware_otf_list:,.2f} €")
-    col3.markdown(f"### 🖥️ Gesamt OTF Min (Software + Hardware): {total_otf_min:,.2f} €")
-    col3.caption(f"Software OTF Min: {software_otf_min:,.2f} € | Hardware OTF Min: {hardware_otf_min:,.2f} €")
+    st.subheader("📊 Übersicht Listpreise")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.markdown(f"### 🧩 MRR LIST: {mrr_list:,.2f} €")
+    col2.markdown(f"### 🖥️ OTF LIST: {total_otf_list:,.2f} €")
+    col3.markdown(f"### 🖨️ OTF HARDWARE: {otf_hardware_list:,.2f} €")
+    col4.markdown(f"### 💻 OTF SOFTWARE: {otf_software_list:,.2f} €")
 
     # -------------------------------
-    # Minimalpreise
+    # Minimalpreise unten
     # -------------------------------
     st.markdown("---")
-    min_mrr_total = (df_sw["Menge"] * df_sw["Min_MRR"]).sum()
-    min_otf_total = (df_sw["Menge"] * df_sw["Min_OTF"]).sum() + (df_hw["Menge"] * df_hw["Min_OTF"]).sum()
-
-    st.markdown(f"### 🔻 MRR Min: {min_mrr_total:,.2f} €")
-    st.markdown(f"### 🔻 OTF Min: {min_otf_total:,.2f} €")
+    st.subheader("🔻 Minimalpreise")
+    col_min1, col_min2 = st.columns(2)
+    col_min1.markdown(f"### MIN MRR: {min_mrr_total:,.2f} €")
+    col_min2.markdown(f"### MIN OTF: {min_otf_total:,.2f} €")
 
     # -------------------------------
     # Preistabelle
