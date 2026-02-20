@@ -770,15 +770,15 @@ def show_radien():
 # =====================================================
 # 🚀 Pipeline
 # =====================================================
-# ⚡ Platzhalter für Unterbau-Seiten
-st.header("🚧 Wrong Permission")
-st.info("Diese Seite ist aktuell noch under construction.")
+elif page == "Pipeline":
+    st.header("🚧 Pipeline")
+    st.info("Diese Seite ist aktuell noch under construction.")
 # =====================================================
 # 🏪 Restaurants Öffnungszeiten Prüfer
 # =====================================================
-# ⚡ Platzhalter für Unterbau-Seiten
-st.header("🚧 Wronk Permission")
-st.info("Diese Seite ist aktuell noch under construction.")
+elif page == "Restaurants":
+    st.header("🏪 Restaurants")
+    st.info("Diese Seite ist aktuell noch under construction.")
 # =====================================================
 # ⚡ Seite auswählen
 # =====================================================
