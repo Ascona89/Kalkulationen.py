@@ -221,9 +221,6 @@ def show_cardpayment():
 # =====================================================
 # 📑 Contract Numbers
 # =====================================================
-# =====================================================
-# 📑 Contract Numbers
-# =====================================================
 def show_contractnumbers():
     st.header("📑 Contract Numbers")
 
@@ -329,12 +326,8 @@ def show_contractnumbers():
     # 🔥 MRR Berechnung
     # ======================
     df_sw["MRR_Monat"] = df_sw["Menge"] * df_sw["List_MRR"]
-
     total_MRR_monthly = df_sw["MRR_Monat"].sum()
 
-    # ======================
-    # Hilfsfunktionen
-    # ======================
     products_sw_dict = {row["Produkt"]: row for _, row in df_sw.iterrows()}
     products_hw_dict = {row["Produkt"]: row for _, row in df_hw.iterrows()}
 
@@ -346,13 +339,43 @@ def show_contractnumbers():
         return f"{products_sw_dict[product]['MRR_Monat']:.2f}€" if qty > 0 else ""
 
     # ======================
-    # 📝 Vertrags-Textgenerator
+    # ======================
+    # Ergebnisbereich (deine bisherigen Ergebnisse)
+    # ======================
+    st.markdown("---")
+    st.header("📊 Ergebnisübersicht")
+
+    shop = products_sw_dict.get("Shop", {})
+    app = products_sw_dict.get("App", {})
+    pos = products_sw_dict.get("POS", {})
+    pay = products_sw_dict.get("Pay", {})
+    connect = products_sw_dict.get("Connect", {})
+    ga_w = products_sw_dict.get("GAW", {})
+
+    st.subheader("🛒 Preise Shop")
+    st.write(f"Webshop MRR: {display_mrr('Shop')}")
+    st.write(f"Appshop MRR: {display_mrr('App')}")
+    st.write(f"Shop Anmeldegebühren: {(shop.get('OTF',0) + app.get('OTF',0)):.0f} €")
+
+    st.subheader("🖥️ YOYO POS")
+    st.write(f"YOYO POS Abonnementgebühr: {display_mrr('POS')}")
+    st.write(f"YOYO POS Anmeldegebühr: {pos.get('OTF',0):.0f} €")
+
+    st.subheader("💳 YOYOPAY")
+    st.write(f"Tägliche Abonnement Festgebühr: {display_mrr('Pay')}")
+    st.write(f"Feste Anmeldegebühr: {pay.get('OTF',0):.0f} €")
+
+    st.subheader("🔗 Connect")
+    st.write(f"Connect MRR: {display_mrr('Connect')}")
+
+    # ======================
+    # 📝 Vertrags-Textgenerator (unten)
     # ======================
     st.divider()
     st.subheader("📝 Vertrags-Textgenerator")
     restaurant_name = st.text_input("Restaurant Name", value="RESTAURANTNAME")
 
-    SUF = df_sw[["OTF"]].sum().iloc[0] + df_hw[["OTF"]].sum().iloc[0]
+    SUF = df_sw["OTF"].sum() + df_hw["OTF"].sum()
     hardware_otf = df_hw["OTF"].sum()
 
     hardware_pay = []
@@ -362,21 +385,18 @@ def show_contractnumbers():
         hardware_pay.append("PAX")
     hardware_pay_str = "/".join(hardware_pay) if hardware_pay else "Keine"
 
-    # ======================
-    # Vertragstext erstellen
-    # ======================
     contract_text = f"""
 Signed: {restaurant_name}
-Web Shop ({products_sw_dict['Shop']['List_MRR']}€) {check_mark('Shop')} {display_mrr('Shop')}
-App ({products_sw_dict['App']['List_MRR']}€) {check_mark('App')} {display_mrr('App')}
-POS ({products_sw_dict['POS']['List_MRR']}€) {check_mark('POS')} {display_mrr('POS')}
+Web Shop ({shop['List_MRR']}€) {check_mark('Shop')} {display_mrr('Shop')}
+App ({app['List_MRR']}€) {check_mark('App')} {display_mrr('App')}
+POS ({pos['List_MRR']}€) {check_mark('POS')} {display_mrr('POS')}
 GAW (150€) {check_mark('GAW')}
-PAY ({products_sw_dict['Pay']['List_MRR']}€) {check_mark('Pay')} {display_mrr('Pay')}
-Connect ({products_sw_dict['Connect']['List_MRR']}€) {check_mark('Connect')} {display_mrr('Connect')}
+PAY ({pay['List_MRR']}€) {check_mark('Pay')} {display_mrr('Pay')}
+Connect ({connect['List_MRR']}€) {check_mark('Connect')} {display_mrr('Connect')}
 
 Lead Quality: 
 Lead Gen: 
-GMB:  @Halyna Radelytska
+GMB: @Halyna Radelytska
 Discount: 
 MRR: {total_MRR_monthly:.0f}€
 SUF: {SUF:.0f}€
@@ -384,10 +404,7 @@ ELD: ASAP
 ZDS: https://orderyoyo.zendesk.com/sales/leads/2185935747
 """
 
-    # ======================
-    # PAY-Block nur anzeigen, wenn Menge > 0
-    # ======================
-    if products_sw_dict.get("Pay", {}).get("Menge",0) > 0:
+    if pay.get("Menge",0) > 0:
         contract_text += f"""
 PAY:
 Commission: 0.80%
@@ -399,7 +416,7 @@ SUF:0€
 MRR: {display_mrr('Pay')}
 """
 
-    st.text_area("📄 Generierter Vertrags-Text", contract_text, height=400)
+    st.text_area("📄 Generierter Vertrags-Text", contract_text, height=450)
 # =====================================================
 # 💰 Pricing
 # =====================================================
