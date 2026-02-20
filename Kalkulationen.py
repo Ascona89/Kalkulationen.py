@@ -355,7 +355,7 @@ def show_contractnumbers():
     df_hw["MRR_Woche"] = 0.0
 
     # =====================================================
-    # 🧾 NEUER ERGEBNISBEREICH (nur Anzeige)
+    # 🧾 ERGEBNISBEREICH
     # =====================================================
     def get_row(df, produkt):
         row = df[df["Produkt"] == produkt]
@@ -379,35 +379,43 @@ def show_contractnumbers():
     st.markdown("---")
     st.header("📊 Ergebnisübersicht")
 
-    # 🛒 Preise Shop
+    # 🛒 Shop
     st.subheader("🛒 Preise Shop")
     st.write(f"Webshop WRR: {(shop['MRR_Woche'] if shop is not None else 0):.2f} €")
     st.write(f"Appshop WRR: {(app['MRR_Woche'] if app is not None else 0):.2f} €")
     st.write(f"Shop Anmeldegebühren: {((shop['OTF'] if shop is not None else 0) + (app['OTF'] if app is not None else 0)):.0f} €")
 
-    # 🖥️ YOYO POS
+    # 🖥️ POS
     st.subheader("🖥️ YOYO POS")
     st.write(f"YOYO POS Abonnementgebühr: {(pos['MRR_Woche'] if pos is not None else 0):.2f} €")
     st.write(f"YOYO POS Anmeldegebühr: {(pos['OTF'] if pos is not None else 0):.0f} €")
     st.write(f"TSE: {(tse['MRR_Woche'] if tse is not None else 0):.2f} €")
 
-    # 💳 YOYOPAY
+    # 💳 PAY
     st.subheader("💳 YOYOPAY")
     st.write(f"Tägliche Abonnement Festgebühr: {((pay['MRR_Woche']/7) if pay is not None else 0):.2f} €")
     st.write(f"Feste Anmeldegebühr: {(pay['OTF'] if pay is not None else 0):.0f} €")
 
-    # 🖨️ Hardware
+    # 🖨️ Hardware Anzeige mit Menge + Einzelpreis
     st.subheader("🖨️ Hardware Komponenten")
 
-    def hw(row):
-        return int(row["OTF"]) if row is not None else 0
+    def hw_display(row, label):
+        if row is None or row["Menge"] == 0:
+            return
+        menge = int(row["Menge"])
+        gesamt = int(row["OTF"])
+        einzel = int(gesamt / menge) if menge > 0 else 0
+        if menge == 1:
+            st.write(f"{label}: {gesamt} €")
+        else:
+            st.write(f"{label}: {gesamt} €   ({menge}x {einzel} €)")
 
-    st.write(f"Sunmi D3 Pro: {hw(pos_printer_bundle)} €")
-    st.write(f"Kundendisplay: {hw(display)} €")
-    st.write(f"Cash Drawer: {hw(cash_drawer)} €")
-    st.write(f"POS Printer: {hw(extra_printer)} €")
-    st.write(f"Ordermanager: {hw(order_manager)} €")
-    st.write(f"Kartenterminal: {hw(pax)} €")
+    hw_display(pos_printer_bundle, "Sunmi D3 Pro")
+    hw_display(display, "Kundendisplay")
+    hw_display(cash_drawer, "Cash Drawer")
+    hw_display(extra_printer, "POS Printer")
+    hw_display(order_manager, "Ordermanager")
+    hw_display(pax, "Kartenterminal")
 # =====================================================
 # 💰 Pricing
 # =====================================================
