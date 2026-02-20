@@ -786,43 +786,46 @@ from datetime import datetime
 import requests
 import re
 
-def show_restaurants():
+def show_restaurant_hours():
     st.header("🍽️ Restaurant Öffnungszeiten Prüfer")
 
-    st.caption("Füge Restaurants ein: Name + PLZ + restliche Zeilen optional (werden ignoriert)")
+    st.caption("Füge Restaurants ein: Name in Spalte 1, PLZ in Spalte 6, weitere Spalten (Status etc.) werden angezeigt, aber nur Name & PLZ für Öffnungszeitenprüfung verwendet.")
 
     restaurants_input = st.text_area(
-        "Füge deine Restaurants ein (fortlaufend einfügen)",
+        "Leads einfügen (mehrere Leads hintereinander, je 6 Zeilen pro Lead):",
         height=300
     )
 
     if st.button("🔍 Prüfen"):
         if not restaurants_input.strip():
-            st.warning("Bitte mindestens ein Restaurant eingeben!")
+            st.warning("Bitte mindestens ein Restaurant einfügen!")
             return
 
-        # Aufteilen in Zeilen
+        # Zeilen aufteilen
         lines = [line.strip() for line in restaurants_input.split("\n") if line.strip()]
+        # Blöcke je 6 Zeilen = 1 Lead
+        blocks = [lines[i:i+6] for i in range(0, len(lines), 6)]
 
-        # Blöcke pro Restaurant: Name + PLZ sind die ersten 2 Zeilen, rest ignorieren
-        blocks = [lines[i:i+5] for i in range(0, len(lines), 5)]
-
+        # Alle Spalten behalten, Name=Spalte 0, PLZ=Spalte 5
         data = []
         for block in blocks:
-            try:
-                name = block[0]
-                plz = block[1] if len(block) > 1 else ""
-                status = block[2] if len(block) > 2 else ""
-                data.append({"Name": name, "PLZ": plz, "Status": status})
-            except IndexError:
-                st.warning(f"Unvollständiger Eintrag: {block}")
+            row = {}
+            for idx, val in enumerate(block):
+                row[f"Spalte_{idx+1}"] = val
+            # Default PLZ, falls nicht vorhanden
+            if len(block) < 6:
+                row["Spalte_6"] = ""
+            data.append(row)
 
         df = pd.DataFrame(data)
 
-        # Funktion: Öffnungszeiten prüfen (heute) via OpenStreetMap / Overpass
+        # Funktion zum Prüfen, ob heute offen
         def check_open_today(name, plz):
             try:
-                # PLZ geocoden
+                if not name or not plz:
+                    return "Unbekannt"
+
+                # PLZ geocoden via Nominatim
                 geocode_url = "https://nominatim.openstreetmap.org/search"
                 params = {"postalcode": plz, "country": "Germany", "format": "json"}
                 resp = requests.get(geocode_url, params=params, timeout=10).json()
@@ -859,16 +862,17 @@ def show_restaurants():
             except Exception:
                 return "Fehler"
 
-        df["Offen heute"] = df.apply(lambda r: check_open_today(r["Name"], r["PLZ"]), axis=1)
+        # Spalte mit Offen heute berechnen
+        df["Offen_heute"] = df.apply(lambda r: check_open_today(r["Spalte_1"], r["Spalte_6"]), axis=1)
 
-        # Nur Ruhetag rot markieren
+        # Rot markieren, wenn heute Ruhetag
         def highlight_closed(val):
             color = "red" if val == "NEIN" else ""
             return f"background-color: {color}"
 
         st.subheader("📋 Ergebnisse")
         st.dataframe(
-            df.style.applymap(highlight_closed, subset=["Offen heute"]),
+            df.style.applymap(highlight_closed, subset=["Offen_heute"]),
             use_container_width=True
         )
 # =====================================================
