@@ -781,100 +781,59 @@ def show_pipeline():
 # =====================================================
 # 🏪 Restaurants Öffnungszeiten Prüfer
 # =====================================================
-import datetime
-import requests
-import pandas as pd
 import streamlit as st
+import urllib.parse
+import webbrowser
 
-def show_restaurants():
-    st.header("🏪 Restaurants Öffnungszeiten Prüfer")
+def show_restaurant_google_tabs():
+    st.header("🍽️ Restaurant Öffnungszeiten Prüfer (Google Tabs)")
 
-    st.markdown(
-        "Füge hier die Restaurants ein, jedes Restaurant mit seinen Informationen. "
-        "Die App verwendet nur den Namen (erste Zeile) und die PLZ (sechste Zeile pro Block) für die Recherche."
+    st.markdown("""
+    Füge hier deine Leads ein.  
+    Die App verwendet:
+    - Zeile 1,7,13,… → Name  
+    - Zeile 6,13,20,… → PLZ  
+    Nach Klick auf **Alle öffnen** wird für jeden Lead ein Google-Such-Tab geöffnet.
+    """)
+
+    leads_text = st.text_area(
+        "Leads einfügen",
+        height=300
     )
 
-    raw_input = st.text_area(
-        "Restaurant-Daten hier einfügen (fortlaufend, mehrere Leads möglich)",
-        height=250
-    )
+    if st.button("Alle öffnen"):
+        if not leads_text.strip():
+            st.warning("Bitte Leads einfügen!")
+            return
 
-    if not raw_input.strip():
-        st.info("Bitte füge Restaurant-Daten ein.")
-        return
+        lines = [l.strip() for l in leads_text.split("\n") if l.strip()]
+        leads = []
 
-    # -----------------------------
-    # Daten vorbereiten
-    # -----------------------------
-    lines = [l.strip() for l in raw_input.split("\n") if l.strip()]
-    restaurants = []
+        i = 0
+        while i < len(lines):
+            name_idx = i
+            plz_idx = i + 5
 
-    # Jeder Lead hat mindestens 6 Zeilen, PLZ steht auf Zeile 6
-    i = 0
-    while i < len(lines):
-        name = lines[i]
-        plz = ""
-        if i + 5 < len(lines):
-            plz = lines[i + 5]  # 6. Zeile für PLZ
-        restaurants.append({"Name": name, "PLZ": plz})
-        i += 6  # zum nächsten Lead springen
+            if name_idx < len(lines):
+                name = lines[name_idx]
+            else:
+                break
 
-    df = pd.DataFrame(restaurants)
+            if plz_idx < len(lines):
+                plz = lines[plz_idx]
+            else:
+                plz = ""
 
-    # -----------------------------
-    # Öffnungszeiten recherchieren (kostenlos über Nominatim + OpenStreetMap Tags)
-    # -----------------------------
-    def get_opening_status(name, plz):
-        try:
-            geocode_url = "https://nominatim.openstreetmap.org/search"
-            params = {
-                "q": f"{name}, {plz}, Germany",
-                "format": "json",
-                "limit": 1
-            }
-            response = requests.get(geocode_url, params=params, timeout=10, headers={"User-Agent": "kalk-app"})
-            data = response.json()
-            if not data:
-                return "Nicht gefunden", False
-            osm_id = data[0]["osm_id"]
-            
-            # Tags abfragen
-            osm_url = f"https://nominatim.openstreetmap.org/details.php?osmtype=N{str(osm_id)[0]}&osmid={osm_id}&format=json"
-            tags_response = requests.get(osm_url, timeout=10, headers={"User-Agent": "kalk-app"})
-            tags = tags_response.json().get("extratags", {})
-            opening_hours = tags.get("opening_hours", "")
-            
-            if not opening_hours:
-                return "Keine Info", False
+            leads.append({"Name": name, "PLZ": plz})
+            i = plz_idx + 1  # nächste Lead-Gruppe
 
-            # Prüfen, ob heute geschlossen
-            from datetime import datetime
-            today = datetime.today().strftime("%a")  # z.B. "Mon", "Tue", ...
-            closed_today = "off" in opening_hours.lower() or "closed" in opening_hours.lower()
-            
-            return opening_hours, closed_today
-        except:
-            return "Fehler bei Recherche", False
+        # Google Tabs öffnen
+        for lead in leads:
+            query = f"{lead['Name']} {lead['PLZ']}".strip()
+            google_url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
+            webbrowser.open_new_tab(google_url)
 
-    st.markdown("### 🔍 Recherche Ergebnisse")
-    df["Öffnungszeiten"] = ""
-    df["Heute geschlossen"] = False
-
-    for idx, row in df.iterrows():
-        oh, closed = get_opening_status(row["Name"], row["PLZ"])
-        df.at[idx, "Öffnungszeiten"] = oh
-        df.at[idx, "Heute geschlossen"] = closed
-
-    # -----------------------------
-    # Tabelle anzeigen
-    # -----------------------------
-    def highlight_closed(s):
-        return ["color: red;" if v else "" for v in s]
-
-    st.dataframe(
-        df.style.apply(highlight_closed, subset=["Heute geschlossen"]),
-        use_container_width=True
-    )
+        st.success(f"✅ {len(leads)} Leads wurden in Google geöffnet!")
 # =====================================================
 # ⚡ Seite auswählen
 # =====================================================
