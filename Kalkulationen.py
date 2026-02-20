@@ -768,15 +768,16 @@ def show_radien():
         st.dataframe(df_result[["plz", "lat", "lon", "distance_km"]], use_container_width=True)
 
 # =====================================================
-# 🚀 Pipeline
+# 🚧 Pipeline
 # =====================================================
-    elif page == "Pipeline":
+def show_pipeline():
     st.header("🚧 Pipeline")
     st.info("Diese Seite ist aktuell noch under construction.")
+
 # =====================================================
-# 🏪 Restaurants Öffnungszeiten Prüfer
+# 🏪 Restaurants
 # =====================================================
-    elif page == "Restaurants":
+def show_restaurants():
     st.header("🏪 Restaurants")
     st.info("Diese Seite ist aktuell noch under construction.")
 # =====================================================
