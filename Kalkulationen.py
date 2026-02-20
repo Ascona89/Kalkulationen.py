@@ -770,74 +770,15 @@ def show_radien():
 # =====================================================
 # 🚀 Pipeline
 # =====================================================
-def show_pipeline():
-    st.header("🚀 Pipeline Übersicht")
-    region = persistent_selectbox("Region", "pipeline_region", ["south", "mids", "east", "north"])
-    lead_count = persistent_number_input(f"Leads in {region}", f"pipeline_leads_{region}", 0)
-    conversion = persistent_number_input("Conversion Rate (%)", f"pipeline_conversion_{region}", 10.0)
-    expected_deals = lead_count * (conversion/100)
-    st.markdown(f"Erwartete Abschlüsse: **{expected_deals:,.0f}**")
-
+# ⚡ Platzhalter für Unterbau-Seiten
+st.header("🚧 Wrong Permission")
+st.info("Diese Seite ist aktuell noch under construction.")
 # =====================================================
 # 🏪 Restaurants Öffnungszeiten Prüfer
 # =====================================================
-import streamlit as st
-import urllib.parse
-import webbrowser
-
-# =====================================================
-# 🍽️ Restaurant Google Suche Funktion
-# =====================================================
-def show_restaurants():
-    st.header("🍽️ Restaurant Öffnungszeiten Prüfer (Google Tabs)")
-
-    st.markdown("""
-    Füge hier deine Leads ein.  
-    Die App verwendet:
-    - Zeile 1,7,13,… → Name  
-    - Zeile 6,12,18,… → PLZ  
-    Nach Klick auf **Alle öffnen** wird für jeden Lead ein Google-Such-Tab geöffnet.
-    """)
-
-    leads_text = st.text_area(
-        "Leads einfügen",
-        height=300
-    )
-
-    if st.button("Alle öffnen"):
-        if not leads_text.strip():
-            st.warning("Bitte Leads einfügen!")
-            return
-
-        # Zeilen aufsplitten und trimmen
-        lines = [l.strip() for l in leads_text.split("\n") if l.strip()]
-        leads = []
-
-        i = 0
-        while i < len(lines):
-            name_idx = i
-            plz_idx = i + 5  # Zeile 6 relativ zu Name (Index +5)
-
-            if name_idx < len(lines):
-                name = lines[name_idx]
-            else:
-                break
-
-            if plz_idx < len(lines):
-                plz = lines[plz_idx]
-            else:
-                plz = ""
-
-            leads.append({"Name": name, "PLZ": plz})
-            i = plz_idx + 1  # nächste Lead-Gruppe
-
-        # Google Tabs öffnen
-        for lead in leads:
-            query = f"{lead['Name']} {lead['PLZ']}".strip()
-            google_url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
-            webbrowser.open_new_tab(google_url)
-
-        st.success(f"✅ {len(leads)} Leads wurden in Google geöffnet!")
+# ⚡ Platzhalter für Unterbau-Seiten
+st.header("🚧 Wronk Permission")
+st.info("Diese Seite ist aktuell noch under construction.")
 # =====================================================
 # ⚡ Seite auswählen
 # =====================================================
