@@ -777,102 +777,102 @@ def show_pipeline():
     conversion = persistent_number_input("Conversion Rate (%)", f"pipeline_conversion_{region}", 10.0)
     expected_deals = lead_count * (conversion/100)
     st.markdown(f"Erwartete Abschlüsse: **{expected_deals:,.0f}**")
+
 # =====================================================
-# 🍽️ Restaurant Öffnungszeiten Prüfer
+# 🏪 Restaurants Öffnungszeiten Prüfer
 # =====================================================
-import streamlit as st
-import pandas as pd
-from datetime import datetime
+import datetime
 import requests
-import re
+import pandas as pd
+import streamlit as st
 
-# =====================================================
-# 🍽️ Restaurant Öffnungszeiten Prüfer
-# =====================================================
-def show_restaurant_hours():
-    import requests
-    import pandas as pd
-    import streamlit as st
-    from datetime import datetime
+def show_restaurants():
+    st.header("🏪 Restaurants Öffnungszeiten Prüfer")
 
-    st.header("🍽️ Restaurant Öffnungszeiten Prüfer")
+    st.markdown(
+        "Füge hier die Restaurants ein, jedes Restaurant mit seinen Informationen. "
+        "Die App verwendet nur den Namen (erste Zeile) und die PLZ (sechste Zeile pro Block) für die Recherche."
+    )
 
-    st.markdown("Füge hier die Leads ein (je Restaurant Name + PLZ, getrennt durch Zeilen).")
-    input_text = st.text_area("Restaurants eingeben", height=300)
+    raw_input = st.text_area(
+        "Restaurant-Daten hier einfügen (fortlaufend, mehrere Leads möglich)",
+        height=250
+    )
 
-    if not input_text.strip():
-        st.info("Bitte mindestens ein Restaurant eingeben.")
+    if not raw_input.strip():
+        st.info("Bitte füge Restaurant-Daten ein.")
         return
 
-    # === Eingaben aufteilen ===
-    lines = [line.strip() for line in input_text.strip().split("\n") if line.strip()]
-    data = []
+    # -----------------------------
+    # Daten vorbereiten
+    # -----------------------------
+    lines = [l.strip() for l in raw_input.split("\n") if l.strip()]
+    restaurants = []
 
-    # Wir nehmen Name = erste Spalte, PLZ = sechste Spalte (Index 5)
-    for i in range(0, len(lines), 6):  # alle 6 Zeilen = ein Lead
+    # Jeder Lead hat mindestens 6 Zeilen, PLZ steht auf Zeile 6
+    i = 0
+    while i < len(lines):
+        name = lines[i]
+        plz = ""
+        if i + 5 < len(lines):
+            plz = lines[i + 5]  # 6. Zeile für PLZ
+        restaurants.append({"Name": name, "PLZ": plz})
+        i += 6  # zum nächsten Lead springen
+
+    df = pd.DataFrame(restaurants)
+
+    # -----------------------------
+    # Öffnungszeiten recherchieren (kostenlos über Nominatim + OpenStreetMap Tags)
+    # -----------------------------
+    def get_opening_status(name, plz):
         try:
-            name = lines[i]
-            plz = lines[i + 5]
-            status = lines[i + 1]
-            data.append({"Name": name, "PLZ": plz, "Status": status})
-        except IndexError:
-            # unvollständige Zeilen überspringen
-            continue
+            geocode_url = "https://nominatim.openstreetmap.org/search"
+            params = {
+                "q": f"{name}, {plz}, Germany",
+                "format": "json",
+                "limit": 1
+            }
+            response = requests.get(geocode_url, params=params, timeout=10, headers={"User-Agent": "kalk-app"})
+            data = response.json()
+            if not data:
+                return "Nicht gefunden", False
+            osm_id = data[0]["osm_id"]
+            
+            # Tags abfragen
+            osm_url = f"https://nominatim.openstreetmap.org/details.php?osmtype=N{str(osm_id)[0]}&osmid={osm_id}&format=json"
+            tags_response = requests.get(osm_url, timeout=10, headers={"User-Agent": "kalk-app"})
+            tags = tags_response.json().get("extratags", {})
+            opening_hours = tags.get("opening_hours", "")
+            
+            if not opening_hours:
+                return "Keine Info", False
 
-    df = pd.DataFrame(data)
-
-    if df.empty:
-        st.warning("Keine gültigen Restaurants gefunden.")
-        return
-
-    # === Öffnungszeiten abrufen (kostenlos) ===
-    @st.cache_data(ttl=3600)
-    def get_hours(name, plz):
-        """Versucht Öffnungszeiten für Name+PLZ zu ermitteln"""
-        try:
-            url = "https://nominatim.openstreetmap.org/search"
-            params = {"q": f"{name} {plz}", "format": "json", "limit": 1}
-            r = requests.get(url, params=params, timeout=5)
-            results = r.json()
-            if not results:
-                return "Unbekannt", False
-            osm_id = results[0]["osm_id"]
-
-            # Overpass API für Öffnungszeiten
-            overpass_url = "https://overpass-api.de/api/interpreter"
-            query = f"""
-            [out:json];
-            node({osm_id});
-            out tags;
-            """
-            resp = requests.get(overpass_url, params={"data": query}, timeout=5).json()
-            tags = resp.get("elements", [{}])[0].get("tags", {})
-            opening_hours = tags.get("opening_hours", "Unbekannt")
-            is_open = True
-            # einfachster Check: Ruhetag heute
-            if "off" in opening_hours.lower() or "closed" in opening_hours.lower():
-                is_open = False
-            return opening_hours, is_open
+            # Prüfen, ob heute geschlossen
+            from datetime import datetime
+            today = datetime.today().strftime("%a")  # z.B. "Mon", "Tue", ...
+            closed_today = "off" in opening_hours.lower() or "closed" in opening_hours.lower()
+            
+            return opening_hours, closed_today
         except:
-            return "Fehler", False
+            return "Fehler bei Recherche", False
 
-    # === Öffnungszeiten abrufen für alle ===
-    hours_list = []
-    open_flags = []
-    for _, row in df.iterrows():
-        hours, is_open = get_hours(row["Name"], row["PLZ"])
-        hours_list.append(hours)
-        open_flags.append(is_open)
+    st.markdown("### 🔍 Recherche Ergebnisse")
+    df["Öffnungszeiten"] = ""
+    df["Heute geschlossen"] = False
 
-    df["Öffnungszeiten heute"] = hours_list
-    df["Offen"] = open_flags
+    for idx, row in df.iterrows():
+        oh, closed = get_opening_status(row["Name"], row["PLZ"])
+        df.at[idx, "Öffnungszeiten"] = oh
+        df.at[idx, "Heute geschlossen"] = closed
 
-    # === Tabelle anzeigen mit rot markierten geschlossenen Restaurants ===
-    def highlight_closed(val):
-        return "color: red;" if not val else ""
+    # -----------------------------
+    # Tabelle anzeigen
+    # -----------------------------
+    def highlight_closed(s):
+        return ["color: red;" if v else "" for v in s]
 
     st.dataframe(
-        df.style.applymap(highlight_closed, subset=["Offen"]),
+        df.style.apply(highlight_closed, subset=["Heute geschlossen"]),
         use_container_width=True
     )
 # =====================================================
