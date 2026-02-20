@@ -770,13 +770,13 @@ def show_radien():
 # =====================================================
 # 🚀 Pipeline
 # =====================================================
-elif page == "Pipeline":
+    elif page == "Pipeline":
     st.header("🚧 Pipeline")
     st.info("Diese Seite ist aktuell noch under construction.")
 # =====================================================
 # 🏪 Restaurants Öffnungszeiten Prüfer
 # =====================================================
-elif page == "Restaurants":
+    elif page == "Restaurants":
     st.header("🏪 Restaurants")
     st.info("Diese Seite ist aktuell noch under construction.")
 # =====================================================
