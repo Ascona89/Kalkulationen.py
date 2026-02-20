@@ -360,70 +360,85 @@ def show_contractnumbers():
     df_hw["MRR_Monat"] = 0.0
     df_hw["MRR_Woche"] = 0.0
 
-    # ======================
-    # Anzeige Software
-    # ======================
-    st.markdown("---")
-    st.subheader("💻 Software")
+ # ======================
+# 🔎 Werte aus DataFrames holen
+# ======================
+def get_row(df, produkt):
+    row = df[df["Produkt"] == produkt]
+    if not row.empty:
+        return row.iloc[0]
+    return None
 
-    c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
-    c1.write("Produkt")
-    c2.write("OTF")
-    c3.write("MRR")
-    c4.write("WRR")
+shop = get_row(df_sw, "Shop")
+app = get_row(df_sw, "App")
+pos = get_row(df_sw, "POS")
+pay = get_row(df_sw, "Pay")
+tse = get_row(df_sw, "TSE")
 
-    for _, r in df_sw[df_sw["Menge"] > 0].iterrows():
-        menge = int(r["Menge"])
-        otf = int(r["OTF"])
-        einzel_otf = int(otf / menge) if menge > 0 else 0
+order_manager = get_row(df_hw, "Ordermanager")
+pos_printer_bundle = get_row(df_hw, "POS inkl 1 Printer")
+cash_drawer = get_row(df_hw, "Cash Drawer")
+extra_printer = get_row(df_hw, "Extra Printer")
+display = get_row(df_hw, "Additional Display")
+pax = get_row(df_hw, "PAX")
 
-        c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
+# ======================
+# 🧾 Ergebnisdarstellung
+# ======================
+st.markdown("---")
+st.header("📊 Ergebnisübersicht")
 
-        if menge == 1:
-            c1.write(f"**{r['Produkt']}**")
-            c2.write(f"{otf} €")
-        else:
-            c1.write(f"**{r['Produkt']}** ({menge}x)")
-            c2.write(f"{menge}x{einzel_otf} € = {otf} €")
+# -------------------------------------------------
+# 🛒 Preise Shop
+# -------------------------------------------------
+st.subheader("🛒 Preise Shop")
 
-        c3.write(f"{r['MRR_Monat']:.2f} €")
-        c4.write(f"{r['MRR_Woche']:.2f} €")
+webshop_wrr = shop["MRR_Woche"] if shop is not None else 0
+appshop_wrr = app["MRR_Woche"] if app is not None else 0
+shop_otf = (shop["OTF"] if shop is not None else 0) + (app["OTF"] if app is not None else 0)
 
-    # ======================
-    # Anzeige Hardware
-    # ======================
-    st.markdown("---")
-    st.subheader("🖨️ Hardware")
+st.write(f"**Webshop WRR:** {webshop_wrr:.2f} €")
+st.write(f"**Appshop WRR:** {appshop_wrr:.2f} €")
+st.write(f"**Shop Anmeldegebühren:** {shop_otf:.0f} €")
 
-    c1, c2 = st.columns([3, 2])
-    c1.write("Produkt")
-    c2.write("OTF")
+# -------------------------------------------------
+# 🖥️ YOYO POS
+# -------------------------------------------------
+st.subheader("🖥️ YOYO POS")
 
-    for _, r in df_hw[df_hw["Menge"] > 0].iterrows():
-        menge = int(r["Menge"])
-        gesamt = int(r["OTF"])
-        einzel = int(gesamt / menge) if menge > 0 else 0
+pos_wrr = pos["MRR_Woche"] if pos is not None else 0
+pos_otf = pos["OTF"] if pos is not None else 0
+tse_wrr = tse["MRR_Woche"] if tse is not None else 0
 
-        c1, c2 = st.columns([3, 2])
+st.write(f"**YOYO POS Abonnementgebühr:** {pos_wrr:.2f} €")
+st.write(f"**YOYO POS Anmeldegebühr:** {pos_otf:.0f} €")
+st.write(f"**TSE:** {tse_wrr:.2f} €")
 
-        if menge == 1:
-            c1.write(f"**{r['Produkt']}**")
-            c2.write(f"{gesamt} €")
-        else:
-            c1.write(f"**{menge}x {r['Produkt']}**")
-            c2.write(f"{menge}x{einzel} € = {gesamt} €")
+# -------------------------------------------------
+# 💳 YOYOPAY
+# -------------------------------------------------
+st.subheader("💳 YOYOPAY")
 
-    # ======================
-    # Kontrollübersicht
-    # ======================
-    st.markdown("---")
-    st.subheader("📊 Kontrollübersicht")
+pay_wrr_daily = (pay["MRR_Woche"] / 7) if pay is not None else 0
+pay_otf = pay["OTF"] if pay is not None else 0
 
-    st.write(f"OTF Eingabe: {total_otf} €")
-    st.write(f"OTF verwendet: {round(otf_adjusted)} €")
-    st.write(f"MRR Gesamt: {df_sw['MRR_Monat'].sum():.2f} €")
-    st.write(f"WRR Gesamt: {(df_sw['MRR_Woche'].sum()):.2f} €")
+st.write(f"**Tägliche Abonnement Festgebühr:** {pay_wrr_daily:.2f} €")
+st.write(f"**Feste Anmeldegebühr:** {pay_otf:.0f} €")
 
+# -------------------------------------------------
+# 🖨️ Hardware Komponenten
+# -------------------------------------------------
+st.subheader("🖨️ Hardware Komponenten")
+
+def hw_otf(row):
+    return int(row["OTF"]) if row is not None else 0
+
+st.write(f"**Sunmi D3 Pro:** {hw_otf(pos_printer_bundle)} €")
+st.write(f"**Kundendisplay:** {hw_otf(display)} €")
+st.write(f"**Cash Drawer:** {hw_otf(cash_drawer)} €")
+st.write(f"**POS Printer:** {hw_otf(extra_printer)} €")
+st.write(f"**Ordermanager:** {hw_otf(order_manager)} €")
+st.write(f"**Kartenterminal:** {hw_otf(pax)} €")
 # =====================================================
 # 💰 Pricing
 # =====================================================
