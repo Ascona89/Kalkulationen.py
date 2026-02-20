@@ -222,7 +222,7 @@ def show_cardpayment():
 # 📑 Contract Numbers
 # =====================================================
 # =====================================================
-# 📑 Contract Numbers
+# 📑 Contract Numbers inkl. Text Generator
 # =====================================================
 def show_contractnumbers():
     st.header("📑 Contract Numbers")
@@ -347,7 +347,7 @@ def show_contractnumbers():
     df_hw["MRR_Woche"] = 0.0
 
     # ======================
-    # 🧾 ERGEBNISBEREICH
+    # 🧾 Ergebnisbereich
     # ======================
     def get_row(df, produkt):
         row = df[df["Produkt"] == produkt]
@@ -370,43 +370,46 @@ def show_contractnumbers():
     st.markdown("---")
     st.header("📊 Ergebnisübersicht")
 
-    # 🛒 Shop
-    st.subheader("🛒 Preise Shop")
-    st.write(f"Webshop WRR: {(shop['MRR_Woche'] if shop is not None else 0):.2f} €")
-    st.write(f"Appshop WRR: {(app['MRR_Woche'] if app is not None else 0):.2f} €")
-    st.write(f"Shop Anmeldegebühren: {((shop['OTF'] if shop is not None else 0) + (app['OTF'] if app is not None else 0)):.0f} €")
+    # ======================
+    # 🔹 Text Generator
+    # ======================
+    text = "Signed: Bazid Kebab\n"
+    for prod in [("Shop", shop), ("App", app), ("POS", pos), ("GAW", None), ("PAY", pay), ("Connect", None)]:
+        label, row = prod
+        if row is not None and row["Menge"] > 0:
+            mrr = row["MRR_Monat"]
+            otf = row["OTF"]
+            text += f"{label} ({row['List_MRR']}€) :white_check_mark: {mrr:.2f}€\n"
+        else:
+            text += f"{label} ({row['List_MRR'] if row is not None else ''}€) ❌\n"
 
-    # 🖥️ POS
-    st.subheader("🖥️ YOYO POS")
-    st.write(f"YOYO POS Abonnementgebühr: {(pos['MRR_Woche'] if pos is not None else 0):.2f} €")
-    st.write(f"YOYO POS Anmeldegebühr: {(pos['OTF'] if pos is not None else 0):.0f} €")
-    st.write(f"TSE: {(tse['MRR_Woche'] if tse is not None else 0):.2f} €")
+    # Zusatzinfos PAY
+    if pay is not None and pay["Menge"] > 0:
+        text += "\nPAY:\nCommission: 0.80%\nTrans: 0.03€\nAuth: 0.03€\nKYC: Collected\nHardware: POS\nSUF:0€\nMRR: {:.2f}€\n".format(pay["MRR_Monat"])
 
-    # 💳 PAY
-    st.subheader("💳 YOYOPAY")
-    st.write(f"Tägliche Abonnement Festgebühr: {(pay['MRR_Woche']/7 if pay is not None else 0):.2f} €")
-    st.write(f"Feste Anmeldegebühr: {(pay['OTF'] if pay is not None else 0):.0f} €")
-
-    # 🖨️ Hardware Anzeige mit Menge + Einzelpreis
-    st.subheader("🖨️ Hardware Komponenten")
-
-    def hw_display(row, label):
+    # Hardware Ausgabe
+    hw_text = ""
+    def hw_display_text(row, label):
+        nonlocal hw_text
         if row is None or row["Menge"] == 0:
             return
         menge = int(row["Menge"])
         gesamt = int(row["OTF"])
         einzel = int(gesamt / menge) if menge > 0 else 0
         if menge == 1:
-            st.write(f"{label}: {gesamt} €")
+            hw_text += f"{label}: {gesamt} €\n"
         else:
-            st.write(f"{label}: {gesamt} € ({menge}x {einzel} €)")
+            hw_text += f"{label}: {gesamt} € ({menge}x {einzel} €)\n"
 
-    hw_display(pos_printer_bundle, "Sunmi D3 Pro")
-    hw_display(display, "Kundendisplay")
-    hw_display(cash_drawer, "Cash Drawer")
-    hw_display(extra_printer, "POS Printer")
-    hw_display(order_manager, "Ordermanager")
-    hw_display(pax, "Kartenterminal")
+    for hw_row, label in [(pos_printer_bundle, "Sunmi D3 Pro"),
+                          (display, "Kundendisplay"),
+                          (cash_drawer, "Cash Drawer"),
+                          (extra_printer, "POS Printer"),
+                          (order_manager, "Ordermanager"),
+                          (pax, "Kartenterminal")]:
+        hw_display_text(hw_row, label)
+
+    st.text_area("📄 Vertragstext", value=text + "\n" + hw_text, height=400)
 # =====================================================
 # 💰 Pricing
 # =====================================================
