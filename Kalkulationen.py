@@ -482,6 +482,16 @@ SUF: {SUF_pay:.2f} €
 MRR: {MRR_pay:.2f} €
 """
     st.text_area("📄 Generierter Vertrags-Text", contract_text, height=400)
+
+# ======================
+# 🔹 Contract Text Generator (MRR-Monat)
+# ======================
+def generate_contract_text():
+    st.subheader("📝 Vertrags-Textgenerator")
+    # ... alles, was du oben schon hast ...
+
+# **Funktion tatsächlich aufrufen**
+generate_contract_text()
 # =====================================================
 # 💰 Pricing
 # =====================================================
