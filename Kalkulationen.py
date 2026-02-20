@@ -785,14 +785,17 @@ import streamlit as st
 import urllib.parse
 import webbrowser
 
-def show_restaurant_google_tabs():
+# =====================================================
+# 🍽️ Restaurant Google Suche Funktion
+# =====================================================
+def show_restaurants():
     st.header("🍽️ Restaurant Öffnungszeiten Prüfer (Google Tabs)")
 
     st.markdown("""
     Füge hier deine Leads ein.  
     Die App verwendet:
     - Zeile 1,7,13,… → Name  
-    - Zeile 6,13,20,… → PLZ  
+    - Zeile 6,12,18,… → PLZ  
     Nach Klick auf **Alle öffnen** wird für jeden Lead ein Google-Such-Tab geöffnet.
     """)
 
@@ -806,13 +809,14 @@ def show_restaurant_google_tabs():
             st.warning("Bitte Leads einfügen!")
             return
 
+        # Zeilen aufsplitten und trimmen
         lines = [l.strip() for l in leads_text.split("\n") if l.strip()]
         leads = []
 
         i = 0
         while i < len(lines):
             name_idx = i
-            plz_idx = i + 5
+            plz_idx = i + 5  # Zeile 6 relativ zu Name (Index +5)
 
             if name_idx < len(lines):
                 name = lines[name_idx]
