@@ -360,7 +360,7 @@ def show_contractnumbers():
     df_hw["MRR_Monat"] = 0.0
     df_hw["MRR_Woche"] = 0.0
 
- # ======================
+# ======================
 # 🔎 Werte aus DataFrames holen
 # ======================
 def get_row(df, produkt):
