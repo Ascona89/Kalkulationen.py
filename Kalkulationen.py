@@ -221,11 +221,14 @@ def show_cardpayment():
 # =====================================================
 # 📑 Contract Numbers
 # =====================================================
+# =====================================================
+# 📑 Contract Numbers
+# =====================================================
 def show_contractnumbers():
     st.header("📑 Contract Numbers")
 
     # ======================
-    # Produkte Software
+    # Produkte
     # ======================
     df_sw = pd.DataFrame({
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "TSE"],
@@ -233,10 +236,6 @@ def show_contractnumbers():
         "List_MRR": [119, 49, 89, 25, 13.72, 12],
         "Typ": ["Software"] * 6
     })
-
-    # ======================
-    # Produkte Hardware
-    # ======================
     df_hw = pd.DataFrame({
         "Produkt": ["Ordermanager", "POS inkl 1 Printer", "Cash Drawer", "Extra Printer", "Additional Display", "PAX"],
         "List_OTF": [299, 1699, 149, 199, 100, 299],
@@ -245,7 +244,7 @@ def show_contractnumbers():
     })
 
     # ======================
-    # Session State Mengen
+    # Session State
     # ======================
     for i in range(len(df_sw)):
         st.session_state.setdefault(f"qty_sw_{i}", 0)
@@ -253,7 +252,7 @@ def show_contractnumbers():
         st.session_state.setdefault(f"qty_hw_{i}", 0)
 
     # ======================
-    # Gesamt MRR / OTF
+    # Eingaben Gesamt MRR / OTF
     # ======================
     col1, col2 = st.columns(2)
     with col1:
@@ -287,7 +286,7 @@ def show_contractnumbers():
     st.caption(f"Verwendete OTF für Kalkulation: **{round(otf_adjusted)} €**")
 
     # ======================
-    # Eingaben Software
+    # Mengen Software
     # ======================
     st.subheader("💻 Software")
     cols = st.columns(len(df_sw))
@@ -298,7 +297,7 @@ def show_contractnumbers():
             )
 
     # ======================
-    # Eingaben Hardware
+    # Mengen Hardware
     # ======================
     st.subheader("🖨️ Hardware")
     cols = st.columns(len(df_hw))
@@ -312,7 +311,7 @@ def show_contractnumbers():
     df_hw["Menge"] = [st.session_state[f"qty_hw_{i}"] for i in range(len(df_hw))]
 
     # ======================
-    # OTF proportional
+    # OTF Verteilung
     # ======================
     base = (df_sw["Menge"] * df_sw["List_OTF"]).sum() + (df_hw["Menge"] * df_hw["List_OTF"]).sum()
     factor = otf_adjusted / base if base > 0 else 0
@@ -320,16 +319,15 @@ def show_contractnumbers():
     df_hw["OTF"] = (df_hw["Menge"] * df_hw["List_OTF"] * factor).round(0)
 
     # ======================
-    # MRR Berechnung
+    # 🔥 MRR Berechnung
     # ======================
-    connect_qty = df_sw.loc[df_sw["Produkt"]=="Connect","Menge"].values[0]
-    tse_qty = df_sw.loc[df_sw["Produkt"]=="TSE","Menge"].values[0]
+    connect_qty = df_sw.loc[df_sw["Produkt"] == "Connect", "Menge"].values[0]
+    tse_qty = df_sw.loc[df_sw["Produkt"] == "TSE", "Menge"].values[0]
     connect_total = connect_qty * 13.72
-    tse_total = tse_qty * 12.0
+    tse_total = tse_qty * 12.00
     fixed_total = connect_total + tse_total
-    remaining_mrr = max(total_mrr - fixed_total,0)
-
-    proportional_df = df_sw[~df_sw["Produkt"].isin(["Connect","TSE"])]
+    remaining_mrr = max(total_mrr - fixed_total, 0)
+    proportional_df = df_sw[~df_sw["Produkt"].isin(["Connect", "TSE"])]
     mrr_base = (proportional_df["Menge"] * proportional_df["List_MRR"]).sum()
     mrr_factor = remaining_mrr / mrr_base if mrr_base > 0 else 0
 
@@ -337,133 +335,78 @@ def show_contractnumbers():
     df_sw["MRR_Woche"] = 0.0
     for i, row in proportional_df.iterrows():
         monat = row["Menge"] * row["List_MRR"] * mrr_factor
-        df_sw.loc[i,"MRR_Monat"] = round(monat,2)
-        df_sw.loc[i,"MRR_Woche"] = round(monat/4,2)
+        df_sw.loc[i, "MRR_Monat"] = round(monat, 2)
+        df_sw.loc[i, "MRR_Woche"] = round(monat / 4, 2)
 
-    df_sw.loc[df_sw["Produkt"]=="Connect","MRR_Monat"] = connect_total
-    df_sw.loc[df_sw["Produkt"]=="Connect","MRR_Woche"] = connect_qty * 3.43
-    df_sw.loc[df_sw["Produkt"]=="TSE","MRR_Monat"] = tse_total
-    df_sw.loc[df_sw["Produkt"]=="TSE","MRR_Woche"] = tse_qty * 3.0
+    df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Monat"] = connect_total
+    df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Woche"] = connect_qty * 3.43
+    df_sw.loc[df_sw["Produkt"] == "TSE", "MRR_Monat"] = tse_total
+    df_sw.loc[df_sw["Produkt"] == "TSE", "MRR_Woche"] = tse_qty * 3.00
+
     df_hw["MRR_Monat"] = 0.0
     df_hw["MRR_Woche"] = 0.0
 
     # ======================
-    # Ergebnisübersicht wie vorher
+    # 🧾 ERGEBNISBEREICH
     # ======================
     def get_row(df, produkt):
-        row = df[df["Produkt"]==produkt]
-        return row.iloc[0] if not row.empty else None
+        row = df[df["Produkt"] == produkt]
+        if not row.empty:
+            return row.iloc[0]
+        return None
 
-    shop = get_row(df_sw,"Shop")
-    app = get_row(df_sw,"App")
-    pos = get_row(df_sw,"POS")
-    pay = get_row(df_sw,"Pay")
-    tse = get_row(df_sw,"TSE")
-    connect = get_row(df_sw,"Connect")
-    order_manager = get_row(df_hw,"Ordermanager")
-    pos_printer_bundle = get_row(df_hw,"POS inkl 1 Printer")
-    cash_drawer = get_row(df_hw,"Cash Drawer")
-    extra_printer = get_row(df_hw,"Extra Printer")
-    display = get_row(df_hw,"Additional Display")
-    pax = get_row(df_hw,"PAX")
+    shop = get_row(df_sw, "Shop")
+    app = get_row(df_sw, "App")
+    pos = get_row(df_sw, "POS")
+    pay = get_row(df_sw, "Pay")
+    tse = get_row(df_sw, "TSE")
+    order_manager = get_row(df_hw, "Ordermanager")
+    pos_printer_bundle = get_row(df_hw, "POS inkl 1 Printer")
+    cash_drawer = get_row(df_hw, "Cash Drawer")
+    extra_printer = get_row(df_hw, "Extra Printer")
+    display = get_row(df_hw, "Additional Display")
+    pax = get_row(df_hw, "PAX")
 
     st.markdown("---")
     st.header("📊 Ergebnisübersicht")
 
-    # Shop / App
+    # 🛒 Shop
     st.subheader("🛒 Preise Shop")
-    st.write(f"Webshop WRR: {(shop['MRR_Woche'] if shop else 0):.2f} €")
-    st.write(f"Appshop WRR: {(app['MRR_Woche'] if app else 0):.2f} €")
-    st.write(f"Shop Anmeldegebühren: {((shop['OTF'] if shop else 0)+(app['OTF'] if app else 0)):.0f} €")
+    st.write(f"Webshop WRR: {(shop['MRR_Woche'] if shop is not None else 0):.2f} €")
+    st.write(f"Appshop WRR: {(app['MRR_Woche'] if app is not None else 0):.2f} €")
+    st.write(f"Shop Anmeldegebühren: {((shop['OTF'] if shop is not None else 0) + (app['OTF'] if app is not None else 0)):.0f} €")
 
-    # POS / TSE
+    # 🖥️ POS
     st.subheader("🖥️ YOYO POS")
-    st.write(f"YOYO POS Abonnementgebühr: {(pos['MRR_Woche'] if pos else 0):.2f} €")
-    st.write(f"YOYO POS Anmeldegebühr: {(pos['OTF'] if pos else 0):.0f} €")
-    st.write(f"TSE: {(tse['MRR_Woche'] if tse else 0):.2f} €")
+    st.write(f"YOYO POS Abonnementgebühr: {(pos['MRR_Woche'] if pos is not None else 0):.2f} €")
+    st.write(f"YOYO POS Anmeldegebühr: {(pos['OTF'] if pos is not None else 0):.0f} €")
+    st.write(f"TSE: {(tse['MRR_Woche'] if tse is not None else 0):.2f} €")
 
-    # PAY
+    # 💳 PAY
     st.subheader("💳 YOYOPAY")
-    st.write(f"Tägliche Abonnement Festgebühr: {((pay['MRR_Woche']/7) if pay else 0):.2f} €")
-    st.write(f"Feste Anmeldegebühr: {(pay['OTF'] if pay else 0):.0f} €")
+    st.write(f"Tägliche Abonnement Festgebühr: {(pay['MRR_Woche']/7 if pay is not None else 0):.2f} €")
+    st.write(f"Feste Anmeldegebühr: {(pay['OTF'] if pay is not None else 0):.0f} €")
 
-    # Hardware Übersicht
+    # 🖨️ Hardware Anzeige mit Menge + Einzelpreis
     st.subheader("🖨️ Hardware Komponenten")
-    def hw_display(row,label):
-        if row is None or row["Menge"]==0:
+
+    def hw_display(row, label):
+        if row is None or row["Menge"] == 0:
             return
         menge = int(row["Menge"])
         gesamt = int(row["OTF"])
-        einzel = int(gesamt/menge) if menge>0 else 0
-        if menge==1:
+        einzel = int(gesamt / menge) if menge > 0 else 0
+        if menge == 1:
             st.write(f"{label}: {gesamt} €")
         else:
             st.write(f"{label}: {gesamt} € ({menge}x {einzel} €)")
 
-    hw_display(pos_printer_bundle,"Sunmi D3 Pro")
-    hw_display(display,"Kundendisplay")
-    hw_display(cash_drawer,"Cash Drawer")
-    hw_display(extra_printer,"POS Printer")
-    hw_display(order_manager,"Ordermanager")
-    hw_display(pax,"Kartenterminal")
-
-    # ======================
-    # Textgenerator
-    # ======================
-    st.divider()
-    st.subheader("📝 Vertrags-Textgenerator")
-    restaurant_name = st.text_input("Restaurant Name", value="RESTAURANTNAME")
-
-    total_MRR_monthly = df_sw["MRR_Monat"].sum()
-    SUF = df_sw["OTF"].sum()
-    hardware_otf = df_hw["OTF"].sum()
-
-    products_sw_dict = {row["Produkt"]: row for _, row in df_sw.iterrows()}
-
-    def check_mark(product):
-        return "✅" if products_sw_dict.get(product,{}).get("Menge",0)>0 else "❌"
-
-    def display_mrr(product):
-        qty = products_sw_dict.get(product,{}).get("Menge",0)
-        return f"{products_sw_dict[product]['MRR_Monat']:.2f}" if qty>0 else ""
-
-    hardware_pay = []
-    if pos_printer_bundle and pos_printer_bundle["Menge"]>0:
-        hardware_pay.append("POS")
-    if pax and pax["Menge"]>0:
-        hardware_pay.append("PAX")
-    hardware_pay_str = "/".join(hardware_pay) if hardware_pay else "Keine"
-
-    contract_text = f"""
-Signed: {restaurant_name}
-Web Shop ({products_sw_dict['Shop']['List_MRR']}€) {check_mark('Shop')} {display_mrr('Shop')}
-App ({products_sw_dict['App']['List_MRR']}€) {check_mark('App')} {display_mrr('App')}
-POS ({products_sw_dict['POS']['List_MRR']}€) {check_mark('POS')} {display_mrr('POS')}
-GAW (150€) ✅
-PAY ({products_sw_dict['Pay']['List_MRR']}€) {check_mark('Pay')} {display_mrr('Pay')}
-Connect ({products_sw_dict['Connect']['List_MRR']}€) {check_mark('Connect')} {display_mrr('Connect')}
-Lead Quality: 
-Lead Gen: 
-GMB: @Halyna Radelytska
-Discount: 
-MRR: {total_MRR_monthly:.2f}€
-SUF: {SUF:.0f}€
-ELD: ASAP
-ZDS: https://orderyoyo.zendesk.com/sales/leads/2185935747
-"""
-    if products_sw_dict.get("Pay",{}).get("Menge",0)>0:
-        contract_text += f"""
-PAY:
-Commission: 0.80%
-Trans: 0.03€
-Auth: 0.03€
-KYC: Collected
-Hardware: {hardware_pay_str}
-SUF:0€
-MRR: {display_mrr('Pay')}
-"""
-
-    st.text_area("📄 Generierter Vertrags-Text", contract_text, height=450)
+    hw_display(pos_printer_bundle, "Sunmi D3 Pro")
+    hw_display(display, "Kundendisplay")
+    hw_display(cash_drawer, "Cash Drawer")
+    hw_display(extra_printer, "POS Printer")
+    hw_display(order_manager, "Ordermanager")
+    hw_display(pax, "Kartenterminal")
 # =====================================================
 # 💰 Pricing
 # =====================================================
