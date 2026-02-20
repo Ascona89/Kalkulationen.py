@@ -217,9 +217,7 @@ def show_cardpayment():
     col6.markdown(f"<div style='color:orange; font-size:28px;'>💸 {saving_per_year:,.2f} €</div>", unsafe_allow_html=True)
     col6.caption("Ersparnis pro Jahr")
 
-# =====================================================
-# 📑 Contract Numbers
-# =====================================================
+
 # =====================================================
 # 📑 Contract Numbers
 # =====================================================
@@ -392,51 +390,79 @@ def show_contractnumbers():
     # =====================================================
     # 📝 TEXT GENERATOR (JETZT RICHTIG IM SCOPE)
     # =====================================================
-    st.divider()
-    st.subheader("📝 Vertrags-Textgenerator")
+    # =====================================================
+# 📝 TEXT GENERATOR (LIST PREIS + MRR, Haken/Kreuz, GAW fix)
+# =====================================================
+st.divider()
+st.subheader("📝 Vertrags-Textgenerator")
 
-    restaurant_name = st.text_input("Restaurant Name", value="RESTAURANTNAME")
+restaurant_name = st.text_input("Restaurant Name", value="RESTAURANTNAME")
 
-    products_sw_dict = {row["Produkt"]: row for _, row in df_sw.iterrows()}
-    products_hw_dict = {row["Produkt"]: row for _, row in df_hw.iterrows()}
+products_sw_dict = {row["Produkt"]: row for _, row in df_sw.iterrows()}
+products_hw_dict = {row["Produkt"]: row for _, row in df_hw.iterrows()}
 
-    def check_mark(product):
-        return "✅" if products_sw_dict.get(product, {}).get("Menge", 0) > 0 else "❌"
+def check_mark(product):
+    return "✅" if products_sw_dict.get(product, {}).get("Menge", 0) > 0 else "❌"
 
-    MRR_webshop = products_sw_dict.get("Shop", {}).get("MRR_Monat", 0)
-    MRR_app = products_sw_dict.get("App", {}).get("MRR_Monat", 0)
-    MRR_pos = products_sw_dict.get("POS", {}).get("MRR_Monat", 0)
-    MRR_pay = products_sw_dict.get("Pay", {}).get("MRR_Monat", 0)
-    MRR_connect = products_sw_dict.get("Connect", {}).get("MRR_Monat", 0)
+# Einzelne Produkte
+shop = products_sw_dict.get("Shop", {})
+app = products_sw_dict.get("App", {})
+pos = products_sw_dict.get("POS", {})
+pay = products_sw_dict.get("Pay", {})
+connect = products_sw_dict.get("Connect", {})
 
-    SUF = sum([products_sw_dict.get(p, {}).get("OTF", 0) for p in ["Shop","App","POS","Pay","Connect"]])
-    hardware_otf = df_hw["OTF"].sum()
+SUF = sum([products_sw_dict.get(p, {}).get("OTF", 0) for p in ["Shop","App","POS","Pay","Connect"]])
+hardware_otf = df_hw["OTF"].sum()
 
-    hardware_pay = []
-    if products_hw_dict.get("POS inkl 1 Printer", {}).get("Menge",0) > 0:
-        hardware_pay.append("POS")
-    if products_hw_dict.get("PAX", {}).get("Menge",0) > 0:
-        hardware_pay.append("PAX")
-    hardware_pay_str = "/".join(hardware_pay) if hardware_pay else "Keine"
+hardware_pay = []
+if products_hw_dict.get("POS inkl 1 Printer", {}).get("Menge",0) > 0:
+    hardware_pay.append("POS")
+if products_hw_dict.get("PAX", {}).get("Menge",0) > 0:
+    hardware_pay.append("PAX")
+hardware_pay_str = "/".join(hardware_pay) if hardware_pay else "Keine"
 
-    total_MRR_monthly = MRR_webshop + MRR_app + MRR_pos + MRR_pay + MRR_connect
+total_MRR_monthly = sum([shop.get("MRR_Monat",0), app.get("MRR_Monat",0), pos.get("MRR_Monat",0), pay.get("MRR_Monat",0), connect.get("MRR_Monat",0)])
 
-    contract_text = f"""
+# ============================
+# Obere Übersicht
+# ============================
+def display_mrr(product):
+    return f"{product.get('MRR_Monat',0):.2f}€" if product.get("Menge",0) > 0 else ""
+
+contract_text = f"""
 Signed: {restaurant_name}
-Web Shop {check_mark('Shop')} = {MRR_webshop:.2f} €
-App {check_mark('App')} = {MRR_app:.2f} €
-POS {check_mark('POS')} = {MRR_pos:.2f} €
-PAY {check_mark('Pay')} = {MRR_pay:.2f} €
-Connect {check_mark('Connect')} = {MRR_connect:.2f} €
+Web Shop ({shop.get('List_MRR',0):.0f}€) {check_mark('Shop')} {display_mrr(shop)}
+App ({app.get('List_MRR',0):.0f}€) {check_mark('App')} {display_mrr(app)}
+POS ({pos.get('List_MRR',0):.0f}€) {check_mark('POS')} {display_mrr(pos)}
+GAW (150€) ✅
+Connect ({connect.get('List_MRR',0):.0f}€) {check_mark('Connect')} {display_mrr(connect)}
 
-MRR: {total_MRR_monthly:.2f} €
-SUF: {SUF:.2f} €
-Hardware: {hardware_otf:.2f} €
-
-PAY Hardware: {hardware_pay_str}
+Lead Quality: qualified
+Lead Gen: @Christian Mattosch
+GMB: verified @Halyna Radelytska
+Discount: 15%
+MRR: {total_MRR_monthly:.2f}€
+SUF: {SUF:.0f}€
+ELD: ASAP
+ZDS: https://orderyoyo.zendesk.com/sales/leads/2185935747
 """
 
-    st.text_area("📄 Generierter Vertrags-Text", contract_text, height=350)
+# ============================
+# PAY Block nur, wenn Pay ausgewählt
+# ============================
+if pay.get("Menge",0) > 0:
+    contract_text += f"""
+PAY:
+Commission: 0.80%
+Trans: 0.03€
+Auth: 0.03€
+KYC: Collected
+Hardware: {hardware_pay_str}
+SUF: 0€
+MRR: {pay.get('MRR_Monat',0):.2f}€
+"""
+
+st.text_area("📄 Generierter Vertrags-Text", contract_text, height=450)
 # =====================================================
 # 💰 Pricing
 # =====================================================
