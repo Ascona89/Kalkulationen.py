@@ -418,6 +418,74 @@ def show_contractnumbers():
     hw_display(extra_printer, "POS Printer")
     hw_display(order_manager, "Ordermanager")
     hw_display(pax, "Kartenterminal")
+
+# ======================
+    # 🔹 Contract Text Generator
+    # ======================
+    def generate_contract_text():
+        st.subheader("📝 Vertrags-Textgenerator")
+
+        restaurant_name = st.text_input("Restaurant Name", value="RESTAURANTNAME")
+
+        products_sw_dict = {row["Produkt"]: row for i, row in df_sw.iterrows()}
+        products_hw_dict = {row["Produkt"]: row for i, row in df_hw.iterrows()}
+
+        def check_mark(product):
+            return ":white_check_mark:" if products_sw_dict.get(product, {}).get("Menge", 0) > 0 else ":x:"
+
+        # Dynamische Werte
+        MRR_webshop = products_sw_dict.get("Shop", {}).get("MRR_Woche", 0)
+        MRR_app = products_sw_dict.get("App", {}).get("MRR_Woche", 0)
+        MRR_pos = products_sw_dict.get("POS", {}).get("MRR_Woche", 0)
+        MRR_pay = products_sw_dict.get("Pay", {}).get("MRR_Woche", 0)
+        MRR_connect = products_sw_dict.get("Connect", {}).get("MRR_Woche", 0)
+
+        SUF = sum([products_sw_dict.get(p, {}).get("OTF", 0) for p in ["Shop","App","POS","Pay","Connect"]])
+        hardware_otf = sum([row["OTF"] for row in df_hw.to_dict("records")])
+
+        hardware_pay = []
+        if products_hw_dict.get("POS inkl 1 Printer", {}).get("Menge",0) > 0:
+            hardware_pay.append("POS")
+        if products_hw_dict.get("PAX", {}).get("Menge",0) > 0:
+            hardware_pay.append("PAX")
+        hardware_pay_str = "/".join(hardware_pay) if hardware_pay else "Keine"
+
+        SUF_pay = products_sw_dict.get("Pay", {}).get("OTF",0)
+        total_MRR = MRR_webshop + MRR_app + MRR_pos + MRR_pay + MRR_connect
+
+        contract_text = f"""
+Signed: {restaurant_name}
+Web Shop (119€) {check_mark('Shop')} = {MRR_webshop:.2f} €
+App (49€) {check_mark('App')} = {MRR_app:.2f} €
+POS (89€) {check_mark('POS')} = {MRR_pos:.2f} €
+GAW (150€) :white_check_mark: FILL IN ADS
+PAY (25€) {check_mark('Pay')} = {MRR_pay:.2f} €
+Connect (15€) {check_mark('Connect')} = {MRR_connect:.2f} €
+Lead Quality: Fill in qualification
+Lead Gen: Fill in Lead Gen
+GMB: Fill in Info @Halyna Radelytska
+Discount: Fill in Discount
+MRR: {total_MRR:.2f} €
+SUF: {SUF:.2f} €
+Hardware: {hardware_otf:.2f} €
+ELD: Fill in ELD
+ZDS: Fill in Zendesk link
+
+PAY:
+Commission: Fill in Commission
+Trans: Fill in Transaction
+Auth: Fill in Authentification
+KYC: Fill in KYC Status
+Hardware: {hardware_pay_str}
+SUF: {SUF_pay:.2f} €
+MRR: {MRR_pay:.2f} €
+"""
+        st.text_area("📄 Generierter Vertrags-Text", contract_text, height=400)
+
+    # ======================
+    # Aufruf Contract Text Generator
+    # ======================
+    generate_contract_text()
 # =====================================================
 # 💰 Pricing
 # =====================================================
