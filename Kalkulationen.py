@@ -786,95 +786,95 @@ from datetime import datetime
 import requests
 import re
 
+# =====================================================
+# 🍽️ Restaurant Öffnungszeiten Prüfer
+# =====================================================
 def show_restaurant_hours():
+    import requests
+    import pandas as pd
+    import streamlit as st
+    from datetime import datetime
+
     st.header("🍽️ Restaurant Öffnungszeiten Prüfer")
 
-    st.caption("Füge Restaurants ein: Name in Spalte 1, PLZ in Spalte 6, weitere Spalten (Status etc.) werden angezeigt, aber nur Name & PLZ für Öffnungszeitenprüfung verwendet.")
+    st.markdown("Füge hier die Leads ein (je Restaurant Name + PLZ, getrennt durch Zeilen).")
+    input_text = st.text_area("Restaurants eingeben", height=300)
 
-    restaurants_input = st.text_area(
-        "Leads einfügen (mehrere Leads hintereinander, je 6 Zeilen pro Lead):",
-        height=300
+    if not input_text.strip():
+        st.info("Bitte mindestens ein Restaurant eingeben.")
+        return
+
+    # === Eingaben aufteilen ===
+    lines = [line.strip() for line in input_text.strip().split("\n") if line.strip()]
+    data = []
+
+    # Wir nehmen Name = erste Spalte, PLZ = sechste Spalte (Index 5)
+    for i in range(0, len(lines), 6):  # alle 6 Zeilen = ein Lead
+        try:
+            name = lines[i]
+            plz = lines[i + 5]
+            status = lines[i + 1]
+            data.append({"Name": name, "PLZ": plz, "Status": status})
+        except IndexError:
+            # unvollständige Zeilen überspringen
+            continue
+
+    df = pd.DataFrame(data)
+
+    if df.empty:
+        st.warning("Keine gültigen Restaurants gefunden.")
+        return
+
+    # === Öffnungszeiten abrufen (kostenlos) ===
+    @st.cache_data(ttl=3600)
+    def get_hours(name, plz):
+        """Versucht Öffnungszeiten für Name+PLZ zu ermitteln"""
+        try:
+            url = "https://nominatim.openstreetmap.org/search"
+            params = {"q": f"{name} {plz}", "format": "json", "limit": 1}
+            r = requests.get(url, params=params, timeout=5)
+            results = r.json()
+            if not results:
+                return "Unbekannt", False
+            osm_id = results[0]["osm_id"]
+
+            # Overpass API für Öffnungszeiten
+            overpass_url = "https://overpass-api.de/api/interpreter"
+            query = f"""
+            [out:json];
+            node({osm_id});
+            out tags;
+            """
+            resp = requests.get(overpass_url, params={"data": query}, timeout=5).json()
+            tags = resp.get("elements", [{}])[0].get("tags", {})
+            opening_hours = tags.get("opening_hours", "Unbekannt")
+            is_open = True
+            # einfachster Check: Ruhetag heute
+            if "off" in opening_hours.lower() or "closed" in opening_hours.lower():
+                is_open = False
+            return opening_hours, is_open
+        except:
+            return "Fehler", False
+
+    # === Öffnungszeiten abrufen für alle ===
+    hours_list = []
+    open_flags = []
+    for _, row in df.iterrows():
+        hours, is_open = get_hours(row["Name"], row["PLZ"])
+        hours_list.append(hours)
+        open_flags.append(is_open)
+
+    df["Öffnungszeiten heute"] = hours_list
+    df["Offen"] = open_flags
+
+    # === Tabelle anzeigen mit rot markierten geschlossenen Restaurants ===
+    def highlight_closed(val):
+        return "color: red;" if not val else ""
+
+    st.dataframe(
+        df.style.applymap(highlight_closed, subset=["Offen"]),
+        use_container_width=True
     )
-
-    if st.button("🔍 Prüfen"):
-        if not restaurants_input.strip():
-            st.warning("Bitte mindestens ein Restaurant einfügen!")
-            return
-
-        # Zeilen aufteilen
-        lines = [line.strip() for line in restaurants_input.split("\n") if line.strip()]
-        # Blöcke je 6 Zeilen = 1 Lead
-        blocks = [lines[i:i+6] for i in range(0, len(lines), 6)]
-
-        # Alle Spalten behalten, Name=Spalte 0, PLZ=Spalte 5
-        data = []
-        for block in blocks:
-            row = {}
-            for idx, val in enumerate(block):
-                row[f"Spalte_{idx+1}"] = val
-            # Default PLZ, falls nicht vorhanden
-            if len(block) < 6:
-                row["Spalte_6"] = ""
-            data.append(row)
-
-        df = pd.DataFrame(data)
-
-        # Funktion zum Prüfen, ob heute offen
-        def check_open_today(name, plz):
-            try:
-                if not name or not plz:
-                    return "Unbekannt"
-
-                # PLZ geocoden via Nominatim
-                geocode_url = "https://nominatim.openstreetmap.org/search"
-                params = {"postalcode": plz, "country": "Germany", "format": "json"}
-                resp = requests.get(geocode_url, params=params, timeout=10).json()
-                if not resp:
-                    return "Unbekannt"
-
-                lat = resp[0]["lat"]
-                lon = resp[0]["lon"]
-
-                # Overpass API: Restaurants im Umkreis 2km
-                overpass_url = "http://overpass-api.de/api/interpreter"
-                query = f"""
-                [out:json];
-                node(around:2000,{lat},{lon})[amenity=restaurant][name~"{name}",i];
-                out tags;
-                """
-                r = requests.get(overpass_url, params={"data": query}, timeout=15).json()
-                elements = r.get("elements", [])
-                if not elements:
-                    return "Unbekannt"
-
-                # Öffnungszeiten auslesen
-                opening_hours = elements[0].get("tags", {}).get("opening_hours", "")
-                if not opening_hours:
-                    return "Unbekannt"
-
-                # Prüfen, ob heute Ruhetag
-                today_weekday = datetime.today().strftime("%a")  # z.B. 'Mon'
-                if re.search(rf"{today_weekday}.*off", opening_hours, re.IGNORECASE):
-                    return "NEIN"
-                else:
-                    return "JA"
-
-            except Exception:
-                return "Fehler"
-
-        # Spalte mit Offen heute berechnen
-        df["Offen_heute"] = df.apply(lambda r: check_open_today(r["Spalte_1"], r["Spalte_6"]), axis=1)
-
-        # Rot markieren, wenn heute Ruhetag
-        def highlight_closed(val):
-            color = "red" if val == "NEIN" else ""
-            return f"background-color: {color}"
-
-        st.subheader("📋 Ergebnisse")
-        st.dataframe(
-            df.style.applymap(highlight_closed, subset=["Offen_heute"]),
-            use_container_width=True
-        )
 # =====================================================
 # ⚡ Seite auswählen
 # =====================================================
