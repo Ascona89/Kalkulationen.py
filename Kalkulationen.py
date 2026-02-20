@@ -489,8 +489,9 @@ MRR: {MRR_pay:.2f} €
 def generate_contract_text():
     st.subheader("📝 Vertrags-Textgenerator")
     # ... alles, was du oben schon hast ...
-
-# **Funktion tatsächlich aufrufen**
+# =====================================================
+# 🔹 Contract Text Generator anzeigen NUR auf dieser Seite
+# =====================================================
 generate_contract_text()
 # =====================================================
 # 💰 Pricing
