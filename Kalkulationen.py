@@ -235,10 +235,10 @@ def show_contractnumbers():
     })
 
     df_hw = pd.DataFrame({
-        "Produkt": ["POS inkl 1 Printer", "PAX", "Cash Drawer", "Extra Printer", "Additional Display"],
-        "List_OTF": [1699, 299, 149, 199, 100],
-        "List_MRR": [0]*5,
-        "Typ": ["Hardware"]*5
+        "Produkt": ["Ordermanager", "POS inkl 1 Printer", "PAX", "Cash Drawer", "Extra Printer", "Additional Display"],
+        "List_OTF": [299, 1699, 299, 149, 199, 100],
+        "List_MRR": [0]*6,
+        "Typ": ["Hardware"]*6
     })
 
     # ======================
@@ -367,6 +367,10 @@ def show_contractnumbers():
 
     st.subheader("🔗 Connect")
     st.write(f"Connect MRR: {display_mrr('Connect')}")
+
+    st.subheader("🖨️ Hardware")
+    for hw in df_hw["Produkt"]:
+        st.write(f"{hw} OTF: {products_hw_dict[hw].get('OTF',0):.0f} €")
 
     # ======================
     # 📝 Vertrags-Textgenerator (unten)
