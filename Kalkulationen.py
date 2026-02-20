@@ -221,30 +221,185 @@ def show_cardpayment():
 # =====================================================
 # 📑 Contract Numbers
 # =====================================================
-Signed: Bazid Kebab
-Web Shop (119€) :white_check_mark: 32€
-App (49€) :white_check_mark:  12.92€
-POS (89€) :white_check_mark: 35.44€
-GAW (150€) :white_check_mark: 50€ 2 Months free / then 5 Months
-PAY (25€) :white_check_mark:  15€
-Connect (15€) :white_check_mark:15€
-Lead Quality: qualified
-Lead Gen: @Christian Mattosch
-GMB: verified @Halyna Radelytska
-Discount: 15%
-MRR: 107€
-SUF: 650€
+# =====================================================
+# 📑 Contract Numbers
+# =====================================================
+def show_contractnumbers():
+    st.header("📑 Contract Numbers")
+
+    # ======================
+    # Produkte definieren
+    # ======================
+    df_sw = pd.DataFrame({
+        "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "GAW"],
+        "List_OTF": [999, 49, 999, 49, 0, 150],
+        "List_MRR": [119, 49, 89, 25, 15, 0],
+        "Typ": ["Software"]*6
+    })
+
+    df_hw = pd.DataFrame({
+        "Produkt": ["POS inkl 1 Printer", "PAX", "Cash Drawer", "Extra Printer", "Additional Display"],
+        "List_OTF": [1699, 299, 149, 199, 100],
+        "List_MRR": [0]*5,
+        "Typ": ["Hardware"]*5
+    })
+
+    # ======================
+    # Session State Mengen
+    # ======================
+    for i in range(len(df_sw)):
+        st.session_state.setdefault(f"qty_sw_{i}", 0)
+    for i in range(len(df_hw)):
+        st.session_state.setdefault(f"qty_hw_{i}", 0)
+
+    # ======================
+    # Eingaben Gesamt MRR / OTF
+    # ======================
+    col1, col2 = st.columns(2)
+    with col1:
+        total_mrr = st.number_input("💶 Gesamt MRR (€)", min_value=0.0, step=50.0)
+    with col2:
+        total_otf = st.number_input("💶 Gesamt OTF (€)", min_value=0.0, step=100.0)
+
+    # ======================
+    # Zahlungsoption
+    # ======================
+    st.subheader("💳 Zahlungsoption (optional)")
+    zahlung = st.selectbox(
+        "Auswahl",
+        [
+            "Keine",
+            "Gemischte Zahlung (25% + 12 Wochen) 10%",
+            "Online-Umsatz (100%) 10%",
+            "Monatliche Raten (12 Monate) 35%",
+            "Online-Umsatz (25% + 12 Wochen) 15%"
+        ]
+    )
+
+    prozent_map = {
+        "Keine": 0,
+        "Gemischte Zahlung (25% + 12 Wochen) 10%": 0.10,
+        "Online-Umsatz (100%) 10%": 0.10,
+        "Monatliche Raten (12 Monate) 35%": 0.35,
+        "Online-Umsatz (25% + 12 Wochen) 15%": 0.15
+    }
+
+    prozent = prozent_map[zahlung]
+    otf_adjusted = total_otf * (1 - prozent)
+    st.caption(f"Verwendete OTF für Kalkulation: **{round(otf_adjusted)} €**")
+
+    # ======================
+    # Mengen Software
+    # ======================
+    st.subheader("💻 Software")
+    cols = st.columns(len(df_sw))
+    for i, row in df_sw.iterrows():
+        with cols[i]:
+            st.session_state[f"qty_sw_{i}"] = st.number_input(
+                row["Produkt"], min_value=0, step=1,
+                value=st.session_state[f"qty_sw_{i}"]
+            )
+
+    # ======================
+    # Mengen Hardware
+    # ======================
+    st.subheader("🖨️ Hardware")
+    cols = st.columns(len(df_hw))
+    for i, row in df_hw.iterrows():
+        with cols[i]:
+            st.session_state[f"qty_hw_{i}"] = st.number_input(
+                row["Produkt"], min_value=0, step=1,
+                value=st.session_state[f"qty_hw_{i}"]
+            )
+
+    df_sw["Menge"] = [st.session_state[f"qty_sw_{i}"] for i in range(len(df_sw))]
+    df_hw["Menge"] = [st.session_state[f"qty_hw_{i}"] for i in range(len(df_hw))]
+
+    # ======================
+    # OTF Verteilung
+    # ======================
+    base = (df_sw["Menge"] * df_sw["List_OTF"]).sum() + \
+           (df_hw["Menge"] * df_hw["List_OTF"]).sum()
+    factor = otf_adjusted / base if base > 0 else 0
+
+    df_sw["OTF"] = (df_sw["Menge"] * df_sw["List_OTF"] * factor).round(0)
+    df_hw["OTF"] = (df_hw["Menge"] * df_hw["List_OTF"] * factor).round(0)
+
+    # ======================
+    # 🔥 MRR Berechnung
+    # ======================
+    df_sw["MRR_Monat"] = df_sw["Menge"] * df_sw["List_MRR"]
+
+    total_MRR_monthly = df_sw["MRR_Monat"].sum()
+
+    # ======================
+    # Hilfsfunktionen
+    # ======================
+    products_sw_dict = {row["Produkt"]: row for _, row in df_sw.iterrows()}
+    products_hw_dict = {row["Produkt"]: row for _, row in df_hw.iterrows()}
+
+    def check_mark(product):
+        return "✅" if products_sw_dict.get(product, {}).get("Menge", 0) > 0 else "❌"
+
+    def display_mrr(product):
+        qty = products_sw_dict.get(product, {}).get("Menge", 0)
+        return f"{products_sw_dict[product]['MRR_Monat']:.2f}€" if qty > 0 else ""
+
+    # ======================
+    # 📝 Vertrags-Textgenerator
+    # ======================
+    st.divider()
+    st.subheader("📝 Vertrags-Textgenerator")
+    restaurant_name = st.text_input("Restaurant Name", value="RESTAURANTNAME")
+
+    SUF = df_sw[["OTF"]].sum().iloc[0] + df_hw[["OTF"]].sum().iloc[0]
+    hardware_otf = df_hw["OTF"].sum()
+
+    hardware_pay = []
+    if products_hw_dict.get("POS inkl 1 Printer", {}).get("Menge",0) > 0:
+        hardware_pay.append("POS")
+    if products_hw_dict.get("PAX", {}).get("Menge",0) > 0:
+        hardware_pay.append("PAX")
+    hardware_pay_str = "/".join(hardware_pay) if hardware_pay else "Keine"
+
+    # ======================
+    # Vertragstext erstellen
+    # ======================
+    contract_text = f"""
+Signed: {restaurant_name}
+Web Shop ({products_sw_dict['Shop']['List_MRR']}€) {check_mark('Shop')} {display_mrr('Shop')}
+App ({products_sw_dict['App']['List_MRR']}€) {check_mark('App')} {display_mrr('App')}
+POS ({products_sw_dict['POS']['List_MRR']}€) {check_mark('POS')} {display_mrr('POS')}
+GAW (150€) {check_mark('GAW')}
+PAY ({products_sw_dict['Pay']['List_MRR']}€) {check_mark('Pay')} {display_mrr('Pay')}
+Connect ({products_sw_dict['Connect']['List_MRR']}€) {check_mark('Connect')} {display_mrr('Connect')}
+
+Lead Quality: 
+Lead Gen: 
+GMB:  @Halyna Radelytska
+Discount: 
+MRR: {total_MRR_monthly:.0f}€
+SUF: {SUF:.0f}€
 ELD: ASAP
 ZDS: https://orderyoyo.zendesk.com/sales/leads/2185935747
+"""
 
+    # ======================
+    # PAY-Block nur anzeigen, wenn Menge > 0
+    # ======================
+    if products_sw_dict.get("Pay", {}).get("Menge",0) > 0:
+        contract_text += f"""
 PAY:
 Commission: 0.80%
 Trans: 0.03€
 Auth: 0.03€
 KYC: Collected
-Hardware: POS
+Hardware: {hardware_pay_str}
 SUF:0€
-MRR: 15€
+MRR: {display_mrr('Pay')}
+"""
+
+    st.text_area("📄 Generierter Vertrags-Text", contract_text, height=400)
 # =====================================================
 # 💰 Pricing
 # =====================================================
