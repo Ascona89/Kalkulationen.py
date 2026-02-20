@@ -789,14 +789,7 @@ import re
 def show_restaurants():
     st.header("🍽️ Restaurant Öffnungszeiten Prüfer")
 
-    instructions = """Füge Restaurants ein, jeweils Name + PLZ + Status (eintrag pro Zeile), z.B.:
-Antalya Döner und Pizza
-70736
-Visited & Awaiting Decision - 75%
-SS
-Sebastian Schifferer
-1. Qualified (DE)"""
-    st.caption(instructions)
+    st.caption("Füge Restaurants ein: Name + PLZ + restliche Zeilen optional (werden ignoriert)")
 
     restaurants_input = st.text_area(
         "Füge deine Restaurants ein (fortlaufend einfügen)",
@@ -808,26 +801,28 @@ Sebastian Schifferer
             st.warning("Bitte mindestens ein Restaurant eingeben!")
             return
 
-        # Aufteilen in Blöcke pro Restaurant (5 Zeilen pro Restaurant)
+        # Aufteilen in Zeilen
         lines = [line.strip() for line in restaurants_input.split("\n") if line.strip()]
+
+        # Blöcke pro Restaurant: Name + PLZ sind die ersten 2 Zeilen, rest ignorieren
         blocks = [lines[i:i+5] for i in range(0, len(lines), 5)]
 
         data = []
         for block in blocks:
             try:
                 name = block[0]
-                plz = block[1]
-                status = block[2]
+                plz = block[1] if len(block) > 1 else ""
+                status = block[2] if len(block) > 2 else ""
                 data.append({"Name": name, "PLZ": plz, "Status": status})
             except IndexError:
                 st.warning(f"Unvollständiger Eintrag: {block}")
 
         df = pd.DataFrame(data)
 
-        # Funktion: Öffnungszeiten prüfen (heute) via OpenStreetMap
+        # Funktion: Öffnungszeiten prüfen (heute) via OpenStreetMap / Overpass
         def check_open_today(name, plz):
             try:
-                # Geocode PLZ über Nominatim
+                # PLZ geocoden
                 geocode_url = "https://nominatim.openstreetmap.org/search"
                 params = {"postalcode": plz, "country": "Germany", "format": "json"}
                 resp = requests.get(geocode_url, params=params, timeout=10).json()
@@ -849,14 +844,13 @@ Sebastian Schifferer
                 if not elements:
                     return "Unbekannt"
 
-                # Öffnungszeiten-Tag auslesen
+                # Öffnungszeiten auslesen
                 opening_hours = elements[0].get("tags", {}).get("opening_hours", "")
                 if not opening_hours:
                     return "Unbekannt"
 
                 # Prüfen, ob heute Ruhetag
                 today_weekday = datetime.today().strftime("%a")  # z.B. 'Mon'
-                # sehr einfache Prüfung, ob heute "off" steht
                 if re.search(rf"{today_weekday}.*off", opening_hours, re.IGNORECASE):
                     return "NEIN"
                 else:
@@ -867,7 +861,7 @@ Sebastian Schifferer
 
         df["Offen heute"] = df.apply(lambda r: check_open_today(r["Name"], r["PLZ"]), axis=1)
 
-        # Markierung: nur Ruhetag rot
+        # Nur Ruhetag rot markieren
         def highlight_closed(val):
             color = "red" if val == "NEIN" else ""
             return f"background-color: {color}"
