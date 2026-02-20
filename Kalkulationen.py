@@ -323,8 +323,6 @@ def show_contractnumbers():
     # ======================
     # 🔥 MRR Berechnung
     # ======================
-
-    # Fix-Produkte berechnen
     connect_qty = df_sw.loc[df_sw["Produkt"] == "Connect", "Menge"].values[0]
     tse_qty = df_sw.loc[df_sw["Produkt"] == "TSE", "Menge"].values[0]
 
@@ -332,8 +330,6 @@ def show_contractnumbers():
     tse_total = tse_qty * 12.00
 
     fixed_total = connect_total + tse_total
-
-    # Verbleibende MRR für proportionale Produkte
     remaining_mrr = max(total_mrr - fixed_total, 0)
 
     proportional_df = df_sw[~df_sw["Produkt"].isin(["Connect", "TSE"])]
@@ -344,13 +340,11 @@ def show_contractnumbers():
     df_sw["MRR_Monat"] = 0.0
     df_sw["MRR_Woche"] = 0.0
 
-    # Proportionale Produkte
     for i, row in proportional_df.iterrows():
         monat = row["Menge"] * row["List_MRR"] * mrr_factor
         df_sw.loc[i, "MRR_Monat"] = round(monat, 2)
         df_sw.loc[i, "MRR_Woche"] = round(monat / 4, 2)
 
-    # 🔒 Fix setzen
     df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Monat"] = connect_total
     df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Woche"] = connect_qty * 3.43
 
@@ -360,85 +354,60 @@ def show_contractnumbers():
     df_hw["MRR_Monat"] = 0.0
     df_hw["MRR_Woche"] = 0.0
 
-# ======================
-# 🔎 Werte aus DataFrames holen
-# ======================
-def get_row(df, produkt):
-    row = df[df["Produkt"] == produkt]
-    if not row.empty:
-        return row.iloc[0]
-    return None
+    # =====================================================
+    # 🧾 NEUER ERGEBNISBEREICH (nur Anzeige)
+    # =====================================================
+    def get_row(df, produkt):
+        row = df[df["Produkt"] == produkt]
+        if not row.empty:
+            return row.iloc[0]
+        return None
 
-shop = get_row(df_sw, "Shop")
-app = get_row(df_sw, "App")
-pos = get_row(df_sw, "POS")
-pay = get_row(df_sw, "Pay")
-tse = get_row(df_sw, "TSE")
+    shop = get_row(df_sw, "Shop")
+    app = get_row(df_sw, "App")
+    pos = get_row(df_sw, "POS")
+    pay = get_row(df_sw, "Pay")
+    tse = get_row(df_sw, "TSE")
 
-order_manager = get_row(df_hw, "Ordermanager")
-pos_printer_bundle = get_row(df_hw, "POS inkl 1 Printer")
-cash_drawer = get_row(df_hw, "Cash Drawer")
-extra_printer = get_row(df_hw, "Extra Printer")
-display = get_row(df_hw, "Additional Display")
-pax = get_row(df_hw, "PAX")
+    order_manager = get_row(df_hw, "Ordermanager")
+    pos_printer_bundle = get_row(df_hw, "POS inkl 1 Printer")
+    cash_drawer = get_row(df_hw, "Cash Drawer")
+    extra_printer = get_row(df_hw, "Extra Printer")
+    display = get_row(df_hw, "Additional Display")
+    pax = get_row(df_hw, "PAX")
 
-# ======================
-# 🧾 Ergebnisdarstellung
-# ======================
-st.markdown("---")
-st.header("📊 Ergebnisübersicht")
+    st.markdown("---")
+    st.header("📊 Ergebnisübersicht")
 
-# -------------------------------------------------
-# 🛒 Preise Shop
-# -------------------------------------------------
-st.subheader("🛒 Preise Shop")
+    # 🛒 Preise Shop
+    st.subheader("🛒 Preise Shop")
+    st.write(f"Webshop WRR: {(shop['MRR_Woche'] if shop is not None else 0):.2f} €")
+    st.write(f"Appshop WRR: {(app['MRR_Woche'] if app is not None else 0):.2f} €")
+    st.write(f"Shop Anmeldegebühren: {((shop['OTF'] if shop is not None else 0) + (app['OTF'] if app is not None else 0)):.0f} €")
 
-webshop_wrr = shop["MRR_Woche"] if shop is not None else 0
-appshop_wrr = app["MRR_Woche"] if app is not None else 0
-shop_otf = (shop["OTF"] if shop is not None else 0) + (app["OTF"] if app is not None else 0)
+    # 🖥️ YOYO POS
+    st.subheader("🖥️ YOYO POS")
+    st.write(f"YOYO POS Abonnementgebühr: {(pos['MRR_Woche'] if pos is not None else 0):.2f} €")
+    st.write(f"YOYO POS Anmeldegebühr: {(pos['OTF'] if pos is not None else 0):.0f} €")
+    st.write(f"TSE: {(tse['MRR_Woche'] if tse is not None else 0):.2f} €")
 
-st.write(f"**Webshop WRR:** {webshop_wrr:.2f} €")
-st.write(f"**Appshop WRR:** {appshop_wrr:.2f} €")
-st.write(f"**Shop Anmeldegebühren:** {shop_otf:.0f} €")
+    # 💳 YOYOPAY
+    st.subheader("💳 YOYOPAY")
+    st.write(f"Tägliche Abonnement Festgebühr: {((pay['MRR_Woche']/7) if pay is not None else 0):.2f} €")
+    st.write(f"Feste Anmeldegebühr: {(pay['OTF'] if pay is not None else 0):.0f} €")
 
-# -------------------------------------------------
-# 🖥️ YOYO POS
-# -------------------------------------------------
-st.subheader("🖥️ YOYO POS")
+    # 🖨️ Hardware
+    st.subheader("🖨️ Hardware Komponenten")
 
-pos_wrr = pos["MRR_Woche"] if pos is not None else 0
-pos_otf = pos["OTF"] if pos is not None else 0
-tse_wrr = tse["MRR_Woche"] if tse is not None else 0
+    def hw(row):
+        return int(row["OTF"]) if row is not None else 0
 
-st.write(f"**YOYO POS Abonnementgebühr:** {pos_wrr:.2f} €")
-st.write(f"**YOYO POS Anmeldegebühr:** {pos_otf:.0f} €")
-st.write(f"**TSE:** {tse_wrr:.2f} €")
-
-# -------------------------------------------------
-# 💳 YOYOPAY
-# -------------------------------------------------
-st.subheader("💳 YOYOPAY")
-
-pay_wrr_daily = (pay["MRR_Woche"] / 7) if pay is not None else 0
-pay_otf = pay["OTF"] if pay is not None else 0
-
-st.write(f"**Tägliche Abonnement Festgebühr:** {pay_wrr_daily:.2f} €")
-st.write(f"**Feste Anmeldegebühr:** {pay_otf:.0f} €")
-
-# -------------------------------------------------
-# 🖨️ Hardware Komponenten
-# -------------------------------------------------
-st.subheader("🖨️ Hardware Komponenten")
-
-def hw_otf(row):
-    return int(row["OTF"]) if row is not None else 0
-
-st.write(f"**Sunmi D3 Pro:** {hw_otf(pos_printer_bundle)} €")
-st.write(f"**Kundendisplay:** {hw_otf(display)} €")
-st.write(f"**Cash Drawer:** {hw_otf(cash_drawer)} €")
-st.write(f"**POS Printer:** {hw_otf(extra_printer)} €")
-st.write(f"**Ordermanager:** {hw_otf(order_manager)} €")
-st.write(f"**Kartenterminal:** {hw_otf(pax)} €")
+    st.write(f"Sunmi D3 Pro: {hw(pos_printer_bundle)} €")
+    st.write(f"Kundendisplay: {hw(display)} €")
+    st.write(f"Cash Drawer: {hw(cash_drawer)} €")
+    st.write(f"POS Printer: {hw(extra_printer)} €")
+    st.write(f"Ordermanager: {hw(order_manager)} €")
+    st.write(f"Kartenterminal: {hw(pax)} €")
 # =====================================================
 # 💰 Pricing
 # =====================================================
