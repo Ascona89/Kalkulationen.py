@@ -418,6 +418,87 @@ def show_contractnumbers():
     hw_display(extra_printer, "POS Printer")
     hw_display(order_manager, "Ordermanager")
     hw_display(pax, "Kartenterminal")
+
+    # =====================================================
+    # 📝 Contract Text Generator (MRR basiert)
+    # =====================================================
+    st.markdown("---")
+    st.subheader("📝 Vertrags-Textgenerator")
+
+    restaurant_name = st.text_input("Restaurant Name", value="RESTAURANTNAME")
+
+    products_sw_dict = {row["Produkt"]: row for _, row in df_sw.iterrows()}
+    products_hw_dict = {row["Produkt"]: row for _, row in df_hw.iterrows()}
+
+    def check_mark(product):
+        return "✅" if products_sw_dict.get(product, {}).get("Menge", 0) > 0 else "❌"
+
+    def mrr_text(product):
+        menge = products_sw_dict.get(product, {}).get("Menge", 0)
+        if menge > 0:
+            return f"{products_sw_dict[product]['MRR_Monat']:.2f} €"
+        return ""
+
+    # MRR Werte
+    MRR_webshop = products_sw_dict.get("Shop", {}).get("MRR_Monat", 0)
+    MRR_app = products_sw_dict.get("App", {}).get("MRR_Monat", 0)
+    MRR_pos = products_sw_dict.get("POS", {}).get("MRR_Monat", 0)
+    MRR_pay = products_sw_dict.get("Pay", {}).get("MRR_Monat", 0)
+    MRR_connect = products_sw_dict.get("Connect", {}).get("MRR_Monat", 0)
+
+    total_MRR_monthly = MRR_webshop + MRR_app + MRR_pos + MRR_pay + MRR_connect
+
+    # OTF Summen
+    SUF = df_sw["OTF"].sum()
+    hardware_otf = df_hw["OTF"].sum()
+
+    # PAY Hardware
+    hardware_pay = []
+    if products_hw_dict.get("POS inkl 1 Printer", {}).get("Menge", 0) > 0:
+        hardware_pay.append("POS")
+    if products_hw_dict.get("PAX", {}).get("Menge", 0) > 0:
+        hardware_pay.append("PAX")
+    hardware_pay_str = "/".join(hardware_pay) if hardware_pay else "Keine"
+
+    contract_text = f"""
+Signed: {restaurant_name}
+
+Web Shop (119€) {check_mark('Shop')} {mrr_text('Shop')}
+App (49€) {check_mark('App')} {mrr_text('App')}
+POS (89€) {check_mark('POS')} {mrr_text('POS')}
+GAW (150€) ✅ 
+PAY (25€) {check_mark('Pay')} {mrr_text('Pay')}
+Connect (15€) {check_mark('Connect')} {mrr_text('Connect')}
+
+Lead Quality: 
+Lead Gen: 
+GMB:  
+Discount: 
+
+MRR: {total_MRR_monthly:.2f} €
+SUF: {SUF:.0f} €
+Hardware: {hardware_otf:.0f} €
+
+ELD: 
+ZDS: 
+
+"""
+
+    # PAY Abschnitt nur wenn Pay ausgewählt
+    if products_sw_dict.get("Pay", {}).get("Menge", 0) > 0:
+        contract_text += f"""
+PAY:
+Commission: 
+Trans: 
+Auth: 
+KYC: 
+Hardware: {hardware_pay_str}
+SUF: {products_sw_dict.get('Pay', {}).get('OTF', 0):.0f} €
+MRR: {MRR_pay:.2f} €
+"""
+
+    st.text_area("📄 Generierter Vertrags-Text", contract_text, height=420)
+
 # =====================================================
 # 💰 Pricing
 # =====================================================
