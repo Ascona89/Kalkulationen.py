@@ -231,6 +231,8 @@ def show_contractnumbers():
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "TSE"],
         "List_OTF": [999, 49, 999, 49, 0, 0],
         "List_MRR": [119, 49, 89, 25, 13.72, 12],
+        "Min_OTF": [365, 15, 365, 35, 0, 0],
+        "Min_MRR": [50, 15, 49, 5, 15, 12],
         "Typ": ["Software"] * 6
     })
 
@@ -239,6 +241,7 @@ def show_contractnumbers():
         "List_OTF": [299, 1699, 149, 199, 100, 299],
         "Min_OTF": [135, 350, 50, 99, 100, 225],
         "List_MRR": [0] * 6,
+        "Min_MRR": [0] * 6,
         "Typ": ["Hardware"] * 6
     })
 
@@ -315,36 +318,38 @@ def show_contractnumbers():
     df_hw["Menge"] = [st.session_state[f"qty_hw_{i}"] for i in range(len(df_hw))]
 
     # ======================
-    # OTF Verteilung
+    # 🔎 Preislogik wie Pricing
     # ======================
-    base = (
+    min_mrr_total = (df_sw["Menge"] * df_sw["Min_MRR"]).sum()
+    list_mrr_total = (df_sw["Menge"] * df_sw["List_MRR"]).sum()
+
+    min_otf_total = (
+        (df_sw["Menge"] * df_sw["Min_OTF"]).sum() +
+        (df_hw["Menge"] * df_hw["Min_OTF"]).sum()
+    )
+
+    list_otf_total = (
         (df_sw["Menge"] * df_sw["List_OTF"]).sum() +
         (df_hw["Menge"] * df_hw["List_OTF"]).sum()
     )
 
+    # ======================
+    # 🚨 WARNLOGIK
+    # ======================
+    if total_mrr < min_mrr_total or otf_adjusted < min_otf_total:
+        st.error("🔴 Preis zu gering (unter Mindestpreis)")
+    elif total_mrr > list_mrr_total or otf_adjusted > list_otf_total:
+        st.warning("🟡 Preis über Liste")
+
+    # ======================
+    # OTF Verteilung (unverändert)
+    # ======================
+    base = list_otf_total
     factor = otf_adjusted / base if base > 0 else 0
 
     df_sw["OTF"] = (df_sw["Menge"] * df_sw["List_OTF"] * factor).round(0)
     df_hw["OTF"] = (df_hw["Menge"] * df_hw["List_OTF"] * factor).round(0)
 
-    # ======================
-    # 🚨 Preis Warnungen Hardware
-    # ======================
-    warnings = []
-
-    for _, row in df_hw.iterrows():
-        if row["Menge"] > 0:
-            list_total = row["Menge"] * row["List_OTF"]
-            min_total = row["Menge"] * row["Min_OTF"]
-            calc_total = row["OTF"]
-
-            if calc_total > list_total:
-                warnings.append(f"{row['Produkt']} über Listenpreis")
-            if calc_total < min_total:
-                warnings.append(f"{row['Produkt']} unter Mindestpreis")
-
-    if warnings:
-        st.warning("⚠️ Preiswarnung: " + " | ".join(warnings))
 
     # ======================
     # 🔥 MRR Berechnung
