@@ -237,6 +237,7 @@ def show_contractnumbers():
     df_hw = pd.DataFrame({
         "Produkt": ["Ordermanager", "POS inkl 1 Printer", "Cash Drawer", "Extra Printer", "Additional Display", "PAX"],
         "List_OTF": [299, 1699, 149, 199, 100, 299],
+        "Min_OTF": [135, 350, 50, 99, 100, 225],
         "List_MRR": [0] * 6,
         "Typ": ["Hardware"] * 6
     })
@@ -273,7 +274,6 @@ def show_contractnumbers():
         ]
     )
 
-    # 🔥 Neue Kalkulation
     if zahlung == "Gemischte Zahlung (25% + 12 Wochen) 10%":
         otf_adjusted = total_otf / 110 * 100
     elif zahlung == "Online-Umsatz (100%) 10%":
@@ -326,6 +326,63 @@ def show_contractnumbers():
 
     df_sw["OTF"] = (df_sw["Menge"] * df_sw["List_OTF"] * factor).round(0)
     df_hw["OTF"] = (df_hw["Menge"] * df_hw["List_OTF"] * factor).round(0)
+
+    # ======================
+    # 🚨 Preis Warnungen Hardware
+    # ======================
+    warnings = []
+
+    for _, row in df_hw.iterrows():
+        if row["Menge"] > 0:
+            list_total = row["Menge"] * row["List_OTF"]
+            min_total = row["Menge"] * row["Min_OTF"]
+            calc_total = row["OTF"]
+
+            if calc_total > list_total:
+                warnings.append(f"{row['Produkt']} über Listenpreis")
+            if calc_total < min_total:
+                warnings.append(f"{row['Produkt']} unter Mindestpreis")
+
+    if warnings:
+        st.warning("⚠️ Preiswarnung: " + " | ".join(warnings))
+
+    # ======================
+    # 🔥 MRR Berechnung
+    # ======================
+    connect_qty = df_sw.loc[df_sw["Produkt"] == "Connect", "Menge"].values[0]
+    tse_qty = df_sw.loc[df_sw["Produkt"] == "TSE", "Menge"].values[0]
+
+    connect_total = connect_qty * 13.72
+    tse_total = tse_qty * 12.00
+
+    fixed_total = connect_total + tse_total
+    remaining_mrr = max(total_mrr - fixed_total, 0)
+
+    proportional_df = df_sw[~df_sw["Produkt"].isin(["Connect", "TSE"])]
+    mrr_base = (proportional_df["Menge"] * proportional_df["List_MRR"]).sum()
+
+    mrr_factor = remaining_mrr / mrr_base if mrr_base > 0 else 0
+
+    df_sw["MRR_Monat"] = 0.0
+    df_sw["MRR_Woche"] = 0.0
+
+    for i, row in proportional_df.iterrows():
+        monat = row["Menge"] * row["List_MRR"] * mrr_factor
+        df_sw.loc[i, "MRR_Monat"] = round(monat, 2)
+        df_sw.loc[i, "MRR_Woche"] = round(monat / 4, 2)
+
+    df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Monat"] = connect_total
+    df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Woche"] = connect_qty * 3.43
+
+    df_sw.loc[df_sw["Produkt"] == "TSE", "MRR_Monat"] = tse_total
+    df_sw.loc[df_sw["Produkt"] == "TSE", "MRR_Woche"] = tse_qty * 3.00
+
+    df_hw["MRR_Monat"] = 0.0
+    df_hw["MRR_Woche"] = 0.0
+
+    # =====================================================
+    # 🧾 Rest bleibt exakt unverändert
+    # =====================================================
 
     # ======================
     # 🔥 MRR Berechnung
