@@ -919,15 +919,15 @@ def show_radien():
 # 🚧 Pipeline
 # =====================================================
 def show_pipeline():
-    st.header("🚧 Pipeline")
-    st.info("Diese Seite ist aktuell noch under construction.")
+    st.header(" Pipeline")
+    st.info("Only available for MIDS/ wrong Permission.")
 
 # =====================================================
 # 🏪 Restaurants
 # =====================================================
 def show_restaurants():
-    st.header("🏪 Restaurants")
-    st.info("Diese Seite ist aktuell noch under construction.")
+    st.header(" Restaurants")
+    st.info("Only available for MIDS/ wrong Permission.")
 # =====================================================
 # ⚡ Seite auswählen
 # =====================================================
