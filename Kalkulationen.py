@@ -273,16 +273,18 @@ def show_contractnumbers():
         ]
     )
 
-    prozent_map = {
-        "Keine": 0,
-        "Gemischte Zahlung (25% + 12 Wochen) 10%": 0.10,
-        "Online-Umsatz (100%) 10%": 0.10,
-        "Monatliche Raten (12 Monate) 35%": 0.35,
-        "Online-Umsatz (25% + 12 Wochen) 15%": 0.15
-    }
+    # 🔥 Neue Kalkulation
+    if zahlung == "Gemischte Zahlung (25% + 12 Wochen) 10%":
+        otf_adjusted = total_otf / 110 * 100
+    elif zahlung == "Online-Umsatz (100%) 10%":
+        otf_adjusted = total_otf / 110 * 100
+    elif zahlung == "Monatliche Raten (12 Monate) 35%":
+        otf_adjusted = total_otf / 135 * 100
+    elif zahlung == "Online-Umsatz (25% + 12 Wochen) 15%":
+        otf_adjusted = total_otf / 115 * 100
+    else:
+        otf_adjusted = total_otf
 
-    prozent = prozent_map[zahlung]
-    otf_adjusted = total_otf * (1 - prozent)
     st.caption(f"Verwendete OTF für Kalkulation: **{round(otf_adjusted)} €**")
 
     # ======================
@@ -359,6 +361,9 @@ def show_contractnumbers():
     df_hw["MRR_Monat"] = 0.0
     df_hw["MRR_Woche"] = 0.0
 
+    # =====================================================
+    # 🧾 Ergebnisübersicht + Rest bleibt unverändert
+    # =====================================================
     # =====================================================
     # 🧾 Ergebnisübersicht
     # =====================================================
