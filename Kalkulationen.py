@@ -237,7 +237,7 @@ def show_contractnumbers():
     })
 
     df_hw = pd.DataFrame({
-        "Produkt": ["Ordermanager", "POS inkl 1 Printer", "Cash Drawer", "Extra Printer", "Additional Display", "PAX"],
+        "Produkt": ["Ordermanager", "POS", "Cash Drawer", "Printer", "Additional Display", "PAX"],
         "List_OTF": [299, 1699, 149, 199, 100, 299],
         "Min_OTF": [135, 350, 50, 99, 100, 225],
         "List_MRR": [0] * 6,
