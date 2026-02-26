@@ -507,11 +507,9 @@ def show_pricing():
     # -------------------------------
     st.subheader("💻 Software")
     cols = st.columns(len(df_sw))
-
     for i, row in df_sw.iterrows():
         with cols[i]:
             st.number_input(row["Produkt"], min_value=0, step=1, key=f"sw_{i}")
-
     df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
 
     # -------------------------------
@@ -522,7 +520,6 @@ def show_pricing():
     for i, row in df_hw.iterrows():
         with cols[i]:
             st.number_input(row["Produkt"], min_value=0, step=1, key=f"hw_{i}")
-
     df_hw["Menge"] = [st.session_state[f"hw_{i}"] for i in range(len(df_hw))]
 
     # -------------------------------
@@ -532,17 +529,11 @@ def show_pricing():
     discount_factor = 1 - discount / 100
 
     # -------------------------------
-    # Berechnungen
+    # Berechnungen Listpreise
     # -------------------------------
-
-    # Software OTF & MRR
     otf_software_list = (df_sw["Menge"] * df_sw["List_OTF"]).sum() * discount_factor
     mrr_list = (df_sw["Menge"] * df_sw["List_MRR"]).sum() * discount_factor
-
-    # Hardware OTF
     otf_hardware_list = (df_hw["Menge"] * df_hw["List_OTF"]).sum() * discount_factor
-
-    # Gesamt OTF
     total_otf_list = otf_software_list + otf_hardware_list
 
     # Minimalpreise
@@ -550,7 +541,7 @@ def show_pricing():
     min_otf_total = (df_sw["Menge"] * df_sw["Min_OTF"]).sum() + (df_hw["Menge"] * df_hw["Min_OTF"]).sum()
 
     # -------------------------------
-    # Anzeige oben
+    # Anzeige Listpreise
     # -------------------------------
     st.subheader("📊 Übersicht Listpreise")
     col1, col2, col3, col4 = st.columns(4)
@@ -560,27 +551,27 @@ def show_pricing():
     col4.markdown(f"### 💻 OTF SOFTWARE: {otf_software_list:,.2f} €")
 
     # -------------------------------
-    # Hardware Kauf / Leasing Eingaben
+    # Neue Hardware Eingaben für Leasing
     # -------------------------------
     st.markdown("---")
-    st.subheader("Hardware Optionen")
+    st.subheader("Hardware Kauf/Leasing (für Monatsleasing Berechnung)")
 
-    col_kauf, col_leasing = st.columns(2)
-    hardware_kauf = col_kauf.number_input(
-        "Hardware Kauf (€)",
-        min_value=0.0,
-        step=10.0,
-        value=otf_hardware_list
-    )
-    # Berechnung Leasing
-    leasing_monatlich = round(hardware_kauf / 12 * 1.15, 2)
-    col_leasing.number_input(
-        "Hardware Leasing (€)",
-        min_value=0.0,
-        step=10.0,
-        value=leasing_monatlich
-    )
+    leasing_hw_qty = []
+    cols = st.columns(len(df_hw))
+    for i, row in df_hw.iterrows():
+        with cols[i]:
+            qty = st.number_input(
+                row["Produkt"],
+                min_value=0,
+                step=1,
+                value=st.session_state.get(f"lease_hw_{i}", 0),
+                key=f"lease_hw_{i}"
+            )
+            leasing_hw_qty.append(qty)
 
+    # Berechnung Leasing monatlich
+    hardware_leasing_total = sum([qty * df_hw.loc[i, "List_OTF"] for i, qty in enumerate(leasing_hw_qty)])
+    leasing_monatlich = round(hardware_leasing_total / 12 * 1.15, 2)
     st.markdown(f"**Leasing monatlich:** {leasing_monatlich:,.2f} €")
 
     # -------------------------------
