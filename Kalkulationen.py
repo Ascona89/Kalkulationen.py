@@ -551,10 +551,10 @@ def show_pricing():
     col4.markdown(f"### 💻 OTF SOFTWARE: {otf_software_list:,.2f} €")
 
     # -------------------------------
-    # Neue Hardware Eingaben für Leasing
+    # Neue Hardware Leasing Eingaben
     # -------------------------------
     st.markdown("---")
-    st.subheader("Hardware Kauf/Leasing (für Monatsleasing Berechnung)")
+    st.subheader("Hardware Leasing")
 
     leasing_hw_qty = []
     cols = st.columns(len(df_hw))
@@ -572,7 +572,15 @@ def show_pricing():
     # Berechnung Leasing monatlich
     hardware_leasing_total = sum([qty * df_hw.loc[i, "List_OTF"] for i, qty in enumerate(leasing_hw_qty)])
     leasing_monatlich = round(hardware_leasing_total / 12 * 1.15, 2)
-    st.markdown(f"**Leasing monatlich:** {leasing_monatlich:,.2f} €")
+
+    # -------------------------------
+    # Ergebnisanzeige MRR Software / Leasing / Gesamt
+    # -------------------------------
+    st.markdown("### 📊 Leasing Übersicht")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("MRR Software", f"{mrr_list:,.2f} €")
+    col2.metric("Leasing Hardware", f"{leasing_monatlich:,.2f} €")
+    col3.metric("Gesamt", f"{(mrr_list + leasing_monatlich):,.2f} €")
 
     # -------------------------------
     # Minimalpreise unten
