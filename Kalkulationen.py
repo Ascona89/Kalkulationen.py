@@ -495,7 +495,7 @@ def show_pricing():
         "POS inkl 1 Printer": {"min": 23.33, "list": 113.27},
         "Cash Drawer": {"min": 3.33, "list": 9.93},
         "Extra Printer": {"min": 7.17, "list": 19.07},
-        "Additional Display": {"min": 0, "list": 0},
+        "Additional Display": {"min": 9.59, "list": 9.59},
         "PAX": {"min": 15.00, "list": 19.93},
         "Kiosk": {"min": 96.07, "list": 96.07}
     }
