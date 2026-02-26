@@ -472,11 +472,7 @@ Kiosk: {qty_kiosk}
     st.text_area("📄 Generierter Vertrags-Text", contract_text, height=420)
 
 
-# ======================
-# App starten
-# ======================
-if __name__ == "__main__":
-    show_contractnumbers()
+
 # =====================================================
 # 💰 Pricing
 # =====================================================
