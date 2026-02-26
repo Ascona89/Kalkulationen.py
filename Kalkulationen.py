@@ -218,8 +218,9 @@ def show_cardpayment():
     col6.caption("Ersparnis pro Jahr")
 
 
+
 # =====================================================
-# 💳 Cardpayment
+# 💳 Contract Numbers
 # =====================================================
 def show_contractnumbers():
     st.header("📑 Contract Numbers")
