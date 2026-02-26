@@ -221,12 +221,6 @@ def show_cardpayment():
 import streamlit as st
 import pandas as pd
 
-# =====================================================
-# 📑 Contract Numbers
-# =====================================================
-def show_contractnumbers():
-    st.header("📑 Contract Numbers")
-
     # ======================
     # Produkte Software
     # ======================
@@ -344,26 +338,19 @@ def show_contractnumbers():
         (df_hw["Menge"] * df_hw["List_OTF"]).sum()
     )
 
-    # ======================
     # Warnlogik
-    # ======================
     if total_mrr < min_mrr_total or otf_adjusted < min_otf_total:
         st.error("🔴 Preis zu gering (unter Mindestpreis)")
     elif total_mrr > list_mrr_total or otf_adjusted > list_otf_total:
         st.warning("🟡 Preis über Liste")
 
-    # ======================
     # OTF Verteilung
-    # ======================
     base = list_otf_total
     factor = otf_adjusted / base if base > 0 else 0
-
     df_sw["OTF"] = (df_sw["Menge"] * df_sw["List_OTF"] * factor).round(0)
     df_hw["OTF"] = (df_hw["Menge"] * df_hw["List_OTF"] * factor).round(0)
 
-    # ======================
     # MRR Berechnung
-    # ======================
     connect_qty = df_sw.loc[df_sw["Produkt"] == "Connect", "Menge"].values[0]
     tse_qty = df_sw.loc[df_sw["Produkt"] == "TSE", "Menge"].values[0]
 
@@ -385,14 +372,11 @@ def show_contractnumbers():
         df_sw.loc[i, "MRR_Monat"] = round(monat, 2)
         df_sw.loc[i, "MRR_Woche"] = round(monat / 4, 2)
 
+    # Connect & TSE
     df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Monat"] = connect_total
     df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Woche"] = connect_qty * 3.43
-
     df_sw.loc[df_sw["Produkt"] == "TSE", "MRR_Monat"] = tse_total
     df_sw.loc[df_sw["Produkt"] == "TSE", "MRR_Woche"] = tse_qty * 3.00
-
-    df_hw["MRR_Monat"] = 0.0
-    df_hw["MRR_Woche"] = 0.0
 
     # =====================================================
     # 📝 Vertrags-Textgenerator
@@ -424,12 +408,13 @@ def show_contractnumbers():
     qty_kiosk = products_hw_dict.get("Kiosk", {}).get("Menge", 0)
 
     # --- Standardtext ---
+    pos_mrr_total = df_sw.loc[df_sw["Produkt"].isin(["POS", "TSE"]), "MRR_Monat"].sum()
     contract_text = f"""
 Signed: {restaurant_name}
 
 Web Shop (119€) {check_mark('Shop')} {mrr_text('Shop')}
 App (49€) {check_mark('App')} {mrr_text('App')}
-POS (89€) {check_mark('POS')} {mrr_text('POS')}
+POS (89€) {check_mark('POS')} {pos_mrr_total:.2f} €
 GAW (150€) ✅
 Connect (15€) {check_mark('Connect')} {mrr_text('Connect')}
 Kiosk (89€) {check_mark('Kiosk')} {mrr_text('Kiosk')}
@@ -441,20 +426,24 @@ Discount:
 MRR: {df_sw['MRR_Monat'].sum():.2f} €
 SUF: {df_sw['OTF'].sum():.0f} €
 Hardware: {df_hw['OTF'].sum():.0f} €
+ZDS:
 """
 
-    # --- PAY Block optional ---
-    if products_sw_dict.get("Pay", {}).get("Menge", 0) > 0:
-        pay_suf = 8
-        pay_mrr = products_sw_dict.get("Pay", {}).get("MRR_Monat", 0)
+    # --- PAY Block optional (dynamische Werte) ---
+    pay_qty = products_sw_dict.get("Pay", {}).get("Menge", 0)
+    if pay_qty > 0:
+        pay_otf = df_sw.loc[df_sw["Produkt"] == "Pay", "OTF"].sum()
+        pay_mrr = df_sw.loc[df_sw["Produkt"] == "Pay", "MRR_Monat"].sum()
+        pay_hw = 0  # falls relevant, sonst 0
+
         contract_text += f"""
 PAY:
 Commission:
 Trans:
 Auth:
 KYC:
-Hardware:
-SUF: {pay_suf:.0f} €
+Hardware: {pay_hw:.0f} €
+SUF: {pay_otf:.0f} €
 MRR: {pay_mrr:.2f} €
 Merchant Statement:
 """
@@ -470,9 +459,6 @@ Kiosk: {qty_kiosk}
 """
 
     st.text_area("📄 Generierter Vertrags-Text", contract_text, height=420)
-
-
-
 # =====================================================
 # 💰 Pricing
 # =====================================================
