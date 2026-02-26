@@ -473,7 +473,7 @@ def show_pricing():
     software_data = {
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "Kiosk"],
         "Min_OTF": [365, 15, 365, 35, 0, 0],
-        "List_OTF": [999, 49, 999, 49, 0, 1699],
+        "List_OTF": [999, 49, 999, 49, 0, 0],  # Kiosk Software OTF = 0
         "Min_MRR": [50, 15, 49, 5, 15, 49],
         "List_MRR": [119, 49, 89, 25, 15, 89]
     }
@@ -543,14 +543,20 @@ def show_pricing():
     # -------------------------------
     # Berechnungen Listpreise
     # -------------------------------
-    otf_software_list = (df_sw["Menge"] * df_sw["List_OTF"]).sum() * discount_factor
+    otf_software_list = sum([
+        qty * (row["List_OTF"] if row["Produkt"] != "Kiosk" else 0)
+        for qty, (_, row) in zip(df_sw["Menge"], df_sw.iterrows())
+    ]) * discount_factor
     mrr_list = (df_sw["Menge"] * df_sw["List_MRR"]).sum() * discount_factor
     otf_hardware_list = (df_hw["Menge"] * df_hw["List_OTF"]).sum() * discount_factor
     total_otf_list = otf_software_list + otf_hardware_list
 
     # Minimalpreise
     min_mrr_total = (df_sw["Menge"] * df_sw["Min_MRR"]).sum()
-    min_otf_total = (df_sw["Menge"] * df_sw["Min_OTF"]).sum() + (df_hw["Menge"] * df_hw["Min_OTF"]).sum()
+    min_otf_total = sum([
+        qty * (row["Min_OTF"] if row["Produkt"] != "Kiosk" else 0)
+        for qty, (_, row) in zip(df_sw["Menge"], df_sw.iterrows())
+    ]) + (df_hw["Menge"] * df_hw["Min_OTF"]).sum()
     min_leasing_total = sum([
         st.session_state[f"lease_hw_{i}"] * leasing_prices[row["Produkt"]]["min"]
         for i, row in df_hw.iterrows()
@@ -599,9 +605,9 @@ def show_pricing():
     col3.metric("Gesamt", f"{(mrr_list + leasing_monatlich):,.2f} €")
 
     # -------------------------------
-    # Minimalpreise nur über Dropdown
+    # Minimalpreise nur über Dropdown (Erweitert)
     # -------------------------------
-    with st.expander("🔻 Minimalpreise anzeigen"):
+    with st.expander("🔻 Erweitert"):
         st.markdown(f"### MIN MRR Software: {min_mrr_total:,.2f} €")
         st.markdown(f"### MIN OTF Software+Hardware: {min_otf_total:,.2f} €")
         st.markdown(f"### MIN Leasing Hardware: {min_leasing_total:,.2f} €")
