@@ -399,6 +399,11 @@ st.subheader("📝 Vertrags-Textgenerator")
 
 restaurant_name = st.text_input("Restaurant Name", value="RESTAURANTNAME", key="restaurant_name_cn")
 
+# --- Dictionaries aus DataFrames erstellen ---
+products_sw_dict = {row["Produkt"]: row for _, row in df_sw.iterrows()}
+products_hw_dict = {row["Produkt"]: row for _, row in df_hw.iterrows()}
+
+# --- Hilfsfunktionen ---
 def check_mark(product):
     return "✅" if products_sw_dict.get(product, {}).get("Menge", 0) > 0 else "❌"
 
@@ -408,7 +413,7 @@ def mrr_text(product):
         return f"{products_sw_dict[product]['MRR_Monat']:.2f} €"
     return ""
 
-# MRR Werte
+# --- MRR Werte ---
 MRR_webshop = products_sw_dict.get("Shop", {}).get("MRR_Monat", 0)
 MRR_app = products_sw_dict.get("App", {}).get("MRR_Monat", 0)
 MRR_pos = products_sw_dict.get("POS", {}).get("MRR_Monat", 0)
@@ -418,11 +423,11 @@ MRR_kiosk = products_sw_dict.get("Kiosk", {}).get("MRR_Monat", 0)
 
 total_MRR_monthly = MRR_webshop + MRR_app + MRR_pos + MRR_pay + MRR_connect + MRR_kiosk
 
-# OTF Summen
+# --- OTF Summen ---
 SUF = df_sw["OTF"].sum()
 hardware_otf = df_hw["OTF"].sum()
 
-# Hardware-Anzahlen
+# --- Hardware-Anzahlen ---
 qty_pos = products_hw_dict.get("POS inkl 1 Printer", {}).get("Menge", 0)
 qty_pax = products_hw_dict.get("PAX", {}).get("Menge", 0)
 qty_order = products_hw_dict.get("Ordermanager", {}).get("Menge", 0)
@@ -431,7 +436,7 @@ qty_printer = products_hw_dict.get("Extra Printer", {}).get("Menge", 0)
 qty_addscreen = products_hw_dict.get("Additional Display", {}).get("Menge", 0)
 qty_kiosk = products_hw_dict.get("Kiosk", {}).get("Menge", 0)
 
-# Basistext
+# --- Basistext ---
 contract_text = f"""
 Signed: {restaurant_name}
 
@@ -453,9 +458,7 @@ SUF: {SUF:.0f} €
 Hardware: {hardware_otf:.0f} €
 """
 
-# ======================
-# Hardware Details optional
-# ======================
+# --- Hardware Details optional ---
 # Zeige nur, wenn mindestens eine Hardware außer Ordermanager ausgewählt wurde
 if qty_pos + qty_pax + qty_cashdrawer + qty_printer + qty_addscreen + qty_kiosk > 0:
     contract_text += f"""
