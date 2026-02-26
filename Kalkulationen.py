@@ -385,10 +385,6 @@ def show_contractnumbers():
     df_hw["MRR_Monat"] = 0.0
     df_hw["MRR_Woche"] = 0.0
 
-    # =====================================================
-    # 🧾 Rest bleibt exakt unverändert
-    # =====================================================
-
     # ======================
     # 🔥 MRR Berechnung
     # ======================
@@ -423,9 +419,6 @@ def show_contractnumbers():
     df_hw["MRR_Monat"] = 0.0
     df_hw["MRR_Woche"] = 0.0
 
-    # =====================================================
-    # 🧾 Ergebnisübersicht + Rest bleibt unverändert
-    # =====================================================
     # =====================================================
     # 🧾 Ergebnisübersicht
     # =====================================================
@@ -573,22 +566,22 @@ def show_pricing():
     st.header("💰 Pricing Kalkulation")
 
     software_data = {
-        "Produkt": ["Shop", "App", "POS", "Pay", "Connect"],
-        "Min_OTF": [365, 15, 365, 35, 0],
-        "List_OTF": [999, 49, 999, 49, 0],
-        "Min_MRR": [50, 15, 49, 5, 15],
-        "List_MRR": [119, 49, 89, 25, 15]
+        "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "Kiosk"],
+        "Min_OTF": [365, 15, 365, 35, 0, 0],
+        "List_OTF": [999, 49, 999, 49, 0, 0],
+        "Min_MRR": [50, 15, 49, 5, 15, 49],
+        "List_MRR": [119, 49, 89, 25, 15, 89]
     }
 
     hardware_data = {
         "Produkt": [
-            "Ordermanager", "POS inkl 1 Printer", "Cash Drawer",
-            "Extra Printer", "Additional Display", "PAX"
+            "Ordermanager", "POS ", "Cash Drawer",
+            "Printer", "Additional Display", "PAX", "Kiosk"
         ],
-        "Min_OTF": [135, 350, 50, 99, 100, 225],
-        "List_OTF": [299, 1699, 149, 199, 100, 299],
-        "Min_MRR": [0, 0, 0, 0, 0, 0],
-        "List_MRR": [0, 0, 0, 0, 0, 0]
+        "Min_OTF": [135, 350, 50, 99, 100, 225, 1441.02],
+        "List_OTF": [299, 1699, 149, 199, 100, 299, 1699],
+        "Min_MRR": [0, 0, 0, 0, 0, 0, 0],
+        "List_MRR": [0, 0, 0, 0, 0, 0, 0]
     }
 
     df_sw = pd.DataFrame(software_data)
@@ -688,7 +681,6 @@ def show_pricing():
             hide_index=True,
             use_container_width=True
         )
-
 # =====================================================
 # 📍 Radien
 # =====================================================
