@@ -473,7 +473,7 @@ def show_pricing():
     software_data = {
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "Kiosk"],
         "Min_OTF": [365, 15, 365, 35, 0, 0],
-        "List_OTF": [999, 49, 999, 49, 0, 0],
+        "List_OTF": [999, 49, 999, 49, 0, 1699],
         "Min_MRR": [50, 15, 49, 5, 15, 49],
         "List_MRR": [119, 49, 89, 25, 15, 89]
     }
@@ -499,6 +499,7 @@ def show_pricing():
         st.session_state.setdefault(f"sw_{i}", 0)
     for i in range(len(df_hw)):
         st.session_state.setdefault(f"hw_{i}", 0)
+        st.session_state.setdefault(f"lease_hw_{i}", 0)
 
     st.session_state.setdefault("pricing_discount", 0)
 
