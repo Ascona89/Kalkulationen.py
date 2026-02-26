@@ -486,7 +486,18 @@ def show_pricing():
         "Min_OTF": [135, 350, 50, 99, 100, 225, 1441.02],
         "List_OTF": [299, 1699, 149, 199, 100, 299, 1699],
         "Min_MRR": [0, 0, 0, 0, 0, 0, 49],
-        "List_MRR": [0, 0, 0, 0, 0, 0, 89]
+        "List_MRR": [0, 0, 0, 0, 0, 89, 89]
+    }
+
+    # Leasing Preise (monatlich)
+    leasing_prices = {
+        "Ordermanager": {"min": 9.00, "list": 19.93},
+        "POS inkl 1 Printer": {"min": 23.33, "list": 113.27},
+        "Cash Drawer": {"min": 3.33, "list": 9.93},
+        "Extra Printer": {"min": 7.17, "list": 19.07},
+        "Additional Display": {"min": 0, "list": 0},
+        "PAX": {"min": 15.00, "list": 19.93},
+        "Kiosk": {"min": 96.07, "list": 96.07}
     }
 
     df_sw = pd.DataFrame(software_data)
@@ -540,6 +551,10 @@ def show_pricing():
     # Minimalpreise
     min_mrr_total = (df_sw["Menge"] * df_sw["Min_MRR"]).sum()
     min_otf_total = (df_sw["Menge"] * df_sw["Min_OTF"]).sum() + (df_hw["Menge"] * df_hw["Min_OTF"]).sum()
+    min_leasing_total = sum([
+        st.session_state[f"lease_hw_{i}"] * leasing_prices[row["Produkt"]]["min"]
+        for i, row in df_hw.iterrows()
+    ])
 
     # -------------------------------
     # Anzeige Listpreise
@@ -565,13 +580,14 @@ def show_pricing():
                 row["Produkt"],
                 min_value=0,
                 step=1,
-                key=f"lease_hw_{i}"  # Wert kommt automatisch aus session_state
+                key=f"lease_hw_{i}"
             )
             leasing_hw_qty.append(qty)
 
-    # Berechnung Leasing monatlich
-    hardware_leasing_total = sum([qty * df_hw.loc[i, "List_OTF"] for i, qty in enumerate(leasing_hw_qty)])
-    leasing_monatlich = round(hardware_leasing_total / 12 * 1.15, 2)
+    # Berechnung Leasing monatlich mit festen Preisen
+    leasing_monatlich = sum([
+        qty * leasing_prices[row["Produkt"]]["list"] for qty, (_, row) in zip(leasing_hw_qty, df_hw.iterrows())
+    ])
 
     # -------------------------------
     # Ergebnisanzeige MRR Software / Leasing / Gesamt
@@ -583,13 +599,12 @@ def show_pricing():
     col3.metric("Gesamt", f"{(mrr_list + leasing_monatlich):,.2f} €")
 
     # -------------------------------
-    # Minimalpreise unten
+    # Minimalpreise nur über Dropdown
     # -------------------------------
-    st.markdown("---")
-    st.subheader("🔻 Minimalpreise")
-    col_min1, col_min2 = st.columns(2)
-    col_min1.markdown(f"### MIN MRR: {min_mrr_total:,.2f} €")
-    col_min2.markdown(f"### MIN OTF: {min_otf_total:,.2f} €")
+    with st.expander("🔻 Minimalpreise anzeigen"):
+        st.markdown(f"### MIN MRR Software: {min_mrr_total:,.2f} €")
+        st.markdown(f"### MIN OTF Software+Hardware: {min_otf_total:,.2f} €")
+        st.markdown(f"### MIN Leasing Hardware: {min_leasing_total:,.2f} €")
 
     # -------------------------------
     # Preistabelle
