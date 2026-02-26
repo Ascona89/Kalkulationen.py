@@ -481,12 +481,12 @@ def show_pricing():
     hardware_data = {
         "Produkt": [
             "Ordermanager", "POS inkl 1 Printer", "Cash Drawer",
-            "Extra Printer", "Additional Display", "PAX"
+            "Extra Printer", "Additional Display", "PAX", "Kiosk"
         ],
-        "Min_OTF": [135, 350, 50, 99, 100, 225],
-        "List_OTF": [299, 1699, 149, 199, 100, 299],
-        "Min_MRR": [0, 0, 0, 0, 0, 0],
-        "List_MRR": [0, 0, 0, 0, 0, 0]
+        "Min_OTF": [135, 350, 50, 99, 100, 225, 1441.02],
+        "List_OTF": [299, 1699, 149, 199, 100, 299, 1699],
+        "Min_MRR": [0, 0, 0, 0, 0, 0, 49],
+        "List_MRR": [0, 0, 0, 0, 0, 0, 89]
     }
 
     df_sw = pd.DataFrame(software_data)
@@ -514,7 +514,7 @@ def show_pricing():
     df_sw["Menge"] = [st.session_state[f"sw_{i}"] for i in range(len(df_sw))]
 
     # -------------------------------
-    # Hardware Inputs
+    # Hardware Kauf Inputs
     # -------------------------------
     st.subheader("🖨️ Hardware Kauf")
     cols = st.columns(len(df_hw))
@@ -557,16 +557,15 @@ def show_pricing():
     st.markdown("---")
     st.subheader("Hardware Leasing")
 
-    leasing_hw_qty = []
     cols = st.columns(len(df_hw))
+    leasing_hw_qty = []
     for i, row in df_hw.iterrows():
         with cols[i]:
             qty = st.number_input(
                 row["Produkt"],
                 min_value=0,
                 step=1,
-                value=st.session_state.get(f"lease_hw_{i}", 0),
-                key=f"lease_hw_{i}"
+                key=f"lease_hw_{i}"  # Wert kommt automatisch aus session_state
             )
             leasing_hw_qty.append(qty)
 
