@@ -240,8 +240,7 @@ def show_contractnumbers():
     # Produkte Hardware
     # ======================
     df_hw = pd.DataFrame({
-        "Produkt": ["Ordermanager", "POS inkl 1 Printer", "Cash Drawer", 
-                    "Extra Printer", "Additional Display", "PAX", "Kiosk"],
+        "Produkt": ["Ordermanager", "POS inkl 1 Printer", "Cash Drawer", "Extra Printer", "Additional Display", "PAX", "Kiosk"],
         "List_OTF": [299, 1699, 149, 199, 100, 299, 1699],
         "Min_OTF": [135, 350, 50, 99, 100, 225, 1441.02],
         "List_MRR": [0] * 7,
@@ -250,7 +249,7 @@ def show_contractnumbers():
     })
 
     # ======================
-    # Session State für Mengen
+    # Session State Defaults
     # ======================
     for i in range(len(df_sw)):
         st.session_state.setdefault(f"qty_sw_{i}", 0)
@@ -262,9 +261,9 @@ def show_contractnumbers():
     # ======================
     col1, col2 = st.columns(2)
     with col1:
-        total_mrr = st.number_input("💶 Gesamt MRR (€)", min_value=0.0, step=50.0)
+        total_mrr = st.number_input("💶 Gesamt MRR (€)", min_value=0.0, step=50.0, key="total_mrr_cn")
     with col2:
-        total_otf = st.number_input("💶 Gesamt OTF (€)", min_value=0.0, step=100.0)
+        total_otf = st.number_input("💶 Gesamt OTF (€)", min_value=0.0, step=100.0, key="total_otf_cn")
 
     # ======================
     # Zahlungsoption
@@ -278,7 +277,8 @@ def show_contractnumbers():
             "Online-Umsatz (100%) 10%",
             "Monatliche Raten (12 Monate) 35%",
             "Online-Umsatz (25% + 12 Wochen) 15%"
-        ]
+        ],
+        key="zahlung_cn"
     )
 
     if zahlung == "Gemischte Zahlung (25% + 12 Wochen) 10%":
@@ -302,9 +302,12 @@ def show_contractnumbers():
     for i, row in df_sw.iterrows():
         with cols[i]:
             st.session_state[f"qty_sw_{i}"] = st.number_input(
-                row["Produkt"], min_value=0, step=1, value=st.session_state[f"qty_sw_{i}"]
+                label=row["Produkt"],
+                min_value=0,
+                step=1,
+                value=st.session_state[f"qty_sw_{i}"],
+                key=f"qty_sw_input_{i}"
             )
-    df_sw["Menge"] = [st.session_state[f"qty_sw_{i}"] for i in range(len(df_sw))]
 
     # ======================
     # Mengen Hardware
@@ -314,18 +317,33 @@ def show_contractnumbers():
     for i, row in df_hw.iterrows():
         with cols[i]:
             st.session_state[f"qty_hw_{i}"] = st.number_input(
-                row["Produkt"], min_value=0, step=1, value=st.session_state[f"qty_hw_{i}"]
+                label=row["Produkt"],
+                min_value=0,
+                step=1,
+                value=st.session_state[f"qty_hw_{i}"],
+                key=f"qty_hw_input_{i}"
             )
+
+    df_sw["Menge"] = [st.session_state[f"qty_sw_{i}"] for i in range(len(df_sw))]
     df_hw["Menge"] = [st.session_state[f"qty_hw_{i}"] for i in range(len(df_hw))]
 
     # ======================
-    # Minimal-/Listpreise
+    # Preislogik
     # ======================
     min_mrr_total = (df_sw["Menge"] * df_sw["Min_MRR"]).sum()
     list_mrr_total = (df_sw["Menge"] * df_sw["List_MRR"]).sum()
-    min_otf_total = (df_sw["Menge"] * df_sw["Min_OTF"]).sum() + (df_hw["Menge"] * df_hw["Min_OTF"]).sum()
-    list_otf_total = (df_sw["Menge"] * df_sw["List_OTF"]).sum() + (df_hw["Menge"] * df_hw["List_OTF"]).sum()
+    min_otf_total = (
+        (df_sw["Menge"] * df_sw["Min_OTF"]).sum() +
+        (df_hw["Menge"] * df_hw["Min_OTF"]).sum()
+    )
+    list_otf_total = (
+        (df_sw["Menge"] * df_sw["List_OTF"]).sum() +
+        (df_hw["Menge"] * df_hw["List_OTF"]).sum()
+    )
 
+    # ======================
+    # Warnlogik
+    # ======================
     if total_mrr < min_mrr_total or otf_adjusted < min_otf_total:
         st.error("🔴 Preis zu gering (unter Mindestpreis)")
     elif total_mrr > list_mrr_total or otf_adjusted > list_otf_total:
@@ -336,6 +354,7 @@ def show_contractnumbers():
     # ======================
     base = list_otf_total
     factor = otf_adjusted / base if base > 0 else 0
+
     df_sw["OTF"] = (df_sw["Menge"] * df_sw["List_OTF"] * factor).round(0)
     df_hw["OTF"] = (df_hw["Menge"] * df_hw["List_OTF"] * factor).round(0)
 
@@ -344,16 +363,14 @@ def show_contractnumbers():
     # ======================
     connect_qty = df_sw.loc[df_sw["Produkt"] == "Connect", "Menge"].values[0]
     tse_qty = df_sw.loc[df_sw["Produkt"] == "TSE", "Menge"].values[0]
-    kiosk_qty = df_sw.loc[df_sw["Produkt"] == "Kiosk", "Menge"].values[0]
 
     connect_total = connect_qty * 13.72
     tse_total = tse_qty * 12.00
-    kiosk_total = kiosk_qty * 89.00
 
-    fixed_total = connect_total + tse_total + kiosk_total
+    fixed_total = connect_total + tse_total
     remaining_mrr = max(total_mrr - fixed_total, 0)
 
-    proportional_df = df_sw[~df_sw["Produkt"].isin(["Connect", "TSE", "Kiosk"])]
+    proportional_df = df_sw[~df_sw["Produkt"].isin(["Connect", "TSE"])]
     mrr_base = (proportional_df["Menge"] * proportional_df["List_MRR"]).sum()
     mrr_factor = remaining_mrr / mrr_base if mrr_base > 0 else 0
 
@@ -367,23 +384,23 @@ def show_contractnumbers():
 
     df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Monat"] = connect_total
     df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Woche"] = connect_qty * 3.43
+
     df_sw.loc[df_sw["Produkt"] == "TSE", "MRR_Monat"] = tse_total
     df_sw.loc[df_sw["Produkt"] == "TSE", "MRR_Woche"] = tse_qty * 3.00
-    df_sw.loc[df_sw["Produkt"] == "Kiosk", "MRR_Monat"] = kiosk_total
-    df_sw.loc[df_sw["Produkt"] == "Kiosk", "MRR_Woche"] = kiosk_qty * 22.25
 
     df_hw["MRR_Monat"] = 0.0
     df_hw["MRR_Woche"] = 0.0
 
     # ======================
-    # 📝 Contract Text Generator
+    # Vertrags-Textgenerator vorbereiten
     # ======================
+    products_sw_dict = {row["Produkt"]: row for _, row in df_sw.iterrows()}
+    products_hw_dict = {row["Produkt"]: row for _, row in df_hw.iterrows()}
+
     st.markdown("---")
     st.subheader("📝 Vertrags-Textgenerator")
 
-    restaurant_name = st.text_input("Restaurant Name", value="RESTAURANTNAME")
-    products_sw_dict = {row["Produkt"]: row for _, row in df_sw.iterrows()}
-    products_hw_dict = {row["Produkt"]: row for _, row in df_hw.iterrows()}
+    restaurant_name = st.text_input("Restaurant Name", value="RESTAURANTNAME", key="restaurant_name_cn")
 
     def check_mark(product):
         return "✅" if products_sw_dict.get(product, {}).get("Menge", 0) > 0 else "❌"
@@ -394,15 +411,17 @@ def show_contractnumbers():
             return f"{products_sw_dict[product]['MRR_Monat']:.2f} €"
         return ""
 
-    total_MRR_monthly = sum([
-        MRR_webshop := products_sw_dict.get("Shop", {}).get("MRR_Monat", 0),
-        MRR_app := products_sw_dict.get("App", {}).get("MRR_Monat", 0),
-        MRR_pos := products_sw_dict.get("POS", {}).get("MRR_Monat", 0),
-        MRR_pay := products_sw_dict.get("Pay", {}).get("MRR_Monat", 0),
-        MRR_connect := products_sw_dict.get("Connect", {}).get("MRR_Monat", 0),
-        MRR_kiosk := products_sw_dict.get("Kiosk", {}).get("MRR_Monat", 0)
-    ])
+    # MRR Werte
+    MRR_webshop = products_sw_dict.get("Shop", {}).get("MRR_Monat", 0)
+    MRR_app = products_sw_dict.get("App", {}).get("MRR_Monat", 0)
+    MRR_pos = products_sw_dict.get("POS", {}).get("MRR_Monat", 0)
+    MRR_pay = products_sw_dict.get("Pay", {}).get("MRR_Monat", 0)
+    MRR_connect = products_sw_dict.get("Connect", {}).get("MRR_Monat", 0)
+    MRR_kiosk = products_sw_dict.get("Kiosk", {}).get("MRR_Monat", 0)
 
+    total_MRR_monthly = MRR_webshop + MRR_app + MRR_pos + MRR_pay + MRR_connect + MRR_kiosk
+
+    # OTF Summen
     SUF = df_sw["OTF"].sum()
     hardware_otf = df_hw["OTF"].sum()
 
@@ -438,6 +457,7 @@ ELD:
 ZDS: 
 """
 
+    # PAY Abschnitt nur wenn Pay ausgewählt
     if products_sw_dict.get("Pay", {}).get("Menge", 0) > 0:
         contract_text += f"""
 PAY:
