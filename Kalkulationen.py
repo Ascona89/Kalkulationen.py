@@ -480,13 +480,13 @@ def show_pricing():
 
     hardware_data = {
         "Produkt": [
-            "Ordermanager", "POS ", "Cash Drawer",
-            "Printer", "Additional Display", "PAX", "Kiosk"
+            "Ordermanager", "POS inkl 1 Printer", "Cash Drawer",
+            "Extra Printer", "Additional Display", "PAX"
         ],
-        "Min_OTF": [135, 350, 50, 99, 100, 225, 1441.02],
-        "List_OTF": [299, 1699, 149, 199, 100, 299, 1699],
-        "Min_MRR": [0, 0, 0, 0, 0, 0, 0],
-        "List_MRR": [0, 0, 0, 0, 0, 0, 0]
+        "Min_OTF": [135, 350, 50, 99, 100, 225],
+        "List_OTF": [299, 1699, 149, 199, 100, 299],
+        "Min_MRR": [0, 0, 0, 0, 0, 0],
+        "List_MRR": [0, 0, 0, 0, 0, 0]
     }
 
     df_sw = pd.DataFrame(software_data)
@@ -517,7 +517,7 @@ def show_pricing():
     # -------------------------------
     # Hardware Inputs
     # -------------------------------
-    st.subheader("🖨️ Hardware")
+    st.subheader("🖨️ Hardware Kauf")
     cols = st.columns(len(df_hw))
     for i, row in df_hw.iterrows():
         with cols[i]:
@@ -558,6 +558,30 @@ def show_pricing():
     col2.markdown(f"### 🖥️ OTF LIST: {total_otf_list:,.2f} €")
     col3.markdown(f"### 🖨️ OTF HARDWARE: {otf_hardware_list:,.2f} €")
     col4.markdown(f"### 💻 OTF SOFTWARE: {otf_software_list:,.2f} €")
+
+    # -------------------------------
+    # Hardware Kauf / Leasing Eingaben
+    # -------------------------------
+    st.markdown("---")
+    st.subheader("Hardware Optionen")
+
+    col_kauf, col_leasing = st.columns(2)
+    hardware_kauf = col_kauf.number_input(
+        "Hardware Kauf (€)",
+        min_value=0.0,
+        step=10.0,
+        value=otf_hardware_list
+    )
+    # Berechnung Leasing
+    leasing_monatlich = round(hardware_kauf / 12 * 1.15, 2)
+    col_leasing.number_input(
+        "Hardware Leasing (€)",
+        min_value=0.0,
+        step=10.0,
+        value=leasing_monatlich
+    )
+
+    st.markdown(f"**Leasing monatlich:** {leasing_monatlich:,.2f} €")
 
     # -------------------------------
     # Minimalpreise unten
