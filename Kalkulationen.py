@@ -391,53 +391,48 @@ def show_contractnumbers():
     df_hw["MRR_Monat"] = 0.0
     df_hw["MRR_Woche"] = 0.0
 
-# ======================
-# Vertrags-Textgenerator vorbereiten
-# ======================
-st.markdown("---")
-st.subheader("📝 Vertrags-Textgenerator")
+    # ======================
+    # Dictionaries für Textgenerator
+    # ======================
+    products_sw_dict = {row["Produkt"]: row for _, row in df_sw.iterrows()}
+    products_hw_dict = {row["Produkt"]: row for _, row in df_hw.iterrows()}
 
-restaurant_name = st.text_input("Restaurant Name", value="RESTAURANTNAME", key="restaurant_name_cn")
+    # ======================
+    # Hilfsfunktionen
+    # ======================
+    def check_mark(product):
+        return "✅" if products_sw_dict.get(product, {}).get("Menge", 0) > 0 else "❌"
 
-# --- Dictionaries aus DataFrames erstellen ---
-products_sw_dict = {row["Produkt"]: row for _, row in df_sw.iterrows()}
-products_hw_dict = {row["Produkt"]: row for _, row in df_hw.iterrows()}
+    def mrr_text(product):
+        menge = products_sw_dict.get(product, {}).get("Menge", 0)
+        if menge > 0:
+            return f"{products_sw_dict[product]['MRR_Monat']:.2f} €"
+        return ""
 
-# --- Hilfsfunktionen ---
-def check_mark(product):
-    return "✅" if products_sw_dict.get(product, {}).get("Menge", 0) > 0 else "❌"
+    # ======================
+    # Textgenerator
+    # ======================
+    st.markdown("---")
+    st.subheader("📝 Vertrags-Textgenerator")
 
-def mrr_text(product):
-    menge = products_sw_dict.get(product, {}).get("Menge", 0)
-    if menge > 0:
-        return f"{products_sw_dict[product]['MRR_Monat']:.2f} €"
-    return ""
+    restaurant_name = st.text_input("Restaurant Name", value="RESTAURANTNAME", key="restaurant_name_cn")
 
-# --- MRR Werte ---
-MRR_webshop = products_sw_dict.get("Shop", {}).get("MRR_Monat", 0)
-MRR_app = products_sw_dict.get("App", {}).get("MRR_Monat", 0)
-MRR_pos = products_sw_dict.get("POS", {}).get("MRR_Monat", 0)
-MRR_pay = products_sw_dict.get("Pay", {}).get("MRR_Monat", 0)
-MRR_connect = products_sw_dict.get("Connect", {}).get("MRR_Monat", 0)
-MRR_kiosk = products_sw_dict.get("Kiosk", {}).get("MRR_Monat", 0)
+    # --- MRR Werte ---
+    total_MRR_monthly = sum([products_sw_dict.get(p, {}).get("MRR_Monat", 0) for p in ["Shop", "App", "POS", "Pay", "Connect", "Kiosk"]])
+    SUF = df_sw["OTF"].sum()
+    hardware_otf = df_hw["OTF"].sum()
 
-total_MRR_monthly = MRR_webshop + MRR_app + MRR_pos + MRR_pay + MRR_connect + MRR_kiosk
+    # --- Hardware-Anzahlen ---
+    qty_pos = products_hw_dict.get("POS inkl 1 Printer", {}).get("Menge", 0)
+    qty_pax = products_hw_dict.get("PAX", {}).get("Menge", 0)
+    qty_order = products_hw_dict.get("Ordermanager", {}).get("Menge", 0)
+    qty_cashdrawer = products_hw_dict.get("Cash Drawer", {}).get("Menge", 0)
+    qty_printer = products_hw_dict.get("Extra Printer", {}).get("Menge", 0)
+    qty_addscreen = products_hw_dict.get("Additional Display", {}).get("Menge", 0)
+    qty_kiosk = products_hw_dict.get("Kiosk", {}).get("Menge", 0)
 
-# --- OTF Summen ---
-SUF = df_sw["OTF"].sum()
-hardware_otf = df_hw["OTF"].sum()
-
-# --- Hardware-Anzahlen ---
-qty_pos = products_hw_dict.get("POS inkl 1 Printer", {}).get("Menge", 0)
-qty_pax = products_hw_dict.get("PAX", {}).get("Menge", 0)
-qty_order = products_hw_dict.get("Ordermanager", {}).get("Menge", 0)
-qty_cashdrawer = products_hw_dict.get("Cash Drawer", {}).get("Menge", 0)
-qty_printer = products_hw_dict.get("Extra Printer", {}).get("Menge", 0)
-qty_addscreen = products_hw_dict.get("Additional Display", {}).get("Menge", 0)
-qty_kiosk = products_hw_dict.get("Kiosk", {}).get("Menge", 0)
-
-# --- Basistext ---
-contract_text = f"""
+    # --- Basistext ---
+    contract_text = f"""
 Signed: {restaurant_name}
 
 Web Shop (119€) {check_mark('Shop')} {mrr_text('Shop')}
@@ -458,10 +453,9 @@ SUF: {SUF:.0f} €
 Hardware: {hardware_otf:.0f} €
 """
 
-# --- Hardware Details optional ---
-# Zeige nur, wenn mindestens eine Hardware außer Ordermanager ausgewählt wurde
-if qty_pos + qty_pax + qty_cashdrawer + qty_printer + qty_addscreen + qty_kiosk > 0:
-    contract_text += f"""
+    # --- Hardware Details optional ---
+    if qty_pos + qty_pax + qty_cashdrawer + qty_printer + qty_addscreen + qty_kiosk > 0:
+        contract_text += f"""
 Number of POS: {qty_pos}
 Number of Printers: {qty_printer}
 Additional Screen: {qty_addscreen}
@@ -470,7 +464,7 @@ Kiosk: {qty_kiosk}
 Payment Plan: 
 """
 
-st.text_area("📄 Generierter Vertrags-Text", contract_text, height=420)
+    st.text_area("📄 Generierter Vertrags-Text", contract_text, height=420)
 # =====================================================
 # 💰 Pricing
 # =====================================================
