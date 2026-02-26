@@ -228,12 +228,12 @@ def show_contractnumbers():
     # Produkte
     # ======================
     df_sw = pd.DataFrame({
-        "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "TSE"],
-        "List_OTF": [999, 49, 999, 49, 0, 0],
-        "List_MRR": [119, 49, 89, 25, 13.72, 12],
-        "Min_OTF": [365, 15, 365, 35, 0, 0],
-        "Min_MRR": [50, 15, 49, 5, 15, 12],
-        "Typ": ["Software"] * 6
+        "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "TSE", "Kiosk"],
+        "List_OTF": [999, 49, 999, 49, 0, 0, 0],
+        "List_MRR": [119, 49, 89, 25, 13.72, 12, 89],
+        "Min_OTF": [365, 15, 365, 35, 0, 0, 0],
+        "Min_MRR": [50, 15, 49, 5, 15, 12, 49],
+        "Typ": ["Software"] * 7
     })
 
     df_hw = pd.DataFrame({
@@ -342,48 +342,13 @@ def show_contractnumbers():
         st.warning("🟡 Preis über Liste")
 
     # ======================
-    # OTF Verteilung (unverändert)
+    # OTF Verteilung
     # ======================
     base = list_otf_total
     factor = otf_adjusted / base if base > 0 else 0
 
     df_sw["OTF"] = (df_sw["Menge"] * df_sw["List_OTF"] * factor).round(0)
     df_hw["OTF"] = (df_hw["Menge"] * df_hw["List_OTF"] * factor).round(0)
-
-
-    # ======================
-    # 🔥 MRR Berechnung
-    # ======================
-    connect_qty = df_sw.loc[df_sw["Produkt"] == "Connect", "Menge"].values[0]
-    tse_qty = df_sw.loc[df_sw["Produkt"] == "TSE", "Menge"].values[0]
-
-    connect_total = connect_qty * 13.72
-    tse_total = tse_qty * 12.00
-
-    fixed_total = connect_total + tse_total
-    remaining_mrr = max(total_mrr - fixed_total, 0)
-
-    proportional_df = df_sw[~df_sw["Produkt"].isin(["Connect", "TSE"])]
-    mrr_base = (proportional_df["Menge"] * proportional_df["List_MRR"]).sum()
-
-    mrr_factor = remaining_mrr / mrr_base if mrr_base > 0 else 0
-
-    df_sw["MRR_Monat"] = 0.0
-    df_sw["MRR_Woche"] = 0.0
-
-    for i, row in proportional_df.iterrows():
-        monat = row["Menge"] * row["List_MRR"] * mrr_factor
-        df_sw.loc[i, "MRR_Monat"] = round(monat, 2)
-        df_sw.loc[i, "MRR_Woche"] = round(monat / 4, 2)
-
-    df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Monat"] = connect_total
-    df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Woche"] = connect_qty * 3.43
-
-    df_sw.loc[df_sw["Produkt"] == "TSE", "MRR_Monat"] = tse_total
-    df_sw.loc[df_sw["Produkt"] == "TSE", "MRR_Woche"] = tse_qty * 3.00
-
-    df_hw["MRR_Monat"] = 0.0
-    df_hw["MRR_Woche"] = 0.0
 
     # ======================
     # 🔥 MRR Berechnung
@@ -433,6 +398,7 @@ def show_contractnumbers():
     pos = get_row(df_sw, "POS")
     pay = get_row(df_sw, "Pay")
     tse = get_row(df_sw, "TSE")
+    kiosk = get_row(df_sw, "Kiosk")
 
     order_manager = get_row(df_hw, "Ordermanager")
     pos_printer_bundle = get_row(df_hw, "POS inkl 1 Printer")
@@ -454,33 +420,15 @@ def show_contractnumbers():
     st.write(f"YOYO POS Anmeldegebühr: {(pos['OTF'] if pos is not None else 0):.0f} €")
     st.write(f"TSE: {(tse['MRR_Woche'] if tse is not None else 0):.2f} €")
 
+    st.subheader("🧾 Kiosk")
+    st.write(f"Kiosk Abonnementgebühr: {(kiosk['MRR_Woche'] if kiosk is not None else 0):.2f} €")
+
     st.subheader("💳 YOYOPAY")
     st.write(f"Tägliche Abonnement Festgebühr: {((pay['MRR_Woche']/7) if pay is not None else 0):.2f} €")
     st.write(f"Feste Anmeldegebühr: {(pay['OTF'] if pay is not None else 0):.0f} €")
 
-    st.subheader("🖨️ Hardware Komponenten")
-
-    def hw_display(row, label):
-        if row is None or row["Menge"] == 0:
-            return
-        menge = int(row["Menge"])
-        gesamt = int(row["OTF"])
-        einzel = int(gesamt / menge) if menge > 0 else 0
-
-        if menge == 1:
-            st.write(f"{label}: {gesamt} €")
-        else:
-            st.write(f"{label}: {gesamt} € ({menge}x {einzel} €)")
-
-    hw_display(pos_printer_bundle, "Sunmi D3 Pro")
-    hw_display(display, "Kundendisplay")
-    hw_display(cash_drawer, "Cash Drawer")
-    hw_display(extra_printer, "POS Printer")
-    hw_display(order_manager, "Ordermanager")
-    hw_display(pax, "Kartenterminal")
-
     # =====================================================
-    # 📝 Contract Text Generator (MRR basiert)
+    # 📝 Contract Text Generator
     # =====================================================
     st.markdown("---")
     st.subheader("📝 Vertrags-Textgenerator")
@@ -499,27 +447,6 @@ def show_contractnumbers():
             return f"{products_sw_dict[product]['MRR_Monat']:.2f} €"
         return ""
 
-    # MRR Werte
-    MRR_webshop = products_sw_dict.get("Shop", {}).get("MRR_Monat", 0)
-    MRR_app = products_sw_dict.get("App", {}).get("MRR_Monat", 0)
-    MRR_pos = products_sw_dict.get("POS", {}).get("MRR_Monat", 0)
-    MRR_pay = products_sw_dict.get("Pay", {}).get("MRR_Monat", 0)
-    MRR_connect = products_sw_dict.get("Connect", {}).get("MRR_Monat", 0)
-
-    total_MRR_monthly = MRR_webshop + MRR_app + MRR_pos + MRR_pay + MRR_connect
-
-    # OTF Summen
-    SUF = df_sw["OTF"].sum()
-    hardware_otf = df_hw["OTF"].sum()
-
-    # PAY Hardware
-    hardware_pay = []
-    if products_hw_dict.get("POS inkl 1 Printer", {}).get("Menge", 0) > 0:
-        hardware_pay.append("POS")
-    if products_hw_dict.get("PAX", {}).get("Menge", 0) > 0:
-        hardware_pay.append("PAX")
-    hardware_pay_str = "/".join(hardware_pay) if hardware_pay else "Keine"
-
     contract_text = f"""
 Signed: {restaurant_name}
 
@@ -529,34 +456,13 @@ POS (89€) {check_mark('POS')} {mrr_text('POS')}
 GAW (150€) ✅ 
 PAY (25€) {check_mark('Pay')} {mrr_text('Pay')}
 Connect (15€) {check_mark('Connect')} {mrr_text('Connect')}
+Kiosk (89€) {check_mark('Kiosk')} {mrr_text('Kiosk')}
 
 Lead Quality: 
 Lead Gen: 
 GMB:  
 Discount: 
-
-MRR: {total_MRR_monthly:.2f} €
-SUF: {SUF:.0f} €
-Hardware: {hardware_otf:.0f} €
-
-ELD: 
-ZDS: 
-
 """
-
-    # PAY Abschnitt nur wenn Pay ausgewählt
-    if products_sw_dict.get("Pay", {}).get("Menge", 0) > 0:
-        contract_text += f"""
-PAY:
-Commission: 
-Trans: 
-Auth: 
-KYC: 
-Hardware: {hardware_pay_str}
-SUF: {products_sw_dict.get('Pay', {}).get('OTF', 0):.0f} €
-MRR: {MRR_pay:.2f} €
-"""
-
     st.text_area("📄 Generierter Vertrags-Text", contract_text, height=420)
 
 # =====================================================
