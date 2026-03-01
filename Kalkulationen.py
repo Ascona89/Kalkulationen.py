@@ -226,7 +226,7 @@ def show_contractnumbers():
     st.header("📑 Contract Numbers")
 
     # ======================
-    # Produkte (inkl. Kiosk)
+    # Produkte (inkl. Kiosk Software)
     # ======================
     df_sw = pd.DataFrame({
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "TSE", "Kiosk"],
@@ -235,15 +235,26 @@ def show_contractnumbers():
         "Typ": ["Software"] * 7
     })
 
+    # ======================
+    # Hardware (inkl. Kiosk Hardware)
+    # ======================
     df_hw = pd.DataFrame({
-        "Produkt": ["Ordermanager", "POS inkl 1 Printer", "Cash Drawer", "Extra Printer", "Additional Display", "PAX"],
-        "List_OTF": [299, 1699, 149, 199, 100, 299],
-        "List_MRR": [0] * 6,
-        "Typ": ["Hardware"] * 6
+        "Produkt": [
+            "Ordermanager",
+            "POS inkl 1 Printer",
+            "Cash Drawer",
+            "Extra Printer",
+            "Additional Display",
+            "PAX",
+            "Kiosk"
+        ],
+        "List_OTF": [299, 1699, 149, 199, 100, 299, 1699],
+        "List_MRR": [0] * 7,
+        "Typ": ["Hardware"] * 7
     })
 
     # ======================
-    # Mengen State
+    # Session State Mengen
     # ======================
     for i in range(len(df_sw)):
         st.session_state.setdefault(f"qty_sw_{i}", 0)
@@ -257,22 +268,31 @@ def show_contractnumbers():
         total_otf = st.number_input("💶 Gesamt OTF (€)", min_value=0.0, step=100.0)
 
     # ======================
-    # Mengen Eingabe
+    # Software Mengen
     # ======================
     st.subheader("💻 Software")
     cols = st.columns(len(df_sw))
     for i, row in df_sw.iterrows():
         with cols[i]:
             st.session_state[f"qty_sw_{i}"] = st.number_input(
-                row["Produkt"], min_value=0, step=1, value=st.session_state[f"qty_sw_{i}"]
+                row["Produkt"],
+                min_value=0,
+                step=1,
+                value=st.session_state[f"qty_sw_{i}"]
             )
 
+    # ======================
+    # Hardware Mengen
+    # ======================
     st.subheader("🖨️ Hardware")
     cols = st.columns(len(df_hw))
     for i, row in df_hw.iterrows():
         with cols[i]:
             st.session_state[f"qty_hw_{i}"] = st.number_input(
-                row["Produkt"], min_value=0, step=1, value=st.session_state[f"qty_hw_{i}"]
+                row["Produkt"],
+                min_value=0,
+                step=1,
+                value=st.session_state[f"qty_hw_{i}"]
             )
 
     df_sw["Menge"] = [st.session_state[f"qty_sw_{i}"] for i in range(len(df_sw))]
@@ -293,7 +313,7 @@ def show_contractnumbers():
     tse_qty = df_sw.loc[df_sw["Produkt"] == "TSE", "Menge"].values[0]
 
     connect_total = connect_qty * 13.72
-    tse_total = tse_qty * 12.00
+    tse_total = tse_qty * 12
     fixed_total = connect_total + tse_total
 
     remaining_mrr = max(total_mrr - fixed_total, 0)
@@ -312,7 +332,7 @@ def show_contractnumbers():
     df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Monat"] = connect_total
     df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Woche"] = connect_qty * 3.43
     df_sw.loc[df_sw["Produkt"] == "TSE", "MRR_Monat"] = tse_total
-    df_sw.loc[df_sw["Produkt"] == "TSE", "MRR_Woche"] = tse_qty * 3.00
+    df_sw.loc[df_sw["Produkt"] == "TSE", "MRR_Woche"] = tse_qty * 3
 
     # ======================
     # Helper
@@ -332,7 +352,7 @@ def show_contractnumbers():
     hw = {row["Produkt"]: row for _, row in df_hw.iterrows()}
 
     # ======================
-    # Ergebnisübersicht (NEU)
+    # Ergebnisübersicht
     # ======================
     st.markdown("---")
     st.header("📊 Ergebnisübersicht")
@@ -373,6 +393,7 @@ def show_contractnumbers():
     hw_line("POS Printer", "Extra Printer")
     hw_line("Order Manager", "Ordermanager")
     hw_line("Kartenterminal", "PAX")
+    hw_line("Kiosk", "Kiosk")
 
     st.markdown("### Connect")
     connect_daily = (connect["MRR_Monat"] / 30) if connect is not None else 0
