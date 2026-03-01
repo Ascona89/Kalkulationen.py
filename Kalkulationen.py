@@ -278,7 +278,8 @@ def show_contractnumbers():
                 row["Produkt"],
                 min_value=0,
                 step=1,
-                value=st.session_state[f"qty_sw_{i}"]
+                value=st.session_state[f"qty_sw_{i}"],
+                key=f"qty_sw_input_{i}"
             )
 
     # ======================
@@ -292,7 +293,8 @@ def show_contractnumbers():
                 row["Produkt"],
                 min_value=0,
                 step=1,
-                value=st.session_state[f"qty_hw_{i}"]
+                value=st.session_state[f"qty_hw_{i}"],
+                key=f"qty_hw_input_{i}"
             )
 
     df_sw["Menge"] = [st.session_state[f"qty_sw_{i}"] for i in range(len(df_sw))]
@@ -398,6 +400,7 @@ def show_contractnumbers():
     st.markdown("### Connect")
     connect_daily = (connect["MRR_Monat"] / 30) if connect is not None else 0
     st.write(f"Daily Rate: {connect_daily:.2f} €")
+
     # ======================
     # 📝 Vertrags-Textgenerator
     # ======================
@@ -466,7 +469,7 @@ SUF: {products_sw_dict.get('Pay', {}).get('OTF', 0):.0f} €
 MRR: {MRR_pay:.2f} €
 """
 
-    st.text_area("📄 Generierter Vertrags-Text", contract_text, height=420)  
+    st.text_area("📄 Generierter Vertrags-Text", contract_text, height=420)
 # =====================================================
 # 💰 Pricing
 # =====================================================
