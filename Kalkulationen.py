@@ -451,6 +451,7 @@ Lead Quality:
 Lead Gen:
 GMB:
 Discount:
+ZDS:
 
 MRR: {total_MRR_monthly:.2f} €
 SUF: {SUF:.0f} €
