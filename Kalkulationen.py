@@ -490,8 +490,8 @@ def show_pricing():
             "Ordermanager", "POS inkl 1 Printer", "Cash Drawer",
             "Extra Printer", "Additional Display", "PAX", "Kiosk"
         ],
-        "Min_OTF": [135, 350, 50, 99, 100, 225, 1441.02],
-        "List_OTF": [299, 1699, 149, 199, 100, 299, 1699],
+        "Min_OTF": [135, 350, 50, 99, 100, 225, 2430],
+        "List_OTF": [299, 1699, 149, 199, 100, 299, 2679],
         "Min_MRR": [0, 0, 0, 0, 0, 0, 49],
         "List_MRR": [0, 0, 0, 0, 0, 89, 89]
     }
