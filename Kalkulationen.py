@@ -231,7 +231,7 @@ def show_contractnumbers():
     df_sw = pd.DataFrame({
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "TSE", "Kiosk"],
         "List_OTF": [999, 49, 999, 49, 0, 0, 0],
-        "List_MRR": [119, 49, 89, 25, 13.72, 12, 89],
+        "List_MRR": [119, 49, 89, 25, 13.72, 12, 16.5],
         "Typ": ["Software"] * 7
     })
 
@@ -248,7 +248,7 @@ def show_contractnumbers():
             "PAX",
             "Kiosk"
         ],
-        "List_OTF": [299, 1699, 149, 199, 100, 299, 1699],
+        "List_OTF": [299, 1699, 149, 199, 100, 299, 2679],
         "List_MRR": [0] * 7,
         "Typ": ["Hardware"] * 7
     })
@@ -481,8 +481,8 @@ def show_pricing():
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "Kiosk"],
         "Min_OTF": [365, 15, 365, 35, 0, 0],
         "List_OTF": [999, 49, 999, 49, 0, 0],
-        "Min_MRR": [50, 15, 49, 5, 15, 49],
-        "List_MRR": [119, 49, 89, 25, 15, 89]
+        "Min_MRR": [50, 15, 49, 5, 15, 48],
+        "List_MRR": [119, 49, 89, 25, 15, 66]
     }
 
     hardware_data = {
