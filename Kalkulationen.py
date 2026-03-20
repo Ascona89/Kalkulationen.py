@@ -228,7 +228,7 @@ def show_contractnumbers():
     df_sw = pd.DataFrame({
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "TSE", "Kiosk"],
         "List_OTF": [999, 49, 999, 49, 0, 0, 0],
-        "List_MRR": [119, 49, 89, 25, 13.72, 12, 16.5],
+        "List_MRR": [119, 49, 89, 25, 13.72, 12, 66],
         "Typ": ["Software"] * 7
     })
 
