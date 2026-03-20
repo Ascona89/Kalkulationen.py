@@ -268,6 +268,42 @@ def show_contractnumbers():
         total_otf = st.number_input("💶 Gesamt OTF (€)", min_value=0.0, step=100.0)
 
     # ======================
+    # Zahlungsmodell Dropdown (NEU)
+    # ======================
+    payment_option = st.selectbox(
+        "💳 Zahlungsmodell wählen",
+        [
+            "Vorauszahlung (100%) – 5% Rabatt",
+            "Gemischte Zahlung (25% + 12 Wochen) – 10% Aufschlag",
+            "Online-Umsatz (100%) – 10% Aufschlag",
+            "Online-Umsatz (25% + 12 Wochen) – 15% Aufschlag",
+            "Monatliche Raten (bis 12 Monate) – 35% Aufschlag"
+        ]
+    )
+
+    # ======================
+    # OTF Anpassung (NEU)
+    # ======================
+    adjusted_otf = total_otf
+
+    if payment_option == "Vorauszahlung (100%) – 5% Rabatt":
+        adjusted_otf = total_otf
+
+    elif payment_option in [
+        "Gemischte Zahlung (25% + 12 Wochen) – 10% Aufschlag",
+        "Online-Umsatz (100%) – 10% Aufschlag"
+    ]:
+        adjusted_otf = total_otf / 110 * 100
+
+    elif payment_option == "Online-Umsatz (25% + 12 Wochen) – 15% Aufschlag":
+        adjusted_otf = total_otf / 115 * 100
+
+    elif payment_option == "Monatliche Raten (bis 12 Monate) – 35% Aufschlag":
+        adjusted_otf = total_otf / 135 * 100
+
+    st.markdown(f"**Bereinigte OTF für Kalkulation:** {adjusted_otf:,.2f} €")
+
+    # ======================
     # Software Mengen
     # ======================
     st.subheader("💻 Software")
@@ -301,10 +337,10 @@ def show_contractnumbers():
     df_hw["Menge"] = [st.session_state[f"qty_hw_{i}"] for i in range(len(df_hw))]
 
     # ======================
-    # OTF Verteilung
+    # OTF Verteilung (angepasst)
     # ======================
     base = (df_sw["Menge"] * df_sw["List_OTF"]).sum() + (df_hw["Menge"] * df_hw["List_OTF"]).sum()
-    factor = total_otf / base if base > 0 else 0
+    factor = adjusted_otf / base if base > 0 else 0
     df_sw["OTF"] = (df_sw["Menge"] * df_sw["List_OTF"] * factor).round(0)
     df_hw["OTF"] = (df_hw["Menge"] * df_hw["List_OTF"] * factor).round(0)
 
