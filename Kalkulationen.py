@@ -258,7 +258,6 @@ def show_contractnumbers():
     with col2:
         total_otf = st.number_input("💶 Gesamt OTF (€)", min_value=0.0, step=100.0)
 
-    # Zahlungsmodell
     payment_option = st.selectbox(
         "💳 Zahlungsmodell wählen",
         [
@@ -270,7 +269,6 @@ def show_contractnumbers():
         ]
     )
 
-    # OTF Anpassung
     adjusted_otf = total_otf
 
     if payment_option == "Vorauszahlung (100%) – 5% Rabatt":
@@ -427,8 +425,17 @@ def show_contractnumbers():
     MRR_connect = products_sw_dict.get("Connect", {}).get("MRR_Monat", 0)
     total_MRR_monthly = MRR_webshop + MRR_app + MRR_pos + MRR_pay + MRR_connect
 
-    SUF = total_otf
-    hardware_otf = df_hw["OTF"].sum()
+    # Original OTF sauber aufteilen
+    calc_total_otf = df_sw["OTF"].sum() + df_hw["OTF"].sum()
+    if calc_total_otf > 0:
+        sw_ratio = df_sw["OTF"].sum() / calc_total_otf
+        hw_ratio = df_hw["OTF"].sum() / calc_total_otf
+    else:
+        sw_ratio = 0
+        hw_ratio = 0
+
+    SUF = total_otf * sw_ratio
+    hardware_otf = total_otf * hw_ratio
 
     hardware_pay = []
     if products_hw_dict.get("POS inkl 1 Printer", {}).get("Menge", 0) > 0:
