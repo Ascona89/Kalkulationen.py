@@ -225,9 +225,6 @@ def show_cardpayment():
 def show_contractnumbers():
     st.header("📑 Contract Numbers")
 
-    # ======================
-    # Produkte (inkl. Kiosk Software)
-    # ======================
     df_sw = pd.DataFrame({
         "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "TSE", "Kiosk"],
         "List_OTF": [999, 49, 999, 49, 0, 0, 0],
@@ -235,9 +232,6 @@ def show_contractnumbers():
         "Typ": ["Software"] * 7
     })
 
-    # ======================
-    # Hardware (inkl. Kiosk Hardware)
-    # ======================
     df_hw = pd.DataFrame({
         "Produkt": [
             "Ordermanager",
@@ -253,9 +247,6 @@ def show_contractnumbers():
         "Typ": ["Hardware"] * 7
     })
 
-    # ======================
-    # Session State Mengen
-    # ======================
     for i in range(len(df_sw)):
         st.session_state.setdefault(f"qty_sw_{i}", 0)
     for i in range(len(df_hw)):
@@ -267,9 +258,7 @@ def show_contractnumbers():
     with col2:
         total_otf = st.number_input("💶 Gesamt OTF (€)", min_value=0.0, step=100.0)
 
-    # ======================
-    # Zahlungsmodell Dropdown (NEU)
-    # ======================
+    # Zahlungsmodell
     payment_option = st.selectbox(
         "💳 Zahlungsmodell wählen",
         [
@@ -281,31 +270,23 @@ def show_contractnumbers():
         ]
     )
 
-    # ======================
-    # OTF Anpassung (NEU)
-    # ======================
+    # OTF Anpassung
     adjusted_otf = total_otf
 
     if payment_option == "Vorauszahlung (100%) – 5% Rabatt":
         adjusted_otf = total_otf
-
     elif payment_option in [
         "Gemischte Zahlung (25% + 12 Wochen) – 10% Aufschlag",
         "Online-Umsatz (100%) – 10% Aufschlag"
     ]:
         adjusted_otf = total_otf / 110 * 100
-
     elif payment_option == "Online-Umsatz (25% + 12 Wochen) – 15% Aufschlag":
         adjusted_otf = total_otf / 115 * 100
-
     elif payment_option == "Monatliche Raten (bis 12 Monate) – 35% Aufschlag":
         adjusted_otf = total_otf / 135 * 100
 
     st.markdown(f"**Bereinigte OTF für Kalkulation:** {adjusted_otf:,.2f} €")
 
-    # ======================
-    # Software Mengen
-    # ======================
     st.subheader("💻 Software")
     cols = st.columns(len(df_sw))
     for i, row in df_sw.iterrows():
@@ -318,9 +299,6 @@ def show_contractnumbers():
                 key=f"qty_sw_input_{i}"
             )
 
-    # ======================
-    # Hardware Mengen
-    # ======================
     st.subheader("🖨️ Hardware")
     cols = st.columns(len(df_hw))
     for i, row in df_hw.iterrows():
@@ -336,17 +314,11 @@ def show_contractnumbers():
     df_sw["Menge"] = [st.session_state[f"qty_sw_{i}"] for i in range(len(df_sw))]
     df_hw["Menge"] = [st.session_state[f"qty_hw_{i}"] for i in range(len(df_hw))]
 
-    # ======================
-    # OTF Verteilung (angepasst)
-    # ======================
     base = (df_sw["Menge"] * df_sw["List_OTF"]).sum() + (df_hw["Menge"] * df_hw["List_OTF"]).sum()
     factor = adjusted_otf / base if base > 0 else 0
     df_sw["OTF"] = (df_sw["Menge"] * df_sw["List_OTF"] * factor).round(0)
     df_hw["OTF"] = (df_hw["Menge"] * df_hw["List_OTF"] * factor).round(0)
 
-    # ======================
-    # MRR Verteilung
-    # ======================
     connect_qty = df_sw.loc[df_sw["Produkt"] == "Connect", "Menge"].values[0]
     tse_qty = df_sw.loc[df_sw["Produkt"] == "TSE", "Menge"].values[0]
 
@@ -372,9 +344,6 @@ def show_contractnumbers():
     df_sw.loc[df_sw["Produkt"] == "TSE", "MRR_Monat"] = tse_total
     df_sw.loc[df_sw["Produkt"] == "TSE", "MRR_Woche"] = tse_qty * 3
 
-    # ======================
-    # Helper
-    # ======================
     def get_row(df, name):
         r = df[df["Produkt"] == name]
         return r.iloc[0] if not r.empty else None
@@ -389,9 +358,6 @@ def show_contractnumbers():
 
     hw = {row["Produkt"]: row for _, row in df_hw.iterrows()}
 
-    # ======================
-    # Ergebnisübersicht
-    # ======================
     st.markdown("---")
     st.header("📊 Ergebnisübersicht")
 
@@ -437,9 +403,6 @@ def show_contractnumbers():
     connect_daily = (connect["MRR_Monat"] / 30) if connect is not None else 0
     st.write(f"Daily Rate: {connect_daily:.2f} €")
 
-    # ======================
-    # 📝 Vertrags-Textgenerator
-    # ======================
     st.markdown("---")
     st.subheader("📝 Vertrags-Textgenerator")
 
@@ -463,7 +426,8 @@ def show_contractnumbers():
     MRR_pay = products_sw_dict.get("Pay", {}).get("MRR_Monat", 0)
     MRR_connect = products_sw_dict.get("Connect", {}).get("MRR_Monat", 0)
     total_MRR_monthly = MRR_webshop + MRR_app + MRR_pos + MRR_pay + MRR_connect
-    SUF = df_sw["OTF"].sum()
+
+    SUF = total_otf
     hardware_otf = df_hw["OTF"].sum()
 
     hardware_pay = []
