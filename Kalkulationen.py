@@ -226,11 +226,11 @@ def show_contractnumbers():
     st.header("📑 Contract Numbers")
 
     df_sw = pd.DataFrame({
-        "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "TSE", "Kiosk"],
-        "List_OTF": [999, 49, 999, 49, 0, 0, 0],
-        "List_MRR": [119, 49, 89, 25, 13.72, 12, 66],
-        "Typ": ["Software"] * 7
-    })
+    "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "Loyalty", "TSE", "Kiosk"],
+    "List_OTF": [999, 49, 999, 49, 0, 0, 0, 0],
+    "List_MRR": [119, 49, 89, 25, 13.72, 15, 12, 66],
+    "Typ": ["Software"] * 8
+})
 
     df_hw = pd.DataFrame({
         "Produkt": [
