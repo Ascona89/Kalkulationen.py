@@ -485,11 +485,11 @@ def show_pricing():
     st.header("💰 Pricing Kalkulation")
 
     software_data = {
-        "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "Kiosk"],
-        "Min_OTF": [365, 15, 365, 35, 0, 0],
-        "List_OTF": [999, 49, 999, 49, 0, 0],
-        "Min_MRR": [50, 15, 49, 5, 15, 48],
-        "List_MRR": [119, 49, 89, 25, 15, 66]
+    "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "Loyalty", "Kiosk"],
+    "Min_OTF": [365, 15, 365, 35, 0, 0, 0],
+    "List_OTF": [999, 49, 999, 49, 0, 0, 0],
+    "Min_MRR": [50, 15, 49, 5, 15, 15, 48],
+    "List_MRR": [119, 49, 89, 25, 15, 15, 66]
     }
 
     hardware_data = {
