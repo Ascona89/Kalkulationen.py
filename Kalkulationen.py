@@ -353,6 +353,7 @@ def show_contractnumbers():
     kiosk = get_row(df_sw, "Kiosk")
     tse = get_row(df_sw, "TSE")
     connect = get_row(df_sw, "Connect")
+    loyalty = get_row(df_sw, "Loyalty")
 
     hw = {row["Produkt"]: row for _, row in df_hw.iterrows()}
 
@@ -372,6 +373,10 @@ def show_contractnumbers():
     pay_daily = (pay["MRR_Monat"] / 30) if pay is not None else 0
     st.write(f"Tägliche Abonnement-Festgebühr: {pay_daily:.2f} €")
     st.write(f"Feste Anmeldegebühr: {(pay['OTF'] if pay is not None else 0):.0f} €")
+
+    st.markdown("### LOYALTY")
+    st.write(f"Monatliche Gebühr: {(loyalty['MRR_Woche'] if loyalty is not None else 0):.2f} €")
+    st.write(f"Einrichtungsgebühr: {(loyalty['OTF'] if loyalty is not None else 0):.0f} €")
 
     st.markdown("### KIOSK")
     kiosk_daily = (kiosk["MRR_Monat"] / 30) if kiosk is not None else 0
@@ -423,7 +428,8 @@ def show_contractnumbers():
     MRR_pos = products_sw_dict.get("POS", {}).get("MRR_Monat", 0)
     MRR_pay = products_sw_dict.get("Pay", {}).get("MRR_Monat", 0)
     MRR_connect = products_sw_dict.get("Connect", {}).get("MRR_Monat", 0)
-    total_MRR_monthly = MRR_webshop + MRR_app + MRR_pos + MRR_pay + MRR_connect
+    MRR_loyalty = products_sw_dict.get("Loyalty", {}).get("MRR_Monat", 0)
+    total_MRR_monthly = MRR_webshop + MRR_app + MRR_pos + MRR_pay + MRR_connect + MRR_loyalty
 
     # Original OTF sauber aufteilen
     calc_total_otf = df_sw["OTF"].sum() + df_hw["OTF"].sum()
@@ -453,6 +459,7 @@ POS (89€) {check_mark('POS')} {mrr_text('POS')}
 GAW (150€) ✅
 PAY (25€) {check_mark('Pay')} {mrr_text('Pay')}
 Connect (15€) {check_mark('Connect')} {mrr_text('Connect')}
+Loyalty (15€) {check_mark('Loyalty')} {mrr_text('Loyalty')}
 
 Lead Quality:
 Lead Gen:
