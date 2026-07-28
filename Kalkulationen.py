@@ -300,21 +300,27 @@ def show_contractnumbers():
 # SOFTWARE
 # --------------------------------------------------
 
-st.subheader("💻 Software")
+ st.markdown(f"**Bereinigte OTF für Kalkulation:** {adjusted_otf:,.2f} €")
 
-cols = st.columns(len(df_sw))
+    # --------------------------------------------------
+    # SOFTWARE
+    # --------------------------------------------------
 
-for i, row in df_sw.iterrows():
+    st.subheader("💻 Software")
 
-    with cols[i]:
+    cols = st.columns(len(df_sw))
 
-        st.session_state[f"qty_sw_{i}"] = st.number_input(
-            row["Produkt"],
-            min_value=0,
-            step=1,
-            value=st.session_state[f"qty_sw_{i}"],
-            key=f"qty_sw_input_{i}"
-        )
+    for i, row in df_sw.iterrows():
+
+        with cols[i]:
+
+            st.session_state[f"qty_sw_{i}"] = st.number_input(
+                row["Produkt"],
+                min_value=0,
+                step=1,
+                value=st.session_state[f"qty_sw_{i}"],
+                key=f"qty_sw_input_{i}"
+            )
                     # --------------------------------------------------
     # HARDWARE
     # --------------------------------------------------
