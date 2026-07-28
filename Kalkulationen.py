@@ -296,11 +296,6 @@ def show_contractnumbers():
 
     st.markdown(f"**Bereinigte OTF für Kalkulation:** {adjusted_otf:,.2f} €")
 
-# --------------------------------------------------
-# SOFTWARE
-# --------------------------------------------------
-
- st.markdown(f"**Bereinigte OTF für Kalkulation:** {adjusted_otf:,.2f} €")
 
     # --------------------------------------------------
     # SOFTWARE
