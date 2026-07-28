@@ -296,38 +296,25 @@ def show_contractnumbers():
 
     st.markdown(f"**Bereinigte OTF für Kalkulation:** {adjusted_otf:,.2f} €")
 
-    # --------------------------------------------------
-    # SOFTWARE (+ / - Buttons)
-    # --------------------------------------------------
+# --------------------------------------------------
+# SOFTWARE
+# --------------------------------------------------
 
-    st.subheader("💻 Software")
+st.subheader("💻 Software")
 
-    cols = st.columns(len(df_sw))
+cols = st.columns(len(df_sw))
 
-    for i, row in df_sw.iterrows():
+for i, row in df_sw.iterrows():
 
-        with cols[i]:
+    with cols[i]:
 
-            st.markdown(f"**{row['Produkt']}**")
-
-            minus, value, plus = st.columns([1,1,1])
-
-            with minus:
-                if st.button("➖", key=f"qty_sw_minus_{i}"):
-                    st.session_state[f"qty_sw_{i}"] = max(
-                        0,
-                        st.session_state[f"qty_sw_{i}"] - 1
-                    )
-
-            with value:
-                st.markdown(
-                    f"<h3 style='text-align:center'>{st.session_state[f'qty_sw_{i}']}</h3>",
-                    unsafe_allow_html=True
-                )
-
-            with plus:
-                if st.button("➕", key=f"qty_sw_plus_{i}"):
-                    st.session_state[f"qty_sw_{i}"] += 1
+        st.session_state[f"qty_sw_{i}"] = st.number_input(
+            row["Produkt"],
+            min_value=0,
+            step=1,
+            value=st.session_state[f"qty_sw_{i}"],
+            key=f"qty_sw_input_{i}"
+        )
                     # --------------------------------------------------
     # HARDWARE
     # --------------------------------------------------
