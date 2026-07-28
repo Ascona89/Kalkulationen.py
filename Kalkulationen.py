@@ -595,7 +595,7 @@ def show_contractnumbers():
             return f"{products_sw_dict[product]['MRR_Monat']:.2f} €"
 
         return ""
-         MRR_webshop = products_sw_dict.get("Shop", {}).get("MRR_Monat", 0)
+    MRR_webshop = products_sw_dict.get("Shop", {}).get("MRR_Monat", 0)
     MRR_app = products_sw_dict.get("App", {}).get("MRR_Monat", 0)
     MRR_pos = products_sw_dict.get("POS", {}).get("MRR_Monat", 0)
     MRR_pay = products_sw_dict.get("Pay", {}).get("MRR_Monat", 0)
