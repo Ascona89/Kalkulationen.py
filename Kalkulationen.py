@@ -286,17 +286,32 @@ def show_contractnumbers():
     st.markdown(f"**Bereinigte OTF für Kalkulation:** {adjusted_otf:,.2f} €")
 
     st.subheader("💻 Software")
-    cols = st.columns(len(df_sw))
-    for i, row in df_sw.iterrows():
-        with cols[i]:
-            st.session_state[f"qty_sw_{i}"] = st.number_input(
-                row["Produkt"],
-                min_value=0,
-                step=1,
-                value=st.session_state[f"qty_sw_{i}"],
-                key=f"qty_sw_input_{i}"
+
+cols = st.columns(len(df_sw))
+
+for i, row in df_sw.iterrows():
+    with cols[i]:
+
+        st.markdown(f"**{row['Produkt']}**")
+
+        c1, c2, c3 = st.columns([1, 1, 1])
+
+        with c1:
+            if st.button("➖", key=f"qty_sw_minus_{i}"):
+                st.session_state[f"qty_sw_{i}"] = max(
+                    0,
+                    st.session_state[f"qty_sw_{i}"] - 1
+                )
+
+        with c2:
+            st.markdown(
+                f"<h3 style='text-align:center'>{st.session_state[f'qty_sw_{i}']}</h3>",
+                unsafe_allow_html=True
             )
 
+        with c3:
+            if st.button("➕", key=f"qty_sw_plus_{i}"):
+                st.session_state[f"qty_sw_{i}"] += 1
     st.subheader("🖨️ Hardware")
     cols = st.columns(len(df_hw))
     for i, row in df_hw.iterrows():
