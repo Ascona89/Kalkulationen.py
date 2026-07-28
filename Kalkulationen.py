@@ -301,21 +301,18 @@ def show_contractnumbers():
     # SOFTWARE
     # --------------------------------------------------
 
-    st.subheader("💻 Software")
+   for i, row in df_sw.iterrows():
 
-    cols = st.columns(len(df_sw))
+    with cols[i]:
 
-    for i, row in df_sw.iterrows():
+        st.number_input(
+            row["Produkt"],
+            min_value=0,
+            step=1,
+            key=f"qty_sw_input_{i}"
+        )
 
-        with cols[i]:
-
-            st.session_state[f"qty_sw_{i}"] = st.number_input(
-                row["Produkt"],
-                min_value=0,
-                step=1,
-                value=st.session_state[f"qty_sw_{i}"],
-                key=f"qty_sw_input_{i}"
-            )
+        st.session_state[f"qty_sw_{i}"] = st.session_state[f"qty_sw_input_{i}"]
                     # --------------------------------------------------
     # HARDWARE
     # --------------------------------------------------
