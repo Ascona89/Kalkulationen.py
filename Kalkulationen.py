@@ -300,7 +300,10 @@ def show_contractnumbers():
     # --------------------------------------------------
     # SOFTWARE
     # --------------------------------------------------
-cols = st.columns(len(df_sw))
+
+    st.subheader("💻 Software")
+
+    cols = st.columns(len(df_sw))
 
     for i, row in df_sw.iterrows():
         with cols[i]:
@@ -310,7 +313,6 @@ cols = st.columns(len(df_sw))
                 step=1,
                 value=st.session_state[f"qty_sw_{i}"],
                 key=f"qty_sw_input_{i}"
-            )
             )
                     # --------------------------------------------------
     # HARDWARE
