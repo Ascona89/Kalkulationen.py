@@ -311,6 +311,7 @@ cols = st.columns(len(df_sw))
                 value=st.session_state[f"qty_sw_{i}"],
                 key=f"qty_sw_input_{i}"
             )
+            )
                     # --------------------------------------------------
     # HARDWARE
     # --------------------------------------------------
