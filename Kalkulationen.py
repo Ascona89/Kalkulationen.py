@@ -1165,9 +1165,9 @@ def show_hubspot():
 
     rows = []
     def add_row(name, price, weekly=False, period=None):
-        # Einmalige OTF-Positionen werden über die gewählte Anzahl Raten verteilt.
-        # Jede Rate entspricht einer Woche; der Zeitraum ist Anzahl Raten × 4 Wochen.
-        if not weekly:
+        # Bei 2–12 Raten werden OTF-Positionen auf Wochenraten verteilt.
+        # Bei nur 1 Rate bleibt der volle Betrag einmalig.
+        if not weekly and installment_count > 1:
             if price is not None:
                 price = price / installment_weeks
             weekly = True
@@ -1205,6 +1205,12 @@ def show_hubspot():
         mrr_values = {}
         otf_values = {}
 
+        # Wenn PAX ausgewählt ist, werden 5 % der Gesamt-OTF für PAX reserviert.
+        # Alle übrigen OTF-Verteilungen basieren dann auf den verbleibenden 95 %.
+        pax_qty = hardware_qty.get("PAX", 0)
+        pax_otf_total = total_otf * 0.05 if pax_qty > 0 else 0.0
+        otf_for_products = max(0.0, total_otf - pax_otf_total)
+
         for product, (mrr_pct, otf_pct) in percentages.items():
             mrr_value = mrr_for_split * mrr_pct / 100.0
             # Ordermanager hat keinen passenden Software-Listenpreis in Pricing.
@@ -1215,7 +1221,7 @@ def show_hubspot():
                 mrr_values[product] = mrr_value
 
             if product != "Ordermanager":
-                otf_value = total_otf * otf_pct / 100.0 if otf_pct else 0.0
+                otf_value = otf_for_products * otf_pct / 100.0 if otf_pct else 0.0
                 otf_values[product] = min(otf_value, list_otf[product])
                 otf_overflow += max(0.0, otf_value - list_otf[product])
 
@@ -1316,7 +1322,13 @@ def show_hubspot():
     for product, line_item in hardware_line_items.items():
         qty = hardware_qty.get(product, 0)
         if qty > 0:
-            add_row(f"{line_item} (Menge {qty})", None)
+            if product == "PAX":
+                # PAX erhält zusammen 5 % der Gesamt-OTF; bei mehreren Geräten
+                # wird dieser Anteil gleichmäßig auf die Geräte verteilt.
+                pax_price_per_unit = pax_otf_total / qty if qty > 0 else 0.0
+                add_row(f"{line_item} (Menge {qty})", pax_price_per_unit)
+            else:
+                add_row(f"{line_item} (Menge {qty})", None)
 
     # Falls keine passende Software-Kombination gewählt wurde, die Hardware
     # trotzdem als Auswahl anzeigen; andernfalls sind die Preise oben verteilt.
