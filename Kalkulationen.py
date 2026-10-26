@@ -1148,13 +1148,13 @@ def show_hubspot():
         percentages = {"Web": (15.43, 32.08), "App": (0.76, 13.20), "POS": (41.67, 23.99), "Pay": (0.76, 6.74), "Kiosk": (41.38, 23.99)}
 
     rows = []
-    def add_row(name, price, weekly=False):
+    def add_row(name, price, weekly=False, period=None):
         price_text = "—" if price is None else f"{price:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
         rows.append({
             "Name": name,
             "Preis pro Einheit": price_text,
-            "Abrechnungsfrequenz": "Wöchentlich" if weekly else "--",
-            "Zeitraum": "∞" if weekly else "—",
+            "Abrechnungsfrequenz": "Wöchentlich" if weekly else "Einmalig",
+            "Zeitraum": ("∞" if weekly else "—") if period is None else period,
         })
 
     if percentages:
@@ -1202,9 +1202,10 @@ def show_hubspot():
         if qty > 0:
             add_row(f"{line_item} (Menge {qty})", None)
 
-    # Google Ads bleibt wie bisher auf Basis des Monatsbetrags geteilt durch 4.
+    # Google Adwords wird als Wochenpreis dargestellt; die Laufzeit in Wochen
+    # ergibt sich aus der ausgewählten Monatsanzahl multipliziert mit 4.
     if google_ads_monthly > 0:
-        add_row("Google Adwords", google_ads_monthly / 4.0)
+        add_row("Google Adwords", google_ads_monthly / 4.0, weekly=True, period=str(google_ads_months * 4))
     add_row("Staggered 0.70 / 10 / 0.35 / 5 EUR", None)
     add_row("Flyers Sold", None)
 
