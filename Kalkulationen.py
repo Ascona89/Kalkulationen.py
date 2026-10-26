@@ -1108,6 +1108,10 @@ def show_hubspot():
                 product, min_value=0, step=1, value=0,
                 key=f"hubspot_qty_hw_{i}"
             )
+    kiosk_variant = st.selectbox(
+        "Kiosk-Modell", ["Freestanding", "Wallmount", "Counter"],
+        key="hubspot_kiosk_variant"
+    )
 
     st.markdown("### Google Ads")
     ads_col1, ads_col2 = st.columns(2)
@@ -1202,6 +1206,40 @@ def show_hubspot():
         otf_values["POS"] = otf_values.get("POS", 0.0) + otf_overflow * list_otf["POS"] / otf_ratio_total
         otf_values["Kiosk"] = otf_values.get("Kiosk", 0.0) + otf_overflow * list_otf["Kiosk"] / otf_ratio_total
 
+        # OTF-Verteilung auf POS-Hardware und Kiosk-Gerät.
+        # POS-OTF: nur POS-Hardware = 50/50; mit Zubehör = 30/50/20.
+        pos_otf_total = otf_values.get("POS", 0.0)
+        pos_qty = hardware_qty.get("POS inkl 1 Printer", 0)
+        accessory_names = ("Extra Printer", "Additional Display", "Cash Drawer")
+        selected_accessories = {
+            name: hardware_qty.get(name, 0)
+            for name in accessory_names if hardware_qty.get(name, 0) > 0
+        }
+        pos_otf_share = 0.0
+        sunmi_otf_share = 0.0
+        accessory_otf_shares = {}
+        if pos_qty > 0 and selected_accessories:
+            pos_otf_share = pos_otf_total * 0.30
+            sunmi_otf_share = pos_otf_total * 0.50
+            accessory_pool = pos_otf_total * 0.20
+            total_accessory_qty = sum(selected_accessories.values())
+            accessory_otf_shares = {
+                name: accessory_pool * qty / total_accessory_qty
+                for name, qty in selected_accessories.items()
+            }
+        elif pos_qty > 0:
+            pos_otf_share = pos_otf_total * 0.50
+            sunmi_otf_share = pos_otf_total * 0.50
+        else:
+            pos_otf_share = pos_otf_total
+
+        # Kiosk-OTF: 25 % für die Einrichtungsgebühr, maximal 500 €;
+        # der Rest wird gleichmäßig auf die ausgewählte Gerätemenge verteilt.
+        kiosk_qty = hardware_qty.get("Kiosk", 0)
+        kiosk_otf_total = otf_values.get("Kiosk", 0.0)
+        kiosk_setup_fee = min(kiosk_otf_total * 0.25, 500.0) if kiosk_otf_total > 0 else 0.0
+        kiosk_device_pool = max(0.0, kiosk_otf_total - kiosk_setup_fee)
+
         # Die Zeilen bleiben nach Produkt gruppiert: Subscription direkt vor OTF.
         output_order = list(percentages.keys())
         for extra_product in ("POS", "Kiosk"):
@@ -1213,7 +1251,21 @@ def show_hubspot():
             if product in mrr_values:
                 add_row(subscription_label, mrr_values[product] / 4.0, weekly=True)
             if otf_label and product in otf_values:
-                add_row(otf_label, otf_values[product])
+                if product == "POS":
+                    add_row("POS OTF", pos_otf_share)
+                    if pos_qty > 0:
+                        add_row("SunMi D3 Pro", sunmi_otf_share / pos_qty)
+                    for accessory, allocated_total in accessory_otf_shares.items():
+                        qty = hardware_qty.get(accessory, 0)
+                        add_row(accessory, allocated_total / qty if qty else allocated_total)
+                elif product == "Kiosk":
+                    add_row("YOYOKiosk Setup Fee", kiosk_setup_fee)
+                    if kiosk_qty > 0:
+                        add_row(f"Kiosk {kiosk_variant}", kiosk_device_pool / kiosk_qty)
+                    elif kiosk_device_pool > 0:
+                        add_row(f"Kiosk {kiosk_variant}", kiosk_device_pool)
+                else:
+                    add_row(otf_label, otf_values[product])
     else:
         st.info(
             "Für diese Produktauswahl ist in der Tabelle keine Prozentverteilung hinterlegt. "
@@ -1228,18 +1280,30 @@ def show_hubspot():
     if has_connect:
         add_row("Connect", -15.0 / 4.0, weekly=True)
 
+    # Hardware-Mengen ohne doppelte Preiszeilen aus der OTF-Aufteilung.
     hardware_line_items = {
-        "POS inkl 1 Printer": "SunMi D3 Pro",
-        "Additional Display": "Additional Display",
-        "Extra Printer": "Extra Printer",
-        "Cash Drawer": "Cash Drawer",
+        "Ordermanager": "Order Manager Hardware",
         "PAX": "PAX A920 Pro",
-        "Kiosk": "YOYOKiosk Setup Fee (Hardware)",
     }
     for product, line_item in hardware_line_items.items():
         qty = hardware_qty.get(product, 0)
         if qty > 0:
             add_row(f"{line_item} (Menge {qty})", None)
+
+    # Falls keine passende Software-Kombination gewählt wurde, die Hardware
+    # trotzdem als Auswahl anzeigen; andernfalls sind die Preise oben verteilt.
+    if not percentages:
+        fallback_hardware = {
+            "POS inkl 1 Printer": "SunMi D3 Pro",
+            "Extra Printer": "Extra Printer",
+            "Additional Display": "Additional Display",
+            "Cash Drawer": "Cash Drawer",
+            "Kiosk": f"Kiosk {kiosk_variant}",
+        }
+        for product, line_item in fallback_hardware.items():
+            qty = hardware_qty.get(product, 0)
+            if qty > 0:
+                add_row(f"{line_item} (Menge {qty})", None)
 
     # Google Adwords wird als Wochenpreis dargestellt; die Laufzeit in Wochen
     # ergibt sich aus der ausgewählten Monatsanzahl multipliziert mit 4.
