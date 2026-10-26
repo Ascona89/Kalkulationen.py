@@ -1121,19 +1121,18 @@ def show_hubspot():
         )
 
     st.markdown("---")
-    st.subheader("Line Items")
+    st.subheader("Ergebnisse")
 
     selected_sw = {name for name, qty in software_qty.items() if qty > 0}
     selected_hw = {name for name, qty in hardware_qty.items() if qty > 0}
     has_loyalty = "Loyalty" in selected_sw
     has_connect = "Connect" in selected_sw
-    has_kiosk_sw = "Kiosk" in selected_sw
     has_pos = "POS" in selected_sw
     has_tse = "TSE" in selected_sw
 
     # Die Tabelle definiert Prozentverteilungen für die Kernprodukte.
-    # Loyalty und Connect sind Add-ons und verändern die MRR-Basis jeweils um 15 €.
-    # Bei POS werden zusätzlich 12 € TSE-Fee vor der Verteilung abgezogen.
+    # MRR-Anteile werden durch 4 geteilt und als wöchentlicher Preis ausgegeben.
+    # Loyalty und Connect ziehen jeweils 15 € monatlich ab; POS/TSE zieht 12 € monatlich ab.
     combo = frozenset(selected_sw - {"Loyalty", "Connect", "TSE"})
     percentages = {}
 
@@ -1148,11 +1147,19 @@ def show_hubspot():
     elif combo == frozenset({"Shop", "App", "POS", "Pay", "Kiosk"}):
         percentages = {"Web": (15.43, 32.08), "App": (0.76, 13.20), "POS": (41.67, 23.99), "Pay": (0.76, 6.74), "Kiosk": (41.38, 23.99)}
 
-    if percentages:
-        deductions = (15.0 if has_loyalty else 0.0) + (15.0 if has_connect else 0.0) + (12.0 if has_pos else 0.0)
-        mrr_for_split = max(0.0, total_mrr - deductions)
+    rows = []
+    def add_row(name, price, weekly=False):
+        price_text = "—" if price is None else f"{price:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+        rows.append({
+            "Name": name,
+            "Preis pro Einheit": price_text,
+            "Abrechnungsfrequenz": "Wöchentlich" if weekly else "--",
+            "Zeitraum": "∞" if weekly else "—",
+        })
 
-        # Alle Line Items werden einzeln untereinander ausgegeben.
+    if percentages:
+        deductions = (15.0 if has_loyalty else 0.0) + (15.0 if has_connect else 0.0) + (12.0 if has_pos or has_tse else 0.0)
+        mrr_for_split = max(0.0, total_mrr - deductions)
         product_line_items = {
             "Web": ("Webshop Subscription", "Webshop OTF"),
             "App": ("App Subscription", "App OTF"),
@@ -1163,33 +1170,24 @@ def show_hubspot():
         }
         for product, (mrr_pct, otf_pct) in percentages.items():
             subscription_label, otf_label = product_line_items[product]
-            mrr_value = mrr_for_split * mrr_pct / 100.0
-            otf_value = total_otf * otf_pct / 100.0 if otf_label and otf_pct else None
-            st.write(f"**{subscription_label}:** {mrr_value:,.2f} €")
+            # Sämtliche Subscription-Beträge werden als Wochenpreis (Monatswert / 4) dargestellt.
+            add_row(subscription_label, mrr_for_split * mrr_pct / 100.0 / 4.0, weekly=True)
             if otf_label:
-                otf_display_value = otf_value if otf_value is not None else 0.0
-                st.write(f"**{otf_label}:** {otf_display_value:,.2f} €")
-
-        if has_pos:
-            st.write("**POS TSE Fee:** 12,00 €")
-        if has_loyalty:
-            st.write("**Loyalty:** -15,00 €")
-        if has_connect:
-            st.write("**Connect:** -15,00 €")
-        if has_tse and not has_pos:
-            st.write("**TSE:** ausgewählt (keine separate Prozentverteilung in der Tabelle hinterlegt)")
+                otf_value = total_otf * otf_pct / 100.0 if otf_pct else 0.0
+                add_row(otf_label, otf_value)
     else:
         st.info(
             "Für diese Produktauswahl ist in der Tabelle keine Prozentverteilung hinterlegt. "
             "Bitte prüfe die ausgewählten Softwareprodukte und – bei Shop allein oder Shop + App – den Ordermanager."
         )
-        # Add-ons werden auch dann als Line Items angezeigt, wenn keine Kernkombination passt.
-        if has_loyalty:
-            st.write("**Loyalty:** -15,00 €")
-        if has_connect:
-            st.write("**Connect:** -15,00 €")
-        if has_pos:
-            st.write("**POS TSE Fee:** 12,00 €")
+
+    # TSE, Loyalty und Connect werden ebenfalls durch 4 geteilt und wöchentlich ausgewiesen.
+    if has_pos or has_tse:
+        add_row("POS TSE Fee", 12.0 / 4.0, weekly=True)
+    if has_loyalty:
+        add_row("Loyalty", -15.0 / 4.0, weekly=True)
+    if has_connect:
+        add_row("Connect", -15.0 / 4.0, weekly=True)
 
     hardware_line_items = {
         "POS inkl 1 Printer": "SunMi D3 Pro",
@@ -1202,13 +1200,18 @@ def show_hubspot():
     for product, line_item in hardware_line_items.items():
         qty = hardware_qty.get(product, 0)
         if qty > 0:
-            st.write(f"**{line_item}:** Menge {qty}")
+            add_row(f"{line_item} (Menge {qty})", None)
 
-    st.write(f"**Google Adwords:** {google_ads_monthly / 4:,.2f} €")
-    st.write("**Staggered 0.70 / 10 / 0.35 / 5 EUR**")
-    st.write("**Flyers Sold**")
+    # Google Ads bleibt wie bisher auf Basis des Monatsbetrags geteilt durch 4.
+    if google_ads_monthly > 0:
+        add_row("Google Adwords", google_ads_monthly / 4.0)
+    add_row("Staggered 0.70 / 10 / 0.35 / 5 EUR", None)
+    add_row("Flyers Sold", None)
 
-# =====================================================
+    if rows:
+        st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+    else:
+        st.caption("Wähle Produkte aus, um die Ergebnisse hier als Tabelle zu sehen.")# =====================================================
 # 🏪 Restaurants
 # =====================================================
 def show_restaurants():
