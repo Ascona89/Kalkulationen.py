@@ -1168,13 +1168,52 @@ def show_hubspot():
             "Kiosk": ("YOYOKiosk Subscription", "YOYOKiosk Setup Fee"),
             "Ordermanager": ("Order Manager", None),
         }
+
+        # Listenpreise aus der Pricing-Seite. Für jede Produktposition wird
+        # höchstens der Listenpreis angesetzt; ein darüberliegender Betrag
+        # wird im Verhältnis der POS- und Kiosk-Listenpreise auf beide verteilt.
+        list_mrr = {"Web": 119.0, "App": 49.0, "POS": 89.0, "Pay": 25.0, "Kiosk": 66.0}
+        list_otf = {"Web": 999.0, "App": 49.0, "POS": 999.0, "Pay": 49.0, "Kiosk": 2679.0}
+        mrr_overflow = 0.0
+        otf_overflow = 0.0
+        mrr_values = {}
+        otf_values = {}
+
         for product, (mrr_pct, otf_pct) in percentages.items():
-            subscription_label, otf_label = product_line_items[product]
-            # Sämtliche Subscription-Beträge werden als Wochenpreis (Monatswert / 4) dargestellt.
-            add_row(subscription_label, mrr_for_split * mrr_pct / 100.0 / 4.0, weekly=True)
-            if otf_label:
+            mrr_value = mrr_for_split * mrr_pct / 100.0
+            # Ordermanager hat keinen passenden Software-Listenpreis in Pricing.
+            if product in list_mrr:
+                mrr_values[product] = min(mrr_value, list_mrr[product])
+                mrr_overflow += max(0.0, mrr_value - list_mrr[product])
+            else:
+                mrr_values[product] = mrr_value
+
+            if product != "Ordermanager":
                 otf_value = total_otf * otf_pct / 100.0 if otf_pct else 0.0
-                add_row(otf_label, otf_value)
+                otf_values[product] = min(otf_value, list_otf[product])
+                otf_overflow += max(0.0, otf_value - list_otf[product])
+
+        # Aufteilung des Überschusses anhand der Listenpreis-Verhältnisse.
+        mrr_ratio_total = list_mrr["POS"] + list_mrr["Kiosk"]
+        mrr_values["POS"] = mrr_values.get("POS", 0.0) + mrr_overflow * list_mrr["POS"] / mrr_ratio_total
+        mrr_values["Kiosk"] = mrr_values.get("Kiosk", 0.0) + mrr_overflow * list_mrr["Kiosk"] / mrr_ratio_total
+
+        otf_ratio_total = list_otf["POS"] + list_otf["Kiosk"]
+        otf_values["POS"] = otf_values.get("POS", 0.0) + otf_overflow * list_otf["POS"] / otf_ratio_total
+        otf_values["Kiosk"] = otf_values.get("Kiosk", 0.0) + otf_overflow * list_otf["Kiosk"] / otf_ratio_total
+
+        # Die Zeilen bleiben nach Produkt gruppiert: Subscription direkt vor OTF.
+        output_order = list(percentages.keys())
+        for extra_product in ("POS", "Kiosk"):
+            if (mrr_values.get(extra_product, 0.0) > 0 or otf_values.get(extra_product, 0.0) > 0) and extra_product not in output_order:
+                output_order.append(extra_product)
+
+        for product in output_order:
+            subscription_label, otf_label = product_line_items[product]
+            if product in mrr_values:
+                add_row(subscription_label, mrr_values[product] / 4.0, weekly=True)
+            if otf_label and product in otf_values:
+                add_row(otf_label, otf_values[product])
     else:
         st.info(
             "Für diese Produktauswahl ist in der Tabelle keine Prozentverteilung hinterlegt. "
