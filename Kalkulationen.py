@@ -1178,6 +1178,9 @@ def show_hubspot():
             "Preis pro Einheit": price_text,
             "Abrechnungsfrequenz": "Wöchentlich" if weekly else "Einmalig",
             "Zeitraum": ("∞" if weekly else "—") if period is None else period,
+            # Interne numerische Werte für die Kontrollkalkulation
+            "_numeric_price": price,
+            "_frequency": "Wöchentlich" if weekly else "Einmalig",
         })
 
     if percentages:
@@ -1342,15 +1345,57 @@ def show_hubspot():
         "Preis pro Einheit": "—",
         "Abrechnungsfrequenz": "Wöchentlich",
         "Zeitraum": "∞",
+        "_numeric_price": None,
+        "_frequency": "Wöchentlich",
     })
     rows.append({
         "Name": "Flyers Sold",
         "Preis pro Einheit": "—",
         "Abrechnungsfrequenz": "Einmalig",
         "Zeitraum": "—",
+        "_numeric_price": None,
+        "_frequency": "Einmalig",
     })
 
-    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)# =====================================================
+    # Ergebnistabelle ohne interne Kontrollspalten anzeigen.
+    visible_columns = ["Name", "Preis pro Einheit", "Abrechnungsfrequenz", "Zeitraum"]
+    st.dataframe(pd.DataFrame(rows)[visible_columns], hide_index=True, use_container_width=True)
+
+    # Kontrollkalkulation: wöchentliche Summe, monatlicher Gegenwert (4 Wochen)
+    # und Summe echter Einmalpositionen. Die aktuell in Raten umgelegten OTFs
+    # zählen als wöchentliche Beträge.
+    weekly_total = sum(
+        row["_numeric_price"] or 0.0 for row in rows
+        if row.get("_frequency") == "Wöchentlich"
+    )
+    one_time_total = sum(
+        row["_numeric_price"] or 0.0 for row in rows
+        if row.get("_frequency") == "Einmalig"
+    )
+    monthly_total = weekly_total * 4.0
+
+    def euro(value):
+        return f"{value:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    st.subheader("Kontrollkalkulation")
+    control_rows = [
+        {
+            "Kategorie": "Wöchentlich",
+            "Betrag": euro(weekly_total),
+            "Zeitraum": "Je nach Position: begrenzte Ratenlaufzeit oder ∞",
+        },
+        {
+            "Kategorie": "Monatlich",
+            "Betrag": euro(monthly_total),
+            "Zeitraum": "4 Wochen; Raten ggf. nur für den ausgewählten Zeitraum",
+        },
+        {
+            "Kategorie": "Einmalig",
+            "Betrag": euro(one_time_total),
+            "Zeitraum": "—",
+        },
+    ]
+    st.dataframe(pd.DataFrame(control_rows), hide_index=True, use_container_width=True)# =====================================================
 # 🏪 Restaurants
 # =====================================================
 def show_restaurants():
