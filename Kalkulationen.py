@@ -1059,11 +1059,11 @@ def show_radien():
         st.dataframe(df_result[["plz", "lat", "lon", "distance_km"]], use_container_width=True)
 
 # =====================================================
-# 🚧 Pipeline
+# Hubspot
 # =====================================================
 def show_pipeline():
-    st.header(" Pipeline")
-    st.info("Only available for MIDS/ wrong Permission.")
+    st.header(" Hubspot")
+    st.info("under Construction.")
 
 # =====================================================
 # 🏪 Restaurants
@@ -1084,7 +1084,7 @@ elif page == "Pricing":
     show_pricing()
 elif page == "Radien":
     show_radien()
-elif page == "Pipeline":
+elif page == "Hupspot":
     show_pipeline()
 elif page == "Restaurants":
     show_restaurants() 
