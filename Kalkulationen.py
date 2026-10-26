@@ -112,7 +112,7 @@ st.set_page_config(page_title="Kalkulations-App", layout="wide")
 st.title("📊 Kalkulations-App")
 page = st.sidebar.radio(
     "Wähle eine Kalkulation:",
-    ["Platform", "Cardpayment", "Pricing", "Radien", "Contractnumbers", "Pipeline", "Restaurants"]
+    ["Platform", "Cardpayment", "Pricing", "Radien", "Contractnumbers", "Pipeline", "Hubspot", "Restaurants"]
 )
 
 # ==========================
@@ -1059,11 +1059,74 @@ def show_radien():
         st.dataframe(df_result[["plz", "lat", "lon", "distance_km"]], use_container_width=True)
 
 # =====================================================
-# Hubspot
+# Pipeline
 # =====================================================
 def show_pipeline():
-    st.header(" Hubspot")
+    st.header("Pipeline")
     st.info("under Construction.")
+
+# =====================================================
+# Hubspot
+# =====================================================
+def show_hubspot():
+    st.header("Hubspot")
+
+    # Gesamtwerte wie auf der Seite Contract Numbers
+    col1, col2 = st.columns(2)
+    with col1:
+        total_mrr = st.number_input(
+            "💶 Gesamt MRR (€)", min_value=0.0, step=50.0, key="hubspot_total_mrr"
+        )
+    with col2:
+        total_otf = st.number_input(
+            "💶 Gesamt OTF (€)", min_value=0.0, step=100.0, key="hubspot_total_otf"
+        )
+
+    # Auswahlfelder für die Line Items
+    st.subheader("Produktauswahl")
+    select1, select2 = st.columns(2)
+    with select1:
+        software_selected = st.selectbox(
+            "Software auswählen",
+            ["Keins", "Shop", "App", "POS", "Pay", "Connect", "Loyalty", "TSE", "Kiosk"],
+            key="hubspot_software_selected",
+        )
+    with select2:
+        hardware_selected = st.selectbox(
+            "Hardware auswählen",
+            ["Keins", "Ordermanager", "POS inkl 1 Printer", "Cash Drawer", "Extra Printer", "Additional Display", "PAX", "Kiosk"],
+            key="hubspot_hardware_selected",
+        )
+
+    st.markdown("### Google Ads")
+    ads_col1, ads_col2 = st.columns(2)
+    with ads_col1:
+        google_ads_monthly = st.number_input(
+            "Monatlich (€)", min_value=0.0, step=10.0, key="hubspot_google_ads_monthly"
+        )
+    with ads_col2:
+        google_ads_months = st.selectbox(
+            "Monate", list(range(1, 13)), key="hubspot_google_ads_months"
+        )
+
+    st.markdown("---")
+    st.subheader("Line Items")
+    line_items = []
+
+    if software_selected == "Shop":
+        line_items.append(("Webshop OTF", total_otf * 0.7696 / 4))
+        line_items.append(("Webshop Subscription", total_mrr / 4))
+    if hardware_selected == "Ordermanager" and software_selected == "Shop":
+        line_items.append(("Ordermanager", total_otf * 0.2304 / 4))
+
+    line_items.append(("Google ADS", google_ads_monthly / 4))
+
+    for label, amount in line_items:
+        st.write(f"**{label}:** {amount:,.2f} €")
+
+    # Diese beiden Line Items werden ohne Kalkulation angezeigt.
+    st.write("**Staggered 0.70 / 10 / 0.35 / 5 EUR**")
+    st.write("**Flyers Sold**")
 
 # =====================================================
 # 🏪 Restaurants
@@ -1084,7 +1147,9 @@ elif page == "Pricing":
     show_pricing()
 elif page == "Radien":
     show_radien()
-elif page == "Hupspot":
+elif page == "Pipeline":
     show_pipeline()
+elif page == "Hubspot":
+    show_hubspot()
 elif page == "Restaurants":
     show_restaurants() 
