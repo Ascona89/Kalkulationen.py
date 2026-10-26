@@ -1133,7 +1133,7 @@ def show_hubspot():
 
     # Die Tabelle definiert Prozentverteilungen für die Kernprodukte.
     # Loyalty und Connect sind Add-ons und verändern die MRR-Basis jeweils um 15 €.
-    # Bei POS werden zusätzlich 3 € TSE-Fee vor der Verteilung abgezogen.
+    # Bei POS werden zusätzlich 12 € TSE-Fee vor der Verteilung abgezogen.
     combo = frozenset(selected_sw - {"Loyalty", "Connect", "TSE"})
     percentages = {}
 
@@ -1149,10 +1149,10 @@ def show_hubspot():
         percentages = {"Web": (15.43, 32.08), "App": (0.76, 13.20), "POS": (41.67, 23.99), "Pay": (0.76, 6.74), "Kiosk": (41.38, 23.99)}
 
     if percentages:
-        deductions = (15.0 if has_loyalty else 0.0) + (15.0 if has_connect else 0.0) + (3.0 if has_pos else 0.0)
+        deductions = (15.0 if has_loyalty else 0.0) + (15.0 if has_connect else 0.0) + (12.0 if has_pos else 0.0)
         mrr_for_split = max(0.0, total_mrr - deductions)
 
-        # Each product's Subscription and OTF are shown directly next to each other.
+        # Alle Line Items werden einzeln untereinander ausgegeben.
         product_line_items = {
             "Web": ("Webshop Subscription", "Webshop OTF"),
             "App": ("App Subscription", "App OTF"),
@@ -1165,16 +1165,13 @@ def show_hubspot():
             subscription_label, otf_label = product_line_items[product]
             mrr_value = mrr_for_split * mrr_pct / 100.0
             otf_value = total_otf * otf_pct / 100.0 if otf_label and otf_pct else None
+            st.write(f"**{subscription_label}:** {mrr_value:,.2f} €")
             if otf_label:
-                if otf_value is None:
-                    st.write(f"**{subscription_label}:** {mrr_value:,.2f} €  |  **{otf_label}:** 0,00 €")
-                else:
-                    st.write(f"**{subscription_label}:** {mrr_value:,.2f} €  |  **{otf_label}:** {otf_value:,.2f} €")
-            else:
-                st.write(f"**{subscription_label}:** {mrr_value:,.2f} €")
+                otf_display_value = otf_value if otf_value is not None else 0.0
+                st.write(f"**{otf_label}:** {otf_display_value:,.2f} €")
 
         if has_pos:
-            st.write("**POS TSE Fee:** 3,00 €")
+            st.write("**POS TSE Fee:** 12,00 €")
         if has_loyalty:
             st.write("**Loyalty:** -15,00 €")
         if has_connect:
@@ -1192,7 +1189,7 @@ def show_hubspot():
         if has_connect:
             st.write("**Connect:** -15,00 €")
         if has_pos:
-            st.write("**POS TSE Fee:** 3,00 €")
+            st.write("**POS TSE Fee:** 12,00 €")
 
     hardware_line_items = {
         "POS inkl 1 Printer": "SunMi D3 Pro",
