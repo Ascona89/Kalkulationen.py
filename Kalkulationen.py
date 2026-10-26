@@ -1361,41 +1361,75 @@ def show_hubspot():
     visible_columns = ["Name", "Preis pro Einheit", "Abrechnungsfrequenz", "Zeitraum"]
     st.dataframe(pd.DataFrame(rows)[visible_columns], hide_index=True, use_container_width=True)
 
-    # Kontrollkalkulation: wöchentliche Summe, monatlicher Gegenwert (4 Wochen)
-    # und Summe echter Einmalpositionen. Die aktuell in Raten umgelegten OTFs
-    # zählen als wöchentliche Beträge.
-    weekly_total = sum(
-        row["_numeric_price"] or 0.0 for row in rows
-        if row.get("_frequency") == "Wöchentlich"
-    )
-    one_time_total = sum(
-        row["_numeric_price"] or 0.0 for row in rows
-        if row.get("_frequency") == "Einmalig"
-    )
-    monthly_total = weekly_total * 4.0
-
+    # Kontrollkalkulation: Kosten nach tatsächlichem Zeitraum aufteilen.
+    # Positionen mit Zeitraum z. B. 12 Wochen enden nach Woche 12;
+    # Positionen mit ∞ laufen unbegrenzt weiter.
     def euro(value):
         return f"{value:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
 
+    finite_periods = sorted({
+        int(str(row.get("Zeitraum")))
+        for row in rows
+        if row.get("_frequency") == "Wöchentlich"
+        and str(row.get("Zeitraum", "")).isdigit()
+        and int(str(row.get("Zeitraum"))) > 0
+    })
+
+    # Erzeuge Abschnitte wie Woche 1–12, Woche 13–48 und ab Woche 49.
+    timeline = []
+    period_start = 1
+    for period_end in finite_periods:
+        if period_end >= period_start:
+            timeline.append((period_start, period_end))
+            period_start = period_end + 1
+    timeline.append((period_start, None))
+
+    control_rows = []
+    for period_start, period_end in timeline:
+        weekly_total = 0.0
+        for row in rows:
+            if row.get("_frequency") != "Wöchentlich":
+                continue
+            price = row.get("_numeric_price") or 0.0
+            row_period = str(row.get("Zeitraum", "∞"))
+            # Unbegrenzte Positionen gelten in jedem Zeitraum; befristete
+            # Positionen zählen nur bis einschließlich ihrer letzten Woche.
+            if row_period == "∞" or not row_period.isdigit() or int(row_period) >= period_start:
+                weekly_total += price
+
+        period_label = (
+            f"Woche {period_start}–{period_end}"
+            if period_end is not None
+            else f"Ab Woche {period_start}"
+        )
+        control_rows.extend([
+            {
+                "Kategorie": "Wöchentlich",
+                "Betrag": euro(weekly_total),
+                "Zeitraum": period_label,
+            },
+            {
+                "Kategorie": "Monatlich",
+                "Betrag": euro(weekly_total * 4.0),
+                "Zeitraum": period_label,
+            },
+        ])
+
+    # Echte Einmalpositionen separat ausweisen. OTF-Beträge werden aktuell
+    # in Raten umgelegt; Flyers Sold bleibt eine Einmalposition ohne Betrag.
+    one_time_total = sum(
+        row.get("_numeric_price") or 0.0 for row in rows
+        if row.get("_frequency") == "Einmalig"
+    )
+    control_rows.append({
+        "Kategorie": "Einmalig",
+        "Betrag": euro(one_time_total),
+        "Zeitraum": "—",
+    })
+
     st.subheader("Kontrollkalkulation")
-    control_rows = [
-        {
-            "Kategorie": "Wöchentlich",
-            "Betrag": euro(weekly_total),
-            "Zeitraum": "Je nach Position: begrenzte Ratenlaufzeit oder ∞",
-        },
-        {
-            "Kategorie": "Monatlich",
-            "Betrag": euro(monthly_total),
-            "Zeitraum": "4 Wochen; Raten ggf. nur für den ausgewählten Zeitraum",
-        },
-        {
-            "Kategorie": "Einmalig",
-            "Betrag": euro(one_time_total),
-            "Zeitraum": "—",
-        },
-    ]
-    st.dataframe(pd.DataFrame(control_rows), hide_index=True, use_container_width=True)# =====================================================
+    st.dataframe(pd.DataFrame(control_rows), hide_index=True, use_container_width=True)
+
 # 🏪 Restaurants
 # =====================================================
 def show_restaurants():
