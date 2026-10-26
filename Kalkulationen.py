@@ -1071,7 +1071,7 @@ def show_pipeline():
 def show_hubspot():
     st.header("Hubspot")
 
-    # Gesamtwerte wie auf der Seite Contract Numbers
+    # Eingaben wie auf Contract Numbers
     col1, col2 = st.columns(2)
     with col1:
         total_mrr = st.number_input(
@@ -1082,21 +1082,32 @@ def show_hubspot():
             "💶 Gesamt OTF (€)", min_value=0.0, step=100.0, key="hubspot_total_otf"
         )
 
-    # Auswahlfelder für die Line Items
-    st.subheader("Produktauswahl")
-    select1, select2 = st.columns(2)
-    with select1:
-        software_selected = st.selectbox(
-            "Software auswählen",
-            ["Keins", "Shop", "App", "POS", "Pay", "Connect", "Loyalty", "TSE", "Kiosk"],
-            key="hubspot_software_selected",
-        )
-    with select2:
-        hardware_selected = st.selectbox(
-            "Hardware auswählen",
-            ["Keins", "Ordermanager", "POS inkl 1 Printer", "Cash Drawer", "Extra Printer", "Additional Display", "PAX", "Kiosk"],
-            key="hubspot_hardware_selected",
-        )
+    # Produktauswahl im selben Raster wie Contract Numbers
+    software_products = ["Shop", "App", "POS", "Pay", "Connect", "Loyalty", "TSE", "Kiosk"]
+    hardware_products = [
+        "Ordermanager", "POS inkl 1 Printer", "Cash Drawer", "Extra Printer",
+        "Additional Display", "PAX", "Kiosk"
+    ]
+
+    st.subheader("💻 Software")
+    software_cols = st.columns(len(software_products))
+    software_qty = {}
+    for i, product in enumerate(software_products):
+        with software_cols[i]:
+            software_qty[product] = st.number_input(
+                product, min_value=0, step=1, value=0,
+                key=f"hubspot_qty_sw_{i}"
+            )
+
+    st.subheader("🖨️ Hardware")
+    hardware_cols = st.columns(len(hardware_products))
+    hardware_qty = {}
+    for i, product in enumerate(hardware_products):
+        with hardware_cols[i]:
+            hardware_qty[product] = st.number_input(
+                product, min_value=0, step=1, value=0,
+                key=f"hubspot_qty_hw_{i}"
+            )
 
     st.markdown("### Google Ads")
     ads_col1, ads_col2 = st.columns(2)
@@ -1111,18 +1122,17 @@ def show_hubspot():
 
     st.markdown("---")
     st.subheader("Line Items")
-    line_items = []
 
-    if software_selected == "Shop":
-        line_items.append(("Webshop OTF", total_otf * 0.7696 / 4))
-        line_items.append(("Webshop Subscription", total_mrr / 4))
-    if hardware_selected == "Ordermanager" and software_selected == "Shop":
-        line_items.append(("Ordermanager", total_otf * 0.2304 / 4))
+    # Shop + Ordermanager: OTF und MRR werden nicht durch 4 geteilt.
+    if software_qty["Shop"] > 0:
+        st.write(f"**Webshop OTF:** {total_otf * 0.7696:,.2f} €")
+        st.write(f"**Webshop Subscription:** {total_mrr:,.2f} €")
 
-    line_items.append(("Google ADS", google_ads_monthly / 4))
+    if software_qty["Shop"] > 0 and hardware_qty["Ordermanager"] > 0:
+        st.write(f"**Ordermanager:** {total_otf * 0.2304:,.2f} €")
 
-    for label, amount in line_items:
-        st.write(f"**{label}:** {amount:,.2f} €")
+    # Google Ads bleibt wie ursprünglich angegeben: Monatsbetrag geteilt durch 4.
+    st.write(f"**Google ADS:** {google_ads_monthly / 4:,.2f} €")
 
     # Diese beiden Line Items werden ohne Kalkulation angezeigt.
     st.write("**Staggered 0.70 / 10 / 0.35 / 5 EUR**")
