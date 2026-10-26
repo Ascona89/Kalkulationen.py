@@ -1108,10 +1108,14 @@ def show_hubspot():
                 product, min_value=0, step=1, value=0,
                 key=f"hubspot_qty_hw_{i}"
             )
-    kiosk_variant = st.selectbox(
-        "Kiosk-Modell", ["Freestanding", "Wallmount", "Counter"],
-        key="hubspot_kiosk_variant"
-    )
+    # Modell-Auswahl nur anzeigen, wenn Kiosk als Software oder Hardware ausgewählt ist.
+    if software_qty.get("Kiosk", 0) > 0 or hardware_qty.get("Kiosk", 0) > 0:
+        kiosk_variant = st.selectbox(
+            "Kiosk-Modell", ["Freestanding", "Wallmount", "Counter"],
+            key="hubspot_kiosk_variant"
+        )
+    else:
+        kiosk_variant = "Freestanding"
 
     st.markdown("### Google Ads")
     ads_col1, ads_col2 = st.columns(2)
@@ -1276,9 +1280,9 @@ def show_hubspot():
     if has_pos or has_tse:
         add_row("POS TSE Fee", 12.0 / 4.0, weekly=True)
     if has_loyalty:
-        add_row("Loyalty", -15.0 / 4.0, weekly=True)
+        add_row("Loyalty", 15.0 / 4.0, weekly=True)
     if has_connect:
-        add_row("Connect", -15.0 / 4.0, weekly=True)
+        add_row("Connect", 15.0 / 4.0, weekly=True)
 
     # Hardware-Mengen ohne doppelte Preiszeilen aus der OTF-Aufteilung.
     hardware_line_items = {
