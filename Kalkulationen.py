@@ -1071,7 +1071,7 @@ def show_pipeline():
 def show_hubspot():
     st.header("Hubspot")
 
-    # Eingaben wie auf Contract Numbers
+    # Eingaben
     col1, col2 = st.columns(2)
     with col1:
         total_mrr = st.number_input(
@@ -1082,7 +1082,7 @@ def show_hubspot():
             "💶 Gesamt OTF (€)", min_value=0.0, step=100.0, key="hubspot_total_otf"
         )
 
-    # Produktauswahl im selben Raster wie Contract Numbers
+    # Produktauswahl wie auf Contract Numbers
     software_products = ["Shop", "App", "POS", "Pay", "Connect", "Loyalty", "TSE", "Kiosk"]
     hardware_products = [
         "Ordermanager", "POS inkl 1 Printer", "Cash Drawer", "Extra Printer",
@@ -1123,18 +1123,85 @@ def show_hubspot():
     st.markdown("---")
     st.subheader("Line Items")
 
-    # Shop + Ordermanager: OTF und MRR werden nicht durch 4 geteilt.
-    if software_qty["Shop"] > 0:
-        st.write(f"**Webshop OTF:** {total_otf * 0.7696:,.2f} €")
-        st.write(f"**Webshop Subscription:** {total_mrr:,.2f} €")
+    selected_sw = {name for name, qty in software_qty.items() if qty > 0}
+    selected_hw = {name for name, qty in hardware_qty.items() if qty > 0}
+    has_loyalty = "Loyalty" in selected_sw
+    has_shop = "Shop" in selected_sw
+    has_app = "App" in selected_sw
+    has_pos = "POS" in selected_sw
+    has_pay = "Pay" in selected_sw
+    has_connect = "Connect" in selected_sw
+    has_ordermanager = "Ordermanager" in selected_hw
 
-    if software_qty["Shop"] > 0 and hardware_qty["Ordermanager"] > 0:
-        st.write(f"**Ordermanager:** {total_otf * 0.2304:,.2f} €")
+    # Prozentverteilung aus der bereitgestellten Tabelle:
+    # MRR-Prozente verteilen den MRR; OTF-Prozente verteilen den OTF.
+    # Bei Loyalty werden 15 € vor der MRR-Verteilung abgezogen und
+    # als eigenes Line Item "Loyalty" ausgewiesen.
+    if has_shop and has_ordermanager and not has_app and not has_pos and not has_pay and not has_connect:
+        percentages = {
+            "Webshop": (76.96, 100.0),
+            "Ordermanager": (23.04, 0.0),
+        }
+    elif has_shop and has_app and has_ordermanager and not has_pos and not has_pay and not has_connect:
+        percentages = {
+            "Webshop": (74.16, 70.83),
+            "App": (3.64, 29.17),
+            "Ordermanager": (22.20, 0.0),
+        }
+    elif has_shop and has_app and has_pos and not has_pay and not has_connect:
+        percentages = {
+            "Webshop": (26.67, 46.30),
+            "App": (1.31, 19.07),
+            "POS": (72.02, 34.63),
+        }
+    elif has_shop and has_app and has_pos and has_pay and not has_connect:
+        percentages = {
+            "Webshop": (26.32, 42.20),
+            "App": (1.29, 17.37),
+            "POS": (71.09, 31.56),
+            "Pay": (1.30, 8.87),
+        }
+    else:
+        percentages = {}
 
-    # Google Ads bleibt wie ursprünglich angegeben: Monatsbetrag geteilt durch 4.
-    st.write(f"**Google ADS:** {google_ads_monthly / 4:,.2f} €")
+    if percentages:
+        loyalty_deduction = 15.0 if has_loyalty else 0.0
+        mrr_for_split = max(0.0, total_mrr - loyalty_deduction)
 
-    # Diese beiden Line Items werden ohne Kalkulation angezeigt.
+        # Line-item names in the table
+        output_names = {
+            "Webshop": "Webshop Subscription",
+            "App": "App Subscription",
+            "POS": "POS Subscription",
+            "Pay": "YOYOPay Subscription",
+            "Ordermanager": "Order Manager",
+        }
+
+        for product, (mrr_pct, otf_pct) in percentages.items():
+            line_name = output_names.get(product, product)
+            amount = mrr_for_split * mrr_pct / 100.0
+            st.write(f"**{line_name}:** {amount:,.2f} €")
+
+        # OTFs are shown as separate line items, using the OTF percentages in the table.
+        for product, (mrr_pct, otf_pct) in percentages.items():
+            if product != "Ordermanager":
+                line_name = {
+                    "Webshop": "Webshop OTF",
+                    "App": "App OTF",
+                    "POS": "POS OTF",
+                    "Pay": "YOYOPay OTF",
+                }.get(product, f"{product} OTF")
+                st.write(f"**{line_name}:** {total_otf * otf_pct / 100.0:,.2f} €")
+
+        if has_loyalty:
+            st.write("**Loyalty:** 15,00 €")
+    else:
+        st.info(
+            "Für diese Produktauswahl ist in der Tabelle keine Prozentverteilung hinterlegt. "
+            "Bitte wähle eine der in der Kalkulationstabelle enthaltenen Kombinationen."
+        )
+
+    st.write(f"**Google Adwords:** {google_ads_monthly / 4:,.2f} €")
     st.write("**Staggered 0.70 / 10 / 0.35 / 5 EUR**")
     st.write("**Flyers Sold**")
 
