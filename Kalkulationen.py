@@ -1099,7 +1099,24 @@ def show_hubspot():
                 key=f"hubspot_qty_sw_{i}"
             )
 
-    st.markdown("### Google Adwords")
+    st.subheader("🖨️ Hardware")
+    hardware_cols = st.columns(4)
+    hardware_qty = {}
+    for i, product in enumerate(hardware_products):
+        with hardware_cols[i % 4]:
+            hardware_qty[product] = st.number_input(
+                product, min_value=0, step=1, value=0,
+                key=f"hubspot_qty_hw_{i}"
+            )
+
+    st.markdown("### Ratenzahlung")
+    installment_count = st.selectbox(
+        "Anzahl der Raten", list(range(1, 13)), index=0,
+        key="hubspot_installment_count"
+    )
+    installment_weeks = installment_count * 4
+
+    st.markdown("### Google Ads")
     ads_col1, ads_col2 = st.columns(2)
     with ads_col1:
         google_ads_monthly = st.number_input(
@@ -1110,22 +1127,6 @@ def show_hubspot():
             "Monate", list(range(1, 13)), key="hubspot_google_ads_months"
         )
 
-    st.markdown("### Ratenzahlung")
-    installment_count = st.selectbox(
-        "Anzahl der Raten", list(range(2, 13)), index=0,
-        key="hubspot_installment_count"
-    )
-    installment_weeks = installment_count * 4
-
-    st.subheader("🖨️ Hardware")
-    hardware_cols = st.columns(4)
-    hardware_qty = {}
-    for i, product in enumerate(hardware_products):
-        with hardware_cols[i % 4]:
-            hardware_qty[product] = st.number_input(
-                product, min_value=0, step=1, value=0,
-                key=f"hubspot_qty_hw_{i}"
-            )
     # Modell-Auswahl nur anzeigen, wenn Kiosk als Software oder Hardware ausgewählt ist.
     if software_qty.get("Kiosk", 0) > 0 or hardware_qty.get("Kiosk", 0) > 0:
         kiosk_variant = st.selectbox(
@@ -1334,10 +1335,22 @@ def show_hubspot():
     if google_ads_monthly > 0:
         add_row("Google Adwords", google_ads_monthly / 4.0, weekly=True, period=str(google_ads_months * 4))
 
-    if rows:
-        st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
-    else:
-        st.caption("Wähle Produkte aus, um die Ergebnisse hier als Tabelle zu sehen.")# =====================================================
+    # Diese beiden Standard-Line-Items sollen bei jeder Kalkulation sichtbar sein,
+    # unabhängig davon, welche Produkte ausgewählt wurden.
+    rows.append({
+        "Name": "Staggered 0.70 / 10 / 0.35 / 5 EUR",
+        "Preis pro Einheit": "—",
+        "Abrechnungsfrequenz": "Wöchentlich",
+        "Zeitraum": "∞",
+    })
+    rows.append({
+        "Name": "Flyers Sold",
+        "Preis pro Einheit": "—",
+        "Abrechnungsfrequenz": "Einmalig",
+        "Zeitraum": "—",
+    })
+
+    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)# =====================================================
 # 🏪 Restaurants
 # =====================================================
 def show_restaurants():
