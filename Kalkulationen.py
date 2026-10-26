@@ -1082,7 +1082,7 @@ def show_hubspot():
             "💶 Gesamt OTF (€)", min_value=0.0, step=100.0, key="hubspot_total_otf"
         )
 
-    # Produktauswahl im Stil von Contract Numbers
+    # Produktauswahl analog zur Contract-Numbers-Seite
     software_products = ["Shop", "App", "POS", "Pay", "Connect", "Loyalty", "TSE", "Kiosk"]
     hardware_products = [
         "Ordermanager", "POS inkl 1 Printer", "Cash Drawer", "Extra Printer",
@@ -1127,87 +1127,73 @@ def show_hubspot():
     selected_hw = {name for name, qty in hardware_qty.items() if qty > 0}
     has_loyalty = "Loyalty" in selected_sw
     has_connect = "Connect" in selected_sw
-    has_tse = "TSE" in selected_sw
     has_kiosk_sw = "Kiosk" in selected_sw
+    has_pos = "POS" in selected_sw
+    has_tse = "TSE" in selected_sw
 
-    # Prozentverteilungen direkt aus der bereitgestellten Tabelle.
-    # Die Werte sind (MRR %, OTF %). Loyalty wird separat mit 15 € abgezogen.
-    # Connect ist in der Tabelle ein separates -15-€-Line-Item mit 0 % Verteilung.
+    # Die Tabelle definiert Prozentverteilungen für die Kernprodukte.
+    # Loyalty und Connect sind Add-ons und verändern die MRR-Basis jeweils um 15 €.
+    # Bei POS werden zusätzlich 3 € TSE-Fee vor der Verteilung abgezogen.
     combo = frozenset(selected_sw - {"Loyalty", "Connect", "TSE"})
     percentages = {}
 
     if combo == frozenset({"Shop"}) and "Ordermanager" in selected_hw:
-        percentages = {
-            "Web": (76.96, 100.0),
-            "Ordermanager": (23.04, 0.0),
-        }
+        percentages = {"Web": (76.96, 100.0), "Ordermanager": (23.04, 0.0)}
     elif combo == frozenset({"Shop", "App"}) and "Ordermanager" in selected_hw:
-        percentages = {
-            "Web": (74.16, 70.83),
-            "App": (3.64, 29.17),
-            "Ordermanager": (22.20, 0.0),
-        }
+        percentages = {"Web": (74.16, 70.83), "App": (3.64, 29.17), "Ordermanager": (22.20, 0.0)}
     elif combo == frozenset({"Shop", "App", "POS"}):
-        percentages = {
-            "Web": (26.67, 46.30),
-            "App": (1.31, 19.07),
-            "POS": (72.02, 34.63),
-        }
+        percentages = {"Web": (26.67, 46.30), "App": (1.31, 19.07), "POS": (72.02, 34.63)}
     elif combo == frozenset({"Shop", "App", "POS", "Pay"}):
-        percentages = {
-            "Web": (26.32, 42.20),
-            "App": (1.29, 17.37),
-            "POS": (71.09, 31.56),
-            "Pay": (1.30, 8.87),
-        }
+        percentages = {"Web": (26.32, 42.20), "App": (1.29, 17.37), "POS": (71.09, 31.56), "Pay": (1.30, 8.87)}
     elif combo == frozenset({"Shop", "App", "POS", "Pay", "Kiosk"}):
-        percentages = {
-            "Web": (15.43, 32.08),
-            "App": (0.76, 13.20),
-            "POS": (41.67, 23.99),
-            "Pay": (0.76, 6.74),
-            "Kiosk": (41.38, 23.99),
-        }
+        percentages = {"Web": (15.43, 32.08), "App": (0.76, 13.20), "POS": (41.67, 23.99), "Pay": (0.76, 6.74), "Kiosk": (41.38, 23.99)}
 
     if percentages:
-        mrr_for_split = max(0.0, total_mrr - (15.0 if has_loyalty else 0.0))
-        mrr_names = {
-            "Web": "Webshop Subscription",
-            "App": "App Subscription",
-            "POS": "POS Subscription",
-            "Pay": "YOYOPay Subscription",
-            "Ordermanager": "Order Manager",
-            "Kiosk": "YOYOKiosk Subscription",
-        }
-        otf_names = {
-            "Web": "Webshop OTF",
-            "App": "App OTF",
-            "POS": "POS OTF",
-            "Pay": "YOYOPay OTF",
-            "Kiosk": "YOYOKiosk Setup Fee",
-        }
+        deductions = (15.0 if has_loyalty else 0.0) + (15.0 if has_connect else 0.0) + (3.0 if has_pos else 0.0)
+        mrr_for_split = max(0.0, total_mrr - deductions)
 
+        # Each product's Subscription and OTF are shown directly next to each other.
+        product_line_items = {
+            "Web": ("Webshop Subscription", "Webshop OTF"),
+            "App": ("App Subscription", "App OTF"),
+            "POS": ("POS Subscription", "POS OTF"),
+            "Pay": ("YOYOPay Subscription", "YOYOPay OTF"),
+            "Kiosk": ("YOYOKiosk Subscription", "YOYOKiosk Setup Fee"),
+            "Ordermanager": ("Order Manager", None),
+        }
         for product, (mrr_pct, otf_pct) in percentages.items():
-            # Ordermanager hat laut Tabelle 0 % OTF und wird deshalb nicht aus dem OTF verteilt.
-            st.write(f"**{mrr_names.get(product, product)}:** {mrr_for_split * mrr_pct / 100.0:,.2f} €")
-        for product, (mrr_pct, otf_pct) in percentages.items():
-            if product in otf_names and otf_pct:
-                st.write(f"**{otf_names[product]}:** {total_otf * otf_pct / 100.0:,.2f} €")
+            subscription_label, otf_label = product_line_items[product]
+            mrr_value = mrr_for_split * mrr_pct / 100.0
+            otf_value = total_otf * otf_pct / 100.0 if otf_label and otf_pct else None
+            if otf_label:
+                if otf_value is None:
+                    st.write(f"**{subscription_label}:** {mrr_value:,.2f} €  |  **{otf_label}:** 0,00 €")
+                else:
+                    st.write(f"**{subscription_label}:** {mrr_value:,.2f} €  |  **{otf_label}:** {otf_value:,.2f} €")
+            else:
+                st.write(f"**{subscription_label}:** {mrr_value:,.2f} €")
 
+        if has_pos:
+            st.write("**POS TSE Fee:** 3,00 €")
         if has_loyalty:
-            st.write("**Loyalty:** 15,00 €")
+            st.write("**Loyalty:** -15,00 €")
         if has_connect:
             st.write("**Connect:** -15,00 €")
+        if has_tse and not has_pos:
+            st.write("**TSE:** ausgewählt (keine separate Prozentverteilung in der Tabelle hinterlegt)")
     else:
         st.info(
             "Für diese Produktauswahl ist in der Tabelle keine Prozentverteilung hinterlegt. "
             "Bitte prüfe die ausgewählten Softwareprodukte und – bei Shop allein oder Shop + App – den Ordermanager."
         )
+        # Add-ons werden auch dann als Line Items angezeigt, wenn keine Kernkombination passt.
+        if has_loyalty:
+            st.write("**Loyalty:** -15,00 €")
+        if has_connect:
+            st.write("**Connect:** -15,00 €")
+        if has_pos:
+            st.write("**POS TSE Fee:** 3,00 €")
 
-    # Weitere in der Tabelle aufgeführte Line Items: diese werden als ausgewählte
-    # Produkte mit Menge ausgegeben; die Tabelle enthält dafür keine eigene Prozentverteilung.
-    if has_tse:
-        st.write("**POS TSE Fee:** ausgewählt")
     hardware_line_items = {
         "POS inkl 1 Printer": "SunMi D3 Pro",
         "Additional Display": "Additional Display",
