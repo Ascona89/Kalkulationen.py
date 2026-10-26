@@ -1164,7 +1164,7 @@ def show_hubspot():
         percentages = {"Web": (15.43, 32.08), "App": (0.76, 13.20), "POS": (41.67, 23.99), "Pay": (0.76, 6.74), "Kiosk": (41.38, 23.99)}
 
     rows = []
-    def add_row(name, price, weekly=False, period=None):
+    def add_row(name, price, weekly=False, period=None, quantity=1):
         # Bei 2–12 Raten werden OTF-Positionen auf Wochenraten verteilt.
         # Bei nur 1 Rate bleibt der volle Betrag einmalig.
         if not weekly and installment_count > 1:
@@ -1180,6 +1180,8 @@ def show_hubspot():
             "Zeitraum": ("∞" if weekly else "—") if period is None else period,
             # Interne numerische Werte für die Kontrollkalkulation
             "_numeric_price": price,
+            "_numeric_total": (price * quantity) if price is not None else 0.0,
+            "_quantity": quantity,
             "_frequency": "Wöchentlich" if weekly else "Einmalig",
         })
 
@@ -1211,33 +1213,62 @@ def show_hubspot():
         pax_otf_total = total_otf * 0.05 if pax_qty > 0 else 0.0
         otf_for_products = max(0.0, total_otf - pax_otf_total)
 
+        # MRR-Verteilung bleibt prozentual wie bisher.
         for product, (mrr_pct, otf_pct) in percentages.items():
             mrr_value = mrr_for_split * mrr_pct / 100.0
-            # Ordermanager hat keinen passenden Software-Listenpreis in Pricing.
             if product in list_mrr:
                 mrr_values[product] = min(mrr_value, list_mrr[product])
                 mrr_overflow += max(0.0, mrr_value - list_mrr[product])
             else:
                 mrr_values[product] = mrr_value
 
-            if product != "Ordermanager":
-                otf_value = otf_for_products * otf_pct / 100.0 if otf_pct else 0.0
-                otf_values[product] = min(otf_value, list_otf[product])
-                otf_overflow += max(0.0, otf_value - list_otf[product])
-
-        # Listenpreis-Überschüsse nur auf POS/Kiosk verteilen, wenn das
-        # jeweilige Produkt tatsächlich Teil der ausgewählten Kombination ist.
         mrr_targets = [p for p in ("POS", "Kiosk") if p in percentages]
         if mrr_targets:
             mrr_ratio_total = sum(list_mrr[p] for p in mrr_targets)
             for target in mrr_targets:
                 mrr_values[target] = mrr_values.get(target, 0.0) + mrr_overflow * list_mrr[target] / mrr_ratio_total
 
-        otf_targets = [p for p in ("POS", "Kiosk") if p in percentages]
-        if otf_targets:
-            otf_ratio_total = sum(list_otf[p] for p in otf_targets)
-            for target in otf_targets:
-                otf_values[target] = otf_values.get(target, 0.0) + otf_overflow * list_otf[target] / otf_ratio_total
+        # OTF: PAX reserviert 5 % der Gesamt-OTF. Web/App/Pay werden mit
+        # ihren festen Listen-OTF angesetzt. Der verbleibende Betrag wird
+        # vollständig auf die ausgewählten variablen POS-/Kiosk-Positionen
+        # verteilt (gewichtet nach deren OTF-Listenpreisen).
+        fixed_otf_products = [p for p in ("Web", "App", "Pay") if p in percentages]
+        variable_otf_products = [p for p in ("POS", "Kiosk") if p in percentages]
+        pax_qty = hardware_qty.get("PAX", 0)
+        pax_otf_total = total_otf * 0.05 if pax_qty > 0 else 0.0
+        otf_for_products = max(0.0, total_otf - pax_otf_total)
+
+        if variable_otf_products:
+            fixed_otf_total = sum(list_otf[p] for p in fixed_otf_products)
+            # Falls die Gesamt-OTF ausnahmsweise kleiner als die festen
+            # Listenpreise ist, werden die festen Positionen anteilig gekürzt.
+            if fixed_otf_total > otf_for_products and fixed_otf_total > 0:
+                fixed_scale = otf_for_products / fixed_otf_total
+            else:
+                fixed_scale = 1.0
+
+            for product in fixed_otf_products:
+                otf_values[product] = list_otf[product] * fixed_scale
+
+            remaining_otf = max(
+                0.0,
+                otf_for_products - sum(otf_values.get(p, 0.0) for p in fixed_otf_products)
+            )
+            variable_ratio_total = sum(list_otf[p] for p in variable_otf_products)
+            for product in variable_otf_products:
+                otf_values[product] = (
+                    remaining_otf * list_otf[product] / variable_ratio_total
+                    if variable_ratio_total > 0 else 0.0
+                )
+        else:
+            # Bei Kombinationen ohne POS/Kiosk bleibt die bisherige
+            # prozentuale Verteilung samt Listenpreisgrenzen erhalten.
+            for product, (mrr_pct, otf_pct) in percentages.items():
+                if product == "Ordermanager":
+                    continue
+                raw_otf = otf_for_products * otf_pct / 100.0 if otf_pct else 0.0
+                otf_values[product] = min(raw_otf, list_otf[product])
+                otf_overflow += max(0.0, raw_otf - list_otf[product])
 
         # OTF-Verteilung auf POS-Hardware und Kiosk-Gerät.
         # POS-OTF: nur POS-Hardware = 50/50; mit Zubehör = 30/50/20.
@@ -1287,15 +1318,15 @@ def show_hubspot():
                 if product == "POS":
                     add_row("POS OTF", pos_otf_share)
                     if pos_qty > 0:
-                        add_row("SunMi D3 Pro", sunmi_otf_share / pos_qty)
+                        add_row("SunMi D3 Pro", sunmi_otf_share / pos_qty, quantity=pos_qty)
                     for accessory, allocated_total in accessory_otf_shares.items():
                         qty = hardware_qty.get(accessory, 0)
-                        add_row(accessory, allocated_total / qty if qty else allocated_total)
+                        add_row(accessory, allocated_total / qty if qty else allocated_total, quantity=qty if qty else 1)
                 elif product == "Kiosk":
                     if "Kiosk" in selected_sw or kiosk_qty > 0:
                         add_row("YOYOKiosk Setup Fee", kiosk_setup_fee)
                         if kiosk_qty > 0:
-                            add_row(f"Kiosk {kiosk_variant}", kiosk_device_pool / kiosk_qty)
+                            add_row(f"Kiosk {kiosk_variant}", kiosk_device_pool / kiosk_qty, quantity=kiosk_qty)
                         elif kiosk_device_pool > 0:
                             add_row(f"Kiosk {kiosk_variant}", kiosk_device_pool)
                 else:
@@ -1326,7 +1357,7 @@ def show_hubspot():
                 # PAX erhält zusammen 5 % der Gesamt-OTF; bei mehreren Geräten
                 # wird dieser Anteil gleichmäßig auf die Geräte verteilt.
                 pax_price_per_unit = pax_otf_total / qty if qty > 0 else 0.0
-                add_row(f"{line_item} (Menge {qty})", pax_price_per_unit)
+                add_row(f"{line_item} (Menge {qty})", pax_price_per_unit, quantity=qty)
             else:
                 add_row(f"{line_item} (Menge {qty})", None)
 
@@ -1358,6 +1389,8 @@ def show_hubspot():
         "Abrechnungsfrequenz": "Wöchentlich",
         "Zeitraum": "∞",
         "_numeric_price": None,
+        "_numeric_total": 0.0,
+        "_quantity": 1,
         "_frequency": "Wöchentlich",
     })
     rows.append({
@@ -1366,6 +1399,8 @@ def show_hubspot():
         "Abrechnungsfrequenz": "Einmalig",
         "Zeitraum": "—",
         "_numeric_price": None,
+        "_numeric_total": 0.0,
+        "_quantity": 1,
         "_frequency": "Einmalig",
     })
 
@@ -1402,7 +1437,7 @@ def show_hubspot():
         for row in rows:
             if row.get("_frequency") != "Wöchentlich":
                 continue
-            price = row.get("_numeric_price") or 0.0
+            price = row.get("_numeric_total", row.get("_numeric_price")) or 0.0
             row_period = str(row.get("Zeitraum", "∞"))
             # Unbegrenzte Positionen gelten in jedem Zeitraum; befristete
             # Positionen zählen nur bis einschließlich ihrer letzten Woche.
@@ -1430,7 +1465,7 @@ def show_hubspot():
     # Echte Einmalpositionen separat ausweisen. OTF-Beträge werden aktuell
     # in Raten umgelegt; Flyers Sold bleibt eine Einmalposition ohne Betrag.
     one_time_total = sum(
-        row.get("_numeric_price") or 0.0 for row in rows
+        row.get("_numeric_total", row.get("_numeric_price")) or 0.0 for row in rows
         if row.get("_frequency") == "Einmalig"
     )
     control_rows.append({
