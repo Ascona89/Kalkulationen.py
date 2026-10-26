@@ -1201,14 +1201,19 @@ def show_hubspot():
                 otf_values[product] = min(otf_value, list_otf[product])
                 otf_overflow += max(0.0, otf_value - list_otf[product])
 
-        # Aufteilung des Überschusses anhand der Listenpreis-Verhältnisse.
-        mrr_ratio_total = list_mrr["POS"] + list_mrr["Kiosk"]
-        mrr_values["POS"] = mrr_values.get("POS", 0.0) + mrr_overflow * list_mrr["POS"] / mrr_ratio_total
-        mrr_values["Kiosk"] = mrr_values.get("Kiosk", 0.0) + mrr_overflow * list_mrr["Kiosk"] / mrr_ratio_total
+        # Listenpreis-Überschüsse nur auf POS/Kiosk verteilen, wenn das
+        # jeweilige Produkt tatsächlich Teil der ausgewählten Kombination ist.
+        mrr_targets = [p for p in ("POS", "Kiosk") if p in percentages]
+        if mrr_targets:
+            mrr_ratio_total = sum(list_mrr[p] for p in mrr_targets)
+            for target in mrr_targets:
+                mrr_values[target] = mrr_values.get(target, 0.0) + mrr_overflow * list_mrr[target] / mrr_ratio_total
 
-        otf_ratio_total = list_otf["POS"] + list_otf["Kiosk"]
-        otf_values["POS"] = otf_values.get("POS", 0.0) + otf_overflow * list_otf["POS"] / otf_ratio_total
-        otf_values["Kiosk"] = otf_values.get("Kiosk", 0.0) + otf_overflow * list_otf["Kiosk"] / otf_ratio_total
+        otf_targets = [p for p in ("POS", "Kiosk") if p in percentages]
+        if otf_targets:
+            otf_ratio_total = sum(list_otf[p] for p in otf_targets)
+            for target in otf_targets:
+                otf_values[target] = otf_values.get(target, 0.0) + otf_overflow * list_otf[target] / otf_ratio_total
 
         # OTF-Verteilung auf POS-Hardware und Kiosk-Gerät.
         # POS-OTF: nur POS-Hardware = 50/50; mit Zubehör = 30/50/20.
@@ -1247,7 +1252,7 @@ def show_hubspot():
         # Die Zeilen bleiben nach Produkt gruppiert: Subscription direkt vor OTF.
         output_order = list(percentages.keys())
         for extra_product in ("POS", "Kiosk"):
-            if (mrr_values.get(extra_product, 0.0) > 0 or otf_values.get(extra_product, 0.0) > 0) and extra_product not in output_order:
+            if extra_product in percentages and extra_product not in output_order:
                 output_order.append(extra_product)
 
         for product in output_order:
@@ -1263,11 +1268,12 @@ def show_hubspot():
                         qty = hardware_qty.get(accessory, 0)
                         add_row(accessory, allocated_total / qty if qty else allocated_total)
                 elif product == "Kiosk":
-                    add_row("YOYOKiosk Setup Fee", kiosk_setup_fee)
-                    if kiosk_qty > 0:
-                        add_row(f"Kiosk {kiosk_variant}", kiosk_device_pool / kiosk_qty)
-                    elif kiosk_device_pool > 0:
-                        add_row(f"Kiosk {kiosk_variant}", kiosk_device_pool)
+                    if "Kiosk" in selected_sw or kiosk_qty > 0:
+                        add_row("YOYOKiosk Setup Fee", kiosk_setup_fee)
+                        if kiosk_qty > 0:
+                            add_row(f"Kiosk {kiosk_variant}", kiosk_device_pool / kiosk_qty)
+                        elif kiosk_device_pool > 0:
+                            add_row(f"Kiosk {kiosk_variant}", kiosk_device_pool)
                 else:
                     add_row(otf_label, otf_values[product])
     else:
@@ -1309,12 +1315,10 @@ def show_hubspot():
             if qty > 0:
                 add_row(f"{line_item} (Menge {qty})", None)
 
-    # Google Adwords wird als Wochenpreis dargestellt; die Laufzeit in Wochen
-    # ergibt sich aus der ausgewählten Monatsanzahl multipliziert mit 4.
+    # Google Adwords nur anzeigen, wenn dafür ein Betrag ausgewählt wurde.
+    # Die Laufzeit in Wochen ergibt sich aus der ausgewählten Monatsanzahl × 4.
     if google_ads_monthly > 0:
         add_row("Google Adwords", google_ads_monthly / 4.0, weekly=True, period=str(google_ads_months * 4))
-    add_row("Staggered 0.70 / 10 / 0.35 / 5 EUR", None)
-    add_row("Flyers Sold", None)
 
     if rows:
         st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
